@@ -1,6 +1,6 @@
 # mach
 
-Machina Game Engine — C++ + SDL3 (embedded Lua and a level editor to come).
+Machina Game Engine using C++ & SDL3 (embedded Lua and a level editor to come).
 
 ## Prerequisites
 

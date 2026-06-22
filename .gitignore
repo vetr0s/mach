@@ -70,3 +70,6 @@ Testing/
 
 # Vendored SDL3 build output (the submodule source is committed, not its build)
 third_party/SDL/install/
+
+# MacOS
+.DS_Store

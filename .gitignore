@@ -62,5 +62,4 @@ Testing/
 third_party/SDL/build/
 third_party/SDL/install/
 
-# MacOS
 .DS_Store

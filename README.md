@@ -1,55 +1,37 @@
 # mach
 
-Machina Game Engine using C++ & SDL3 (embedded Lua and a level editor to come).
+A game engine and game, co-developed as a single unit. Built in C with SDL3.
 
-## Prerequisites
+## Setup
 
-- CMake ≥ 3.21
-- Ninja
-- A C++17 compiler (Apple clang / clang / gcc / MSVC)
-
-## Getting started
-
-```sh
-# 1. Fetch the vendored SDL3 source (git submodule)
-scripts/setup.sh        # or: git submodule update --init --recursive
-
-# 2. Configure + build (pick the preset for your platform)
-cmake --preset macos-debug
-cmake --build --preset macos-debug
+```bash
+./scripts/setup.sh      # One-time: build SDL3
+./build.sh              # Build the game
+./build/mach_debug      # Run
 ```
 
-Or use the wrapper, which picks a sensible default preset for the host:
+Press **Esc** or close the window to exit.
 
-```sh
-scripts/build.sh                 # macOS / Linux
-scripts/build.ps1                # Windows (from a VS "x64 Native Tools" prompt)
-```
+## What is this
 
-Available presets: `macos-debug`, `macos-release`, `linux-debug`,
-`linux-release`, `windows-debug`, `windows-release`.
+- A game and its engine, built together toward one goal.
+- Pure C, no frameworks. SDL3 for windowing/input/rendering.
+- Unity build: one `.c` file, one compiler invocation.
+- Minimal tooling. The build is a shell script that calls the C compiler.
 
-The runnable binary lands in `build/<preset>/bin/` (e.g.
-`build/macos-debug/bin/mach_game`), with the SDL3 shared library copied beside
-it.
+## Platforms
 
-## How the build works
+- macOS (primary development)
+- Linux (scaffolding in place)
+- Windows (scaffolding in place)
 
-It's a CMake **superbuild**. SDL3 is vendored as a git submodule under
-`third_party/SDL`, built once as a **shared** library, and installed to a known
-per-platform prefix (`third_party/SDL/install/<platform>`). The engine is then
-built as a separate step that consumes SDL3 via `find_package(SDL3 CONFIG)`.
-
-This keeps the dependency build independent of the engine: editing engine code
-never rebuilds SDL3.
-
-## Layout
+## Directory
 
 ```
-CMakeLists.txt        # dual-mode root: superbuild | engine
-CMakePresets.json
-cmake/                # Superbuild.cmake, CompilerWarnings.cmake
-src/                  # engine library (mach) + sample executable (mach_game)
-third_party/SDL/      # SDL3 submodule (pinned release tag)
-scripts/              # setup + build wrappers
+build.sh                  Compiler invocation
+scripts/setup.sh          SDL3 build (run once)
+src/
+  mach.c                  Game entry point and main loop
+  engine.h / engine.c     Engine logic
+third_party/SDL/          SDL3 (git submodule)
 ```

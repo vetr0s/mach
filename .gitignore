@@ -39,18 +39,8 @@
 *.out
 *.app
 
-# Build directories
+# Build output
 build/
-Build/
-build-*/
-
-# CMake generated files
-CMakeFiles/
-CMakeCache.txt
-cmake_install.cmake
-Makefile
-install_manifest.txt
-compile_commands.json
 
 # Temporary files
 *.tmp
@@ -69,6 +59,7 @@ Testing/
 .cache/
 
 # Vendored SDL3 build output (the submodule source is committed, not its build)
+third_party/SDL/build/
 third_party/SDL/install/
 
 # MacOS

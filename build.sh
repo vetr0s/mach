@@ -13,10 +13,12 @@ case "$os_name" in
   Darwin)
     platform="${os_name}-${machine}"
     cc="clang"
+    ld_flags="-Wl,-rpath,@loader_path"
     ;;
   Linux)
     platform="${os_name}-${machine}"
     cc="clang"
+    ld_flags="-Wl,-rpath,\$ORIGIN"
     ;;
   *)
     echo "Unsupported platform: $os_name" >&2
@@ -57,6 +59,7 @@ $cc -std=c11 \
   -Wall -Wextra \
   -I"$SDL_PREFIX/include" \
   -L"$SDL_PREFIX/lib" \
+  $ld_flags \
   -o "$out_file" \
   src/mach.c \
   -lSDL3

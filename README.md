@@ -31,7 +31,12 @@ Press **Esc** or close the window to exit.
 build.sh                  Compiler invocation
 scripts/setup.sh          SDL3 build (run once)
 src/
-  mach.c                  Game entry point and main loop
-  engine.h / engine.c     Engine logic
+  mach.c                  Unity root, includes all modules
+  base/                   Fundamental types and utilities
+  os/                     Platform abstraction layer
+  ui/                     Window, renderer, event handling
+  core/                   Engine lifecycle
+  game/                   Game-specific logic
+  debug/                  Debug utilities (assertions, logging)
 third_party/SDL/          SDL3 (git submodule)
 ```

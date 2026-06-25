@@ -1,5 +1,65 @@
 // Unity build root. Includes all engine code and defines main().
 
+/*
+  MACH ENGINE TODO
+  ================
+
+  CORE ENGINE
+  [ ] Game loop: proper update/render separation, fixed timestep
+  [ ] Input system: keyboard, mouse, controller abstractions
+  [ ] Event system: input, collision, game events
+  [ ] Memory: custom allocators, arena allocation
+
+  RENDERING
+  [ ] Sprite system: loading, drawing, transforms
+  [ ] Texture loading: PNG/BMP support
+  [ ] Drawing primitives: rectangles, circles, lines
+  [ ] Camera system: viewport, scrolling
+  [ ] Sprite batching: efficient rendering
+
+  MATH
+  [ ] Vector2/3/4 types and operations
+  [ ] Matrix4x4 for transforms
+  [ ] Quaternions
+  [ ] Common math utilities (lerp, clamp, etc.)
+
+  GAMEPLAY
+  [ ] Entity/GameObject system
+  [ ] Transform component (position, rotation, scale)
+  [ ] Collision detection (AABB, circle)
+  [ ] Physics: velocity, gravity, basic rigidbody
+  [ ] Animation: sprite animation, tweening
+
+  CONTENT
+  [ ] Asset loading pipeline (textures, sprites, levels)
+  [ ] Level/tilemap format and loader
+  [ ] Data serialization (JSON or custom)
+
+  DEBUGGING
+  [ ] Debug draw: collision bounds, grid, vectors
+  [ ] Performance profiler
+  [ ] Immediate mode debug UI
+
+  AUDIO (later)
+  [ ] Audio system
+  [ ] Sound and music loading
+  [ ] Spatial audio
+
+  SCRIPTING (future)
+  [ ] Embedded Lua integration
+  [ ] Script hot-reload
+
+  TOOLS (future)
+  [ ] Level editor
+  [ ] Sprite editor
+  [ ] Scene editor
+
+  PLATFORM (scaffolding done, expand as needed)
+  [ ] macOS: full testing
+  [ ] Linux: build and test
+  [ ] Windows: build and test
+*/
+
 #include "base/base.h"
 #include "os/os.h"
 #include "ui/ui.h"

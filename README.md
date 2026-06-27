@@ -14,6 +14,24 @@ A game engine and game, co-developed as a single unit. Built in C with SDL3.
 
 Press **Esc** or close the window to exit.
 
+## Development
+
+Generate tags for Emacs:
+```bash
+./scripts/tags.sh
+```
+
+Then add to your Emacs init:
+```elisp
+(setq tags-file-name "/path/to/mach/TAGS")
+(define-key global-map "\C-]" 'find-tag)
+(define-key global-map "\C-\M-]" 'pop-tag-mark)
+```
+
+Now you can:
+- `C-]` to jump to definition
+- `C-M-]` to go back
+
 ## What is this
 
 - A game and its engine, built together toward one goal.

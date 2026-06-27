@@ -63,3 +63,7 @@ third_party/SDL/build/
 third_party/SDL/install/
 
 .DS_Store
+
+# Emacs tags
+TAGS
+tags

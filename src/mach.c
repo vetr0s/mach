@@ -5,8 +5,8 @@
   ================
 
   CORE ENGINE
-  [ ] Game loop: proper update/render separation, fixed timestep
-  [ ] Input system: keyboard, mouse, controller abstractions
+  [x] Game loop: proper update/render separation, fixed timestep
+  [x] Input system: keyboard, mouse, controller abstractions
   [ ] Event system: input, collision, game events
   [ ] Memory: custom allocators, arena allocation
 
@@ -18,13 +18,13 @@
   [ ] Sprite batching: efficient rendering
 
   MATH
-  [ ] Vector2/3/4 types and operations
+  [x] Vector2/3/4 types and operations
   [ ] Matrix4x4 for transforms
   [ ] Quaternions
-  [ ] Common math utilities (lerp, clamp, etc.)
+  [x] Common math utilities (lerp, clamp, etc.)
 
   GAMEPLAY
-  [ ] Entity/GameObject system
+  [x] Entity/GameObject system
   [ ] Transform component (position, rotation, scale)
   [ ] Collision detection (AABB, circle)
   [ ] Physics: velocity, gravity, basic rigidbody
@@ -63,6 +63,7 @@
 #include "base/base.h"
 #include "os/os.h"
 #include "ui/ui.h"
+#include "math/math.c"
 #include "world/world.c"
 #include "render/render.c"
 #include "core/core.c"

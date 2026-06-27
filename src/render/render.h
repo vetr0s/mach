@@ -6,10 +6,7 @@
 #include "../base/base.h"
 #include "../ui/ui.h"
 #include "../world/world.h"
-
-typedef struct {
-    f32 x, y;  // Screen coordinates
-} Vec2;
+#include "../math/math.h"
 
 // Convert grid coordinates to isometric screen coordinates
 Vec2 grid_to_isometric(i32 grid_x, i32 grid_y, i32 tile_size);

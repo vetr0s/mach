@@ -15,38 +15,30 @@ static void render_rect_iso(SDL_Renderer *rend, i32 grid_x, i32 grid_y, i32 tile
                             u8 r, u8 g, u8 b, i32 offset_x, i32 offset_y) {
     Vec2 pos = grid_to_isometric(grid_x, grid_y, tile_size);
 
-    // Isometric diamond: half tile_size width, quarter tile_size height
-    i32 hw = tile_size / 2;  // half width
-    i32 qh = tile_size / 4;  // quarter height
+    i32 hw = tile_size / 2;
+    i32 qh = tile_size / 4;
 
-    // Adjust for view offset
-    i32 screen_x = (i32)pos.x + offset_x;
-    i32 screen_y = (i32)pos.y + offset_y;
+    // (npt): Center the diamond on the grid position by offsetting by half the dimensions
+    i32 screen_x = (i32)pos.x + offset_x + hw;
+    i32 screen_y = (i32)pos.y + offset_y + qh;
 
-    // Draw a diamond (isometric square)
     SDL_FPoint points[4] = {
-        {(f32)(screen_x + hw), (f32)screen_y},           // top
-        {(f32)(screen_x + hw * 2), (f32)(screen_y + qh)},  // right
-        {(f32)(screen_x + hw), (f32)(screen_y + qh * 2)},   // bottom
-        {(f32)screen_x, (f32)(screen_y + qh)},          // left
+        {(f32)screen_x, (f32)(screen_y - qh)},           // top
+        {(f32)(screen_x + hw), (f32)screen_y},           // right
+        {(f32)screen_x, (f32)(screen_y + qh)},           // bottom
+        {(f32)(screen_x - hw), (f32)screen_y},           // left
     };
 
     SDL_SetRenderDrawColor(rend, r, g, b, 255);
 
-    // Draw edges
     for (i32 i = 0; i < 4; i++) {
         SDL_RenderLine(rend, points[i].x, points[i].y, points[(i + 1) % 4].x, points[(i + 1) % 4].y);
     }
-
-    // Fill with slight transparency by drawing a filled quad
-    // For now, just draw the outline
 }
 
 static void render_miner(SDL_Renderer *rend, Entity_Miner *miner, i32 tile_size, i32 offset_x, i32 offset_y) {
-    // Draw miner as brown diamond
     render_rect_iso(rend, miner->grid_x, miner->grid_y, tile_size, 139, 90, 43, offset_x, offset_y);
 
-    // Draw a small pickaxe icon in the center
     Vec2 pos = grid_to_isometric(miner->grid_x, miner->grid_y, tile_size);
     i32 cx = (i32)pos.x + offset_x + tile_size / 2;
     i32 cy = (i32)pos.y + offset_y + tile_size / 4;
@@ -57,10 +49,8 @@ static void render_miner(SDL_Renderer *rend, Entity_Miner *miner, i32 tile_size,
 }
 
 static void render_storage(SDL_Renderer *rend, Entity_Storage *storage, i32 tile_size, i32 offset_x, i32 offset_y) {
-    // Draw storage as gray diamond
     render_rect_iso(rend, storage->grid_x, storage->grid_y, tile_size, 150, 150, 150, offset_x, offset_y);
 
-    // Draw ore stored amount as a bar
     Vec2 pos = grid_to_isometric(storage->grid_x, storage->grid_y, tile_size);
     i32 cx = (i32)pos.x + offset_x + tile_size / 2;
     i32 cy = (i32)pos.y + offset_y + tile_size / 4;
@@ -92,17 +82,18 @@ void render_hover_preview(SDL_Renderer *rend, i32 grid_x, i32 grid_y, i32 tile_s
     if (!rend) return;
 
     Vec2 pos = grid_to_isometric(grid_x, grid_y, tile_size);
-    i32 screen_x = (i32)pos.x + offset_x;
-    i32 screen_y = (i32)pos.y + offset_y;
-
     i32 hw = tile_size / 2;
     i32 qh = tile_size / 4;
 
+    // Center the diamond on the grid position
+    i32 screen_x = (i32)pos.x + offset_x + hw;
+    i32 screen_y = (i32)pos.y + offset_y + qh;
+
     SDL_FPoint points[4] = {
+        {(f32)screen_x, (f32)(screen_y - qh)},
         {(f32)(screen_x + hw), (f32)screen_y},
-        {(f32)(screen_x + hw * 2), (f32)(screen_y + qh)},
-        {(f32)(screen_x + hw), (f32)(screen_y + qh * 2)},
         {(f32)screen_x, (f32)(screen_y + qh)},
+        {(f32)(screen_x - hw), (f32)screen_y},
     };
 
     // (npt): Preview color depends on tool type (green=miner, blue=storage)

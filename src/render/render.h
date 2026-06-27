@@ -1,4 +1,4 @@
-// (npt): Isometric rendering utilities and world visualization.
+// Isometric rendering utilities and world visualization.
 
 #ifndef RENDER_H
 #define RENDER_H

@@ -1,4 +1,4 @@
-// (npt): Core engine lifecycle and main loop orchestration.
+// Core engine lifecycle and main loop orchestration.
 
 #ifndef CORE_H
 #define CORE_H

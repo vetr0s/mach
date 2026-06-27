@@ -1,9 +1,9 @@
-// (npt): World implementation (included into mach.c).
+// World implementation (included into mach.c).
 
 #include "world.h"
 #include <stdlib.h>
 
-// (npt): Initialize a new world with empty entity list and cleared grid.
+// Initialize a new world with empty entity list and cleared grid.
 World* world_create(void) {
     World *w = (World *)malloc(sizeof(World));
     if (!w) return NULL;
@@ -33,7 +33,7 @@ static i32 entity_index_from_id(i32 id) {
     return id - 1;
 }
 
-// (npt): Place a miner at grid position (x, y). Returns entity ID on success, 0 on failure.
+// Place a miner at grid position (x, y). Returns entity ID on success, 0 on failure.
 i32 world_spawn_miner(World *w, i32 x, i32 y) {
     if (!w || w->entity_count >= MAX_ENTITIES) return 0;
     if (x < 0 || x >= 256 || y < 0 || y >= 256) return 0;
@@ -54,7 +54,7 @@ i32 world_spawn_miner(World *w, i32 x, i32 y) {
     return entity_id_from_index(idx);
 }
 
-// (npt): Place a storage unit at grid position (x, y). Returns entity ID on success, 0 on failure.
+// Place a storage unit at grid position (x, y). Returns entity ID on success, 0 on failure.
 i32 world_spawn_storage(World *w, i32 x, i32 y) {
     if (!w || w->entity_count >= MAX_ENTITIES) return 0;
     if (x < 0 || x >= 256 || y < 0 || y >= 256) return 0;
@@ -107,7 +107,7 @@ Entity* world_get_entity(World *w, i32 entity_id) {
     return &w->entities[idx];
 }
 
-// (npt): Advance world simulation by one tick. Miners produce ore and transfer to adjacent storage.
+// Advance world simulation by one tick. Miners produce ore and transfer to adjacent storage.
 void world_tick(World *w) {
     if (!w) return;
 

@@ -19,15 +19,16 @@ Assume readers understand C syntax. Comments are for *why*, not *what*.
 
 ### Format
 
-All comments are prepended with initials `(npt):` for clarity of authorship during team growth.
+**File and function headers:** Factual, no prefix.
+
+**Justification/decision comments:** Prepended with `(npt):` when written "in your voice" — personal reasoning, design choices, or non-obvious decisions.
 
 ```c
-// (npt): File header explaining module purpose
-// License/copyright here if needed
+// Module description and purpose
 
-// (npt): Function does X and returns Y
+// What the function does and returns
 void function_name(void) {
-    // (npt): Non-obvious why we do this specific thing
+    // (npt): Why we specifically do this, not something else
     some_code();
 }
 ```

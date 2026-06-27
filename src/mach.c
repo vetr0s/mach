@@ -1,4 +1,4 @@
-// (npt): Unity build root. Includes all engine code and defines main().
+// Unity build root. Includes all engine code and defines main().
 
 /*
   MACH ENGINE TODO
@@ -69,7 +69,7 @@
 #include "game/game.c"
 #include "debug/debug.h"
 
-// (npt): Application entry point. Initialize engine and game, run main loop, clean up.
+// Application entry point. Initialize engine and game, run main loop, clean up.
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;

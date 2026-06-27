@@ -1,10 +1,10 @@
-// (npt): Core implementation (included into mach.c).
+// Core implementation (included into mach.c).
 
 #include "core.h"
 #include "../game/game.h"
 #include "../render/render.h"
 
-// (npt): Initialize SDL, create window and renderer.
+// Initialize SDL, create window and renderer.
 int core_init(Core_Engine *e, const char *title, i32 w, i32 h) {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         SDL_Log("SDL_Init failed: %s", SDL_GetError());
@@ -20,7 +20,7 @@ int core_init(Core_Engine *e, const char *title, i32 w, i32 h) {
     return 1;
 }
 
-// (npt): Main game loop. Runs until core->running is false.
+// Main game loop. Runs until core->running is false.
 void core_run(Core_Engine *e) {
     Game_State game = {0};
     game_init(&game);
@@ -79,7 +79,7 @@ void core_run(Core_Engine *e) {
     game_shutdown(&game);
 }
 
-// (npt): Clean up SDL resources and close window.
+// Clean up SDL resources and close window.
 void core_shutdown(Core_Engine *e) {
     if (e->ui.renderer) {
         SDL_DestroyRenderer(e->ui.renderer);

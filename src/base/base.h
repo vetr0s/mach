@@ -1,4 +1,4 @@
-// (npt): Fundamental types, type aliases, and base utilities.
+// Fundamental types, type aliases, and base utilities.
 
 #ifndef BASE_H
 #define BASE_H

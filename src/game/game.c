@@ -1,4 +1,4 @@
-// (npt): Game implementation (included into mach.c).
+// Game implementation (included into mach.c).
 
 #include "game.h"
 
@@ -17,7 +17,7 @@ static i32 screen_to_grid(i32 screen_x, i32 screen_y, i32 tile_size, i32 offset_
     return 1;
 }
 
-// (npt): Initialize game state with an empty world and spawn test entities for development.
+// Initialize game state with an empty world and spawn test entities for development.
 void game_init(Game_State *g) {
     g->world = world_create();
     g->selected_tool = 0;
@@ -32,13 +32,13 @@ void game_init(Game_State *g) {
     }
 }
 
-// (npt): Advance game simulation by one tick.
+// Advance game simulation by one tick.
 void game_tick(Game_State *g) {
     if (!g || !g->world) return;
     world_tick(g->world);
 }
 
-// (npt): Clean up game state and free resources.
+// Clean up game state and free resources.
 void game_shutdown(Game_State *g) {
     if (g && g->world) {
         world_destroy(g->world);
@@ -46,7 +46,7 @@ void game_shutdown(Game_State *g) {
     }
 }
 
-// (npt): Handle mouse input for machine placement and deletion. Button: 1=place miner, 2=place storage, 3=delete.
+// Handle mouse input for machine placement and deletion. Button: 1=place miner, 2=place storage, 3=delete.
 void game_handle_input(Game_State *g, i32 mouse_x, i32 mouse_y, i32 button) {
     if (!g || !g->world) return;
 

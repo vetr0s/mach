@@ -1,4 +1,4 @@
-// (npt): Game state and input handling.
+// Game state and input handling.
 
 #ifndef GAME_H
 #define GAME_H

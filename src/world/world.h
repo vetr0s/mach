@@ -1,4 +1,4 @@
-// (npt): Entity system and world state management.
+// Entity system and world state management.
 
 #ifndef WORLD_H
 #define WORLD_H

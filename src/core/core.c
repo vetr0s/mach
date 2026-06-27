@@ -42,6 +42,9 @@ void core_run(Core_Engine *e) {
                     e->running = 0;
                 }
                 break;
+            case SDL_EVENT_MOUSE_MOTION:
+                game_update_hover(&game, event.motion.x, event.motion.y);
+                break;
             case SDL_EVENT_MOUSE_BUTTON_DOWN: {
                 i32 button = 0;
                 if (event.button.button == SDL_BUTTON_LEFT) button = 1;
@@ -66,6 +69,10 @@ void core_run(Core_Engine *e) {
         SDL_RenderClear(e->ui.renderer);
 
         render_world(&e->ui, game.world, game.tile_size, game.view_offset_x, game.view_offset_y);
+
+        // (npt): Show a preview diamond at the current hover position (tool 1=miner, 2=storage)
+        render_hover_preview(e->ui.renderer, game.hover_grid_x, game.hover_grid_y, game.tile_size,
+                            game.view_offset_x, game.view_offset_y, game.selected_tool);
 
         SDL_RenderPresent(e->ui.renderer);
 

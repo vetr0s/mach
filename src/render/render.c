@@ -86,3 +86,35 @@ void render_world(UI_Context *ui, World *w, i32 tile_size, i32 offset_x, i32 off
         }
     }
 }
+
+// Render a semi-transparent preview at the hover position (tool: 1=miner, 2=storage).
+void render_hover_preview(SDL_Renderer *rend, i32 grid_x, i32 grid_y, i32 tile_size, i32 offset_x, i32 offset_y, i32 tool) {
+    if (!rend) return;
+
+    Vec2 pos = grid_to_isometric(grid_x, grid_y, tile_size);
+    i32 screen_x = (i32)pos.x + offset_x;
+    i32 screen_y = (i32)pos.y + offset_y;
+
+    i32 hw = tile_size / 2;
+    i32 qh = tile_size / 4;
+
+    SDL_FPoint points[4] = {
+        {(f32)(screen_x + hw), (f32)screen_y},
+        {(f32)(screen_x + hw * 2), (f32)(screen_y + qh)},
+        {(f32)(screen_x + hw), (f32)(screen_y + qh * 2)},
+        {(f32)screen_x, (f32)(screen_y + qh)},
+    };
+
+    // (npt): Preview color depends on tool type (green=miner, blue=storage)
+    u8 r = 100, g = 200, b = 100;
+    if (tool == 2) {
+        r = 150;
+        g = 150;
+        b = 200;
+    }
+
+    SDL_SetRenderDrawColor(rend, r, g, b, 100);
+    for (i32 i = 0; i < 4; i++) {
+        SDL_RenderLine(rend, points[i].x, points[i].y, points[(i + 1) % 4].x, points[(i + 1) % 4].y);
+    }
+}

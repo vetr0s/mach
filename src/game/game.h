@@ -12,11 +12,14 @@ typedef struct {
     i32 tile_size;
     i32 view_offset_x;
     i32 view_offset_y;
+    i32 hover_grid_x;   // Current mouse position in grid coords
+    i32 hover_grid_y;
 } Game_State;
 
 void game_init(Game_State *g);
 void game_tick(Game_State *g);
 void game_shutdown(Game_State *g);
+void game_update_hover(Game_State *g, i32 mouse_x, i32 mouse_y);
 void game_handle_input(Game_State *g, i32 mouse_x, i32 mouse_y, i32 button);
 
 #endif

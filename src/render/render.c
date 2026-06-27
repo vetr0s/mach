@@ -77,19 +77,24 @@ void render_world(UI_Context *ui, World *w, i32 tile_size, i32 offset_x, i32 off
     }
 }
 
-// Render a semi-transparent preview centered at the mouse position.
-void render_hover_preview(SDL_Renderer *rend, i32 mouse_x, i32 mouse_y, i32 tile_size, i32 tool) {
+// Render a semi-transparent preview at the snapped grid position.
+void render_hover_preview(SDL_Renderer *rend, i32 grid_x, i32 grid_y, i32 tile_size, i32 offset_x, i32 offset_y, i32 tool) {
     if (!rend) return;
+
+    Vec2 pos = grid_to_isometric(grid_x, grid_y, tile_size);
 
     i32 hw = tile_size / 2;
     i32 qh = tile_size / 4;
 
-    // (npt): Draw diamond directly at mouse position; no conversion to avoid rounding errors
+    // (npt): Use same centering as render_rect_iso so preview matches placed machine
+    i32 screen_x = (i32)pos.x + offset_x + hw;
+    i32 screen_y = (i32)pos.y + offset_y + qh;
+
     SDL_FPoint points[4] = {
-        {(f32)mouse_x, (f32)(mouse_y - qh)},
-        {(f32)(mouse_x + hw), (f32)mouse_y},
-        {(f32)mouse_x, (f32)(mouse_y + qh)},
-        {(f32)(mouse_x - hw), (f32)mouse_y},
+        {(f32)screen_x, (f32)(screen_y - qh)},
+        {(f32)(screen_x + hw), (f32)screen_y},
+        {(f32)screen_x, (f32)(screen_y + qh)},
+        {(f32)(screen_x - hw), (f32)screen_y},
     };
 
     u8 r = 100, g = 200, b = 100;

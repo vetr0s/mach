@@ -28,8 +28,6 @@ void core_run(Core_Engine *e) {
     const i32 TICKS_PER_SECOND = 60;
     const i32 TICK_MS = 1000 / TICKS_PER_SECOND;
 
-    i32 mouse_x = 0, mouse_y = 0;
-
     while (e->running) {
         i32 frame_start = SDL_GetTicks();
 
@@ -45,9 +43,7 @@ void core_run(Core_Engine *e) {
                 }
                 break;
             case SDL_EVENT_MOUSE_MOTION:
-                mouse_x = event.motion.x;
-                mouse_y = event.motion.y;
-                game_update_hover(&game, mouse_x, mouse_y);
+                game_update_hover(&game, event.motion.x, event.motion.y);
                 break;
             case SDL_EVENT_MOUSE_BUTTON_DOWN: {
                 i32 button = 0;
@@ -74,8 +70,9 @@ void core_run(Core_Engine *e) {
 
         render_world(&e->ui, game.world, game.tile_size, game.view_offset_x, game.view_offset_y);
 
-        // (npt): Show a preview diamond at the mouse position
-        render_hover_preview(e->ui.renderer, mouse_x, mouse_y, game.tile_size, game.selected_tool);
+        // (npt): Show a preview diamond at the snapped grid position
+        render_hover_preview(e->ui.renderer, game.hover_grid_x, game.hover_grid_y, game.tile_size,
+                            game.view_offset_x, game.view_offset_y, game.selected_tool);
 
         SDL_RenderPresent(e->ui.renderer);
 

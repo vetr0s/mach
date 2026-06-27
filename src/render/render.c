@@ -77,26 +77,21 @@ void render_world(UI_Context *ui, World *w, i32 tile_size, i32 offset_x, i32 off
     }
 }
 
-// Render a semi-transparent preview at the hover position (tool: 1=miner, 2=storage).
-void render_hover_preview(SDL_Renderer *rend, i32 grid_x, i32 grid_y, i32 tile_size, i32 offset_x, i32 offset_y, i32 tool) {
+// Render a semi-transparent preview centered at the mouse position.
+void render_hover_preview(SDL_Renderer *rend, i32 mouse_x, i32 mouse_y, i32 tile_size, i32 tool) {
     if (!rend) return;
 
-    Vec2 pos = grid_to_isometric(grid_x, grid_y, tile_size);
     i32 hw = tile_size / 2;
     i32 qh = tile_size / 4;
 
-    // Center the diamond on the grid position
-    i32 screen_x = (i32)pos.x + offset_x + hw;
-    i32 screen_y = (i32)pos.y + offset_y + qh;
-
+    // (npt): Draw diamond directly at mouse position; no conversion to avoid rounding errors
     SDL_FPoint points[4] = {
-        {(f32)screen_x, (f32)(screen_y - qh)},
-        {(f32)(screen_x + hw), (f32)screen_y},
-        {(f32)screen_x, (f32)(screen_y + qh)},
-        {(f32)(screen_x - hw), (f32)screen_y},
+        {(f32)mouse_x, (f32)(mouse_y - qh)},
+        {(f32)(mouse_x + hw), (f32)mouse_y},
+        {(f32)mouse_x, (f32)(mouse_y + qh)},
+        {(f32)(mouse_x - hw), (f32)mouse_y},
     };
 
-    // (npt): Preview color depends on tool type (green=miner, blue=storage)
     u8 r = 100, g = 200, b = 100;
     if (tool == 2) {
         r = 150;

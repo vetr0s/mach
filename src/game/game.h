@@ -2,16 +2,21 @@
 #define GAME_H
 
 #include "../base/base.h"
-#include "../core/core.h"
+#include "../world/world.h"
 
 // Game-specific logic.
 
 typedef struct {
-    // Game state goes here as we develop.
+    World *world;
+    i32 selected_tool;  // 0 = none, 1 = miner, 2 = storage
+    i32 tile_size;
+    i32 view_offset_x;
+    i32 view_offset_y;
 } Game_State;
 
 void game_init(Game_State *g);
-void game_update(Game_State *g);
+void game_tick(Game_State *g);
 void game_shutdown(Game_State *g);
+void game_handle_input(Game_State *g, i32 mouse_x, i32 mouse_y, i32 button);
 
 #endif

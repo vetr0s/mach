@@ -63,6 +63,8 @@
 #include "base/base.h"
 #include "os/os.h"
 #include "ui/ui.h"
+#include "world/world.c"
+#include "render/render.c"
 #include "core/core.c"
 #include "game/game.c"
 #include "debug/debug.h"

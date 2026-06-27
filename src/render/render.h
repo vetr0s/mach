@@ -1,11 +1,11 @@
+// (npt): Isometric rendering utilities and world visualization.
+
 #ifndef RENDER_H
 #define RENDER_H
 
 #include "../base/base.h"
 #include "../ui/ui.h"
 #include "../world/world.h"
-
-// Isometric rendering utilities
 
 typedef struct {
     f32 x, y;  // Screen coordinates

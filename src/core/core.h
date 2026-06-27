@@ -1,11 +1,11 @@
+// (npt): Core engine lifecycle and main loop orchestration.
+
 #ifndef CORE_H
 #define CORE_H
 
 #include "../base/base.h"
 #include "../os/os.h"
 #include "../ui/ui.h"
-
-// Core engine: orchestrates initialization, main loop, shutdown.
 
 typedef struct {
     UI_Context ui;

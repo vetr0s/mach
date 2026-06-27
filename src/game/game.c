@@ -1,16 +1,13 @@
-// Game implementation. Included into mach.c (not compiled separately).
+// (npt): Game implementation (included into mach.c).
 
 #include "game.h"
 
+// (npt): Approximate inverse isometric projection. Placement may be off by 1 grid cell;
+// refinement needed for exact snapping to grid.
 static i32 screen_to_grid(i32 screen_x, i32 screen_y, i32 tile_size, i32 offset_x, i32 offset_y, i32 *out_gx, i32 *out_gy) {
-    // Reverse the isometric projection to find grid coordinates from screen position
-    // This is a simplified version; for exact placement, we'd need proper inverse math
-    // For now, use a simpler approximation
-
     i32 adjusted_x = screen_x - offset_x;
     i32 adjusted_y = screen_y - offset_y;
 
-    // Approximate grid position
     i32 gx = (adjusted_x / (tile_size / 2) + adjusted_y / (tile_size / 4)) / 2;
     i32 gy = (adjusted_y / (tile_size / 4) - adjusted_x / (tile_size / 2)) / 2;
 
@@ -20,6 +17,7 @@ static i32 screen_to_grid(i32 screen_x, i32 screen_y, i32 tile_size, i32 offset_
     return 1;
 }
 
+// (npt): Initialize game state with an empty world and spawn test entities for development.
 void game_init(Game_State *g) {
     g->world = world_create();
     g->selected_tool = 0;
@@ -34,11 +32,13 @@ void game_init(Game_State *g) {
     }
 }
 
+// (npt): Advance game simulation by one tick.
 void game_tick(Game_State *g) {
     if (!g || !g->world) return;
     world_tick(g->world);
 }
 
+// (npt): Clean up game state and free resources.
 void game_shutdown(Game_State *g) {
     if (g && g->world) {
         world_destroy(g->world);
@@ -46,6 +46,7 @@ void game_shutdown(Game_State *g) {
     }
 }
 
+// (npt): Handle mouse input for machine placement and deletion. Button: 1=place miner, 2=place storage, 3=delete.
 void game_handle_input(Game_State *g, i32 mouse_x, i32 mouse_y, i32 button) {
     if (!g || !g->world) return;
 

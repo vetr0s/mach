@@ -1,10 +1,9 @@
-// World implementation. Included into mach.c (not compiled separately).
+// (npt): World implementation (included into mach.c).
 
 #include "world.h"
 #include <stdlib.h>
 
-static World *g_world = NULL;
-
+// (npt): Initialize a new world with empty entity list and cleared grid.
 World* world_create(void) {
     World *w = (World *)malloc(sizeof(World));
     if (!w) return NULL;
@@ -34,6 +33,7 @@ static i32 entity_index_from_id(i32 id) {
     return id - 1;
 }
 
+// (npt): Place a miner at grid position (x, y). Returns entity ID on success, 0 on failure.
 i32 world_spawn_miner(World *w, i32 x, i32 y) {
     if (!w || w->entity_count >= MAX_ENTITIES) return 0;
     if (x < 0 || x >= 256 || y < 0 || y >= 256) return 0;
@@ -54,6 +54,7 @@ i32 world_spawn_miner(World *w, i32 x, i32 y) {
     return entity_id_from_index(idx);
 }
 
+// (npt): Place a storage unit at grid position (x, y). Returns entity ID on success, 0 on failure.
 i32 world_spawn_storage(World *w, i32 x, i32 y) {
     if (!w || w->entity_count >= MAX_ENTITIES) return 0;
     if (x < 0 || x >= 256 || y < 0 || y >= 256) return 0;
@@ -106,12 +107,12 @@ Entity* world_get_entity(World *w, i32 entity_id) {
     return &w->entities[idx];
 }
 
+// (npt): Advance world simulation by one tick. Miners produce ore and transfer to adjacent storage.
 void world_tick(World *w) {
     if (!w) return;
 
     w->tick++;
 
-    // Tick all miners: produce ore
     for (i32 i = 0; i < w->entity_count; i++) {
         Entity *e = &w->entities[i];
         if (e->type != ENTITY_MINER) continue;
@@ -120,11 +121,11 @@ void world_tick(World *w) {
         e->data.miner.ore_produced = 1;
         e->data.miner.ore_stored += 1;
 
-        // Try to push ore to adjacent storage
+        // (npt): Cardinal directions only (no diagonals); check all 4 neighbors
         for (i32 dy = -1; dy <= 1; dy++) {
             for (i32 dx = -1; dx <= 1; dx++) {
                 if (dx == 0 && dy == 0) continue;
-                if (abs(dx) + abs(dy) > 1) continue;  // Only cardinal directions
+                if (abs(dx) + abs(dy) > 1) continue;
 
                 i32 nx = e->data.miner.grid_x + dx;
                 i32 ny = e->data.miner.grid_y + dy;

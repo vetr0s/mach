@@ -1,9 +1,10 @@
+// (npt): Entity system and world state management.
+
 #ifndef WORLD_H
 #define WORLD_H
 
 #include "../base/base.h"
 
-// Entity types
 typedef enum {
     ENTITY_INVALID = 0,
     ENTITY_MINER,

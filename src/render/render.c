@@ -1,12 +1,10 @@
-// Render implementation. Included into mach.c (not compiled separately).
+// (npt): Render implementation (included into mach.c).
 
 #include "render.h"
 #include <SDL3/SDL.h>
 
+// (npt): Convert grid coordinates to screen space using standard isometric projection.
 Vec2 grid_to_isometric(i32 grid_x, i32 grid_y, i32 tile_size) {
-    // Standard isometric projection
-    // Isometric x = (grid_x - grid_y) * (tile_size / 2)
-    // Isometric y = (grid_x + grid_y) * (tile_size / 4)
     Vec2 result;
     result.x = (f32)((grid_x - grid_y) * (tile_size / 2));
     result.y = (f32)((grid_x + grid_y) * (tile_size / 4));
@@ -75,10 +73,9 @@ static void render_storage(SDL_Renderer *rend, Entity_Storage *storage, i32 tile
     }
 }
 
+// (npt): Render all entities in the world to the given viewport.
 void render_world(UI_Context *ui, World *w, i32 tile_size, i32 offset_x, i32 offset_y) {
     if (!ui || !ui->renderer || !w) return;
-
-    // Draw all entities
     for (i32 i = 0; i < w->entity_count; i++) {
         Entity *e = &w->entities[i];
 

@@ -1,10 +1,10 @@
+// (npt): Game state and input handling.
+
 #ifndef GAME_H
 #define GAME_H
 
 #include "../base/base.h"
 #include "../world/world.h"
-
-// Game-specific logic.
 
 typedef struct {
     World *world;

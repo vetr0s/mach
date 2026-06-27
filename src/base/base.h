@@ -1,12 +1,11 @@
+// (npt): Fundamental types, type aliases, and base utilities.
+
 #ifndef BASE_H
 #define BASE_H
 
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
-
-// Fundamental types and utilities.
-// Memory allocation, string handling, common data structures.
 
 typedef uint8_t  u8;
 typedef uint16_t u16;

@@ -2,7 +2,7 @@
 
 A game engine and game, co-developed as a single unit. Built in C with SDL3.
 
-**Engine:** v0.1.0 | **Game (Factory):** v0.1.0
+**Version:** v0.2.0
 
 ## Setup
 

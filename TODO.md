@@ -7,20 +7,25 @@
 - [ ] Memory: custom allocators, arena allocation
 
 ## Rendering
-- [ ] Sprite system: loading, drawing, transforms
-- [ ] Texture loading: PNG/BMP support
-- [x] Drawing primitives: rectangles, circles, lines
-- [x] Camera system: viewport, scrolling, panning, zooming
-- [ ] Sprite batching
-- [x] Bitmap font rendering (hardcoded 8x8, immediate-mode)
-- [x] Grid visualization
-- [x] Placement validation: red/green preview
+- [x] 3D renderer on SDL_GPU (Metal/Vulkan/D3D12), runtime MSL shaders
+- [x] Lit geometry: directional light + depth buffer
+- [x] Procedural meshes (cube, plane)
+- [x] Camera system: perspective + orthographic, pan/zoom, mouse-pick rays
+- [x] Isometric view as an orthographic camera (not iso-only)
+- [x] Bitmap font rendering (8x8 baked into a GPU atlas)
+- [x] 2D overlay pass (text + filled rects, alpha-blended)
+- [x] Placement validation: red/green hover preview
+- [ ] Textured meshes + materials
+- [ ] External mesh assets (OBJ/glTF)
+- [ ] Sprite batching / instancing
+- [ ] Window resize handling (recreate depth target)
+- [ ] SPIR-V/DXIL shaders for non-Metal backends
 
 ## Math
 - [x] Vector2/3/4 types and operations
-- [ ] Matrix4x4 for transforms
+- [x] Matrix4x4: transforms, perspective/ortho, look_at, inverse
 - [ ] Quaternions
-- [x] Common math utilities (lerp, clamp, etc.)
+- [x] Common math utilities (lerp, clamp, radians, etc.)
 
 ## Gameplay
 - [x] Entity system (fat structs + direct arrays)

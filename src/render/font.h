@@ -7,10 +7,8 @@
 #include <SDL3/SDL.h>
 
 // Font metrics
-#define FONT_CHAR_WIDTH 5
+#define FONT_CHAR_WIDTH 8
 #define FONT_CHAR_HEIGHT 8
-#define FONT_CHARS_PER_ROW 16
-#define FONT_NUM_ROWS 8
 
 typedef struct {
     SDL_Texture *texture;

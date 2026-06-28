@@ -28,9 +28,8 @@ void core_run(Core_Engine *e) {
 
     Font *font = font_create(e->ui.renderer);
 
-    // (npt): Variable timestep - frame runs at monitor refresh, dt passed to game
-    const u32 TARGET_FRAME_MS = 16;  // Soft cap at ~60 FPS to avoid wasting CPU
-    const f32 MAX_DT = 0.1f;         // Clamp dt to prevent large jumps (e.g., if paused)
+    // (npt): Variable timestep - uncapped frame rate to see maximum performance
+    const f32 MAX_DT = 0.1f;  // Clamp dt to prevent large jumps (e.g., if paused)
 
     i32 frame_count = 0;
     i32 fps = 0;
@@ -104,12 +103,6 @@ void core_run(Core_Engine *e) {
             fps = frame_count;
             frame_count = 0;
             fps_timer = SDL_GetTicks();
-        }
-
-        // Soft frame cap at TARGET_FRAME_MS to avoid wasting CPU, but allow exceeding if needed
-        u32 frame_time = SDL_GetTicks() - frame_start;
-        if (frame_time < TARGET_FRAME_MS) {
-            SDL_Delay(TARGET_FRAME_MS - frame_time);
         }
     }
 

@@ -46,7 +46,7 @@ Now you can:
 
 **Engine ÷ Game separation.** The engine (rendering, input, window management) lives in `src/engine/`. The game (entity types, rules, content) lives in `src/game/`. The dependency only points one way: the engine drives the game through the `Engine_App` callback interface (`engine/app.h`) and never names a game type. The game implements those callbacks (`game/app.c`) and hands them to the engine from `main()`. A future game reuses `src/engine/` untouched and writes new `src/game/` code.
 
-**Fat struct ECS.** No generic component system. Each entity type is a full struct (e.g., `Entity_Miner`, `Entity_Storage`). Game logic directly accesses entity data. Inspired by Anton Kaplanyan's approach in *Working on the Wookash podcast*.
+**Fat struct ECS.** No generic component system. Each entity type is a full struct (e.g., `Entity_Miner`, `Entity_Storage`). Game logic directly accesses entity data. Inspired by Anton Mikhailov's approach discussed on the *Wookash Podcast*.
 
 **Modular subsystems.** Each subsystem (math, render, input, core) is self-contained. Headers declare the API; implementations are included into the unity root. Follows RADDBG's internal organization style.
 
@@ -62,10 +62,9 @@ Now you can:
 src/
   engine/                 # Reusable game engine
     base/                 # Fundamental types (i32, f32, Vec2, etc.)
-    math/                 # Vector math, utilities
+    math/                 # Vec2/3/4, Mat4, projections, transforms
     core/                 # Game loop, timing, window lifecycle
     render/               # SDL_GPU renderer: gpu, mesh, camera, font (atlas)
-    math/                 # Vec2/3/4, Mat4, projections, transforms
     app.h                 # Engine_App interface (engine drives the game via this)
     os.h                  # Platform detection
     ui.h                  # Window context + screen constants
@@ -133,9 +132,9 @@ All stb headers are public domain. See licensing section below.
 ## References
 
 **Inspirations and design philosophy:**
-- **RADDBG** — Minimal build system, unity compilation, internal code organization. https://github.com/iomeone/raddbg
+- **RAD Debugger (raddbg)** — Minimal build system, unity compilation, internal code organization. https://github.com/EpicGames/raddebugger
 - **Handmade Hero** — Pure C, simple architecture, avoid over-abstraction. https://handmadehero.org
-- **Wookash podcast** — Anton Kaplanyan's talks on game engine design, fat struct ECS. https://www.youtube.com/@wookashvideos
+- **Wookash Podcast** — Anton Mikhailov's talks on game engine design, fat struct ECS. https://www.youtube.com/channel/UC9J9u3apteD0EuFjzRpt71w
 
 **External libraries:**
 - **SDL3** — https://github.com/libsdl-org/SDL

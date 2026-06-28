@@ -94,7 +94,6 @@ void core_run(Core_Engine *e, Engine_App *app) {
             fps = frame_count;
             frame_count = 0;
             fps_timer = SDL_GetTicks();
-            LOG_DEBUG("fps=%d", fps);
         }
 
         u32 frame_time = SDL_GetTicks() - frame_start;

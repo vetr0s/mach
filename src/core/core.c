@@ -96,9 +96,10 @@ void core_run(Core_Engine *e) {
         SDL_SetRenderDrawColor(e->ui.renderer, 0x1e, 0x29, 0x3b, 0xff);
         SDL_RenderClear(e->ui.renderer);
 
+        render_grid(e->ui.renderer, game.tile_size, (i32)game.camera_x, (i32)game.camera_y, game.zoom, 1280, 720);
         render_world(&e->ui, game.world, game.tile_size, (i32)game.camera_x, (i32)game.camera_y, game.zoom);
         render_hover_preview(e->ui.renderer, game.hover_grid_x, game.hover_grid_y, game.tile_size,
-                            (i32)game.camera_x, (i32)game.camera_y, game.zoom, game.selected_tool);
+                            (i32)game.camera_x, (i32)game.camera_y, game.zoom, game.selected_tool, game.hover_can_place);
 
         // Debug display with font
         if (font) {

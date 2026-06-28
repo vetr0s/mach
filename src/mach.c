@@ -14,8 +14,11 @@
   [ ] Sprite system: loading, drawing, transforms
   [ ] Texture loading: PNG/BMP support
   [x] Drawing primitives: rectangles, circles, lines
-  [ ] Camera system: viewport, scrolling
+  [x] Camera system: viewport, scrolling, panning, zooming
   [ ] Sprite batching: efficient rendering
+  [x] Bitmap font rendering: text display
+  [x] Grid visualization: placeable area display
+  [x] Placement validation: visual feedback (red/green preview)
 
   MATH
   [x] Vector2/3/4 types and operations

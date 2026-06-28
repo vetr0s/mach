@@ -98,6 +98,15 @@ i32 world_get_entity_at(World *w, i32 x, i32 y) {
     return w->grid[x][y];
 }
 
+// Check if a position is valid for placement.
+int world_can_place_at(World *w, i32 x, i32 y) {
+    if (!w) return 0;
+    if (x < 0 || x >= 256 || y < 0 || y >= 256) return 0;
+    if (w->grid[x][y] != 0) return 0;
+    if (w->entity_count >= MAX_ENTITIES) return 0;
+    return 1;
+}
+
 Entity* world_get_entity(World *w, i32 entity_id) {
     if (!w || entity_id == 0) return NULL;
 

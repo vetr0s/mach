@@ -18,6 +18,7 @@ typedef struct {
     // Input
     i32 hover_grid_x;
     i32 hover_grid_y;
+    int hover_can_place;
 } Game_State;
 
 void game_init(Game_State *g);

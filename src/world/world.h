@@ -70,5 +70,6 @@ void world_despawn(World *w, i32 entity_id);
 // Query
 i32 world_get_entity_at(World *w, i32 x, i32 y);
 Entity* world_get_entity(World *w, i32 entity_id);
+int world_can_place_at(World *w, i32 x, i32 y);
 
 #endif

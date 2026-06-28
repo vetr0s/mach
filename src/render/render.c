@@ -53,9 +53,10 @@ static void render_rect_iso(SDL_Renderer *rend, i32 grid_x, i32 grid_y, i32 tile
     i32 hw = tile_size / 2;
     i32 qh = tile_size / 4;
 
-    // (npt): Apply camera transform: position - camera, then scale by zoom
-    i32 screen_x = (i32)(((f32)pos.x + (f32)hw - (f32)camera_x) * zoom);
-    i32 screen_y = (i32)(((f32)pos.y + (f32)qh - (f32)camera_y) * zoom);
+    // (npt): Convert world-space to screen-space: (world - camera) * zoom + screen_center
+    // Camera represents top-left corner of viewport in world space
+    i32 screen_x = (i32)(((f32)pos.x + (f32)hw - (f32)camera_x) * zoom) + 640;
+    i32 screen_y = (i32)(((f32)pos.y + (f32)qh - (f32)camera_y) * zoom) + 360;
 
     // (npt): Scale diamond dimensions by zoom
     i32 hw_z = (i32)((f32)hw * zoom);
@@ -81,8 +82,8 @@ static void render_miner(SDL_Renderer *rend, Entity_Miner *miner, i32 tile_size,
     Vec2 pos = grid_to_isometric(miner->grid_x, miner->grid_y, tile_size);
     i32 hw = tile_size / 2;
     i32 qh = tile_size / 4;
-    i32 cx = (i32)(((f32)pos.x + (f32)hw - (f32)camera_x) * zoom);
-    i32 cy = (i32)(((f32)pos.y + (f32)qh - (f32)camera_y) * zoom);
+    i32 cx = (i32)(((f32)pos.x + (f32)hw - (f32)camera_x) * zoom) + 640;
+    i32 cy = (i32)(((f32)pos.y + (f32)qh - (f32)camera_y) * zoom) + 360;
 
     SDL_SetRenderDrawColor(rend, 200, 200, 200, 255);
     SDL_RenderLine(rend, cx - 3, cy - 2, cx + 3, cy + 2);
@@ -95,8 +96,8 @@ static void render_storage(SDL_Renderer *rend, Entity_Storage *storage, i32 tile
     Vec2 pos = grid_to_isometric(storage->grid_x, storage->grid_y, tile_size);
     i32 hw = tile_size / 2;
     i32 qh = tile_size / 4;
-    i32 cx = (i32)(((f32)pos.x + (f32)hw - (f32)camera_x) * zoom);
-    i32 cy = (i32)(((f32)pos.y + (f32)qh - (f32)camera_y) * zoom);
+    i32 cx = (i32)(((f32)pos.x + (f32)hw - (f32)camera_x) * zoom) + 640;
+    i32 cy = (i32)(((f32)pos.y + (f32)qh - (f32)camera_y) * zoom) + 360;
 
     SDL_SetRenderDrawColor(rend, 200, 100, 50, 255);
     i32 fill_height = (storage->ore_stored * tile_size / 4) / storage->ore_capacity;
@@ -120,8 +121,48 @@ void render_world(UI_Context *ui, World *w, i32 tile_size, i32 camera_x, i32 cam
     }
 }
 
+// Render the 256x256 placeable grid.
+void render_grid(SDL_Renderer *rend, i32 tile_size, i32 camera_x, i32 camera_y, f32 zoom, i32 screen_w, i32 screen_h) {
+    if (!rend) return;
+
+    SDL_SetRenderDrawColor(rend, 60, 80, 100, 80);
+
+    i32 hw = tile_size / 2;
+    i32 qh = tile_size / 4;
+
+    // Draw grid lines for the 256x256 area
+    // Only draw tiles that are visible on screen to avoid lag
+    for (i32 grid_y = 0; grid_y < 256; grid_y++) {
+        for (i32 grid_x = 0; grid_x < 256; grid_x++) {
+            Vec2 pos = grid_to_isometric(grid_x, grid_y, tile_size);
+            i32 screen_x = (i32)(((f32)pos.x + (f32)hw - (f32)camera_x) * zoom) + 640;
+            i32 screen_y = (i32)(((f32)pos.y + (f32)qh - (f32)camera_y) * zoom) + 360;
+
+            i32 hw_z = (i32)((f32)hw * zoom);
+            i32 qh_z = (i32)((f32)qh * zoom);
+
+            // Only draw if roughly on screen
+            if (screen_x < -hw_z * 2 || screen_x > screen_w + hw_z * 2 ||
+                screen_y < -qh_z * 2 || screen_y > screen_h + qh_z * 2) {
+                continue;
+            }
+
+            SDL_FPoint points[4] = {
+                {(f32)screen_x, (f32)(screen_y - qh_z)},
+                {(f32)(screen_x + hw_z), (f32)screen_y},
+                {(f32)screen_x, (f32)(screen_y + qh_z)},
+                {(f32)(screen_x - hw_z), (f32)screen_y},
+            };
+
+            for (i32 i = 0; i < 4; i++) {
+                SDL_RenderLine(rend, points[i].x, points[i].y, points[(i + 1) % 4].x, points[(i + 1) % 4].y);
+            }
+        }
+    }
+}
+
 // Render a semi-transparent preview at the snapped grid position.
-void render_hover_preview(SDL_Renderer *rend, i32 grid_x, i32 grid_y, i32 tile_size, i32 camera_x, i32 camera_y, f32 zoom, i32 tool) {
+void render_hover_preview(SDL_Renderer *rend, i32 grid_x, i32 grid_y, i32 tile_size, i32 camera_x, i32 camera_y, f32 zoom, i32 tool, int can_place) {
     if (!rend) return;
 
     Vec2 pos = grid_to_isometric(grid_x, grid_y, tile_size);
@@ -130,8 +171,8 @@ void render_hover_preview(SDL_Renderer *rend, i32 grid_x, i32 grid_y, i32 tile_s
     i32 qh = tile_size / 4;
 
     // (npt): Apply camera transform matching render_rect_iso
-    i32 screen_x = (i32)(((f32)pos.x + (f32)hw - (f32)camera_x) * zoom);
-    i32 screen_y = (i32)(((f32)pos.y + (f32)qh - (f32)camera_y) * zoom);
+    i32 screen_x = (i32)(((f32)pos.x + (f32)hw - (f32)camera_x) * zoom) + 640;
+    i32 screen_y = (i32)(((f32)pos.y + (f32)qh - (f32)camera_y) * zoom) + 360;
 
     i32 hw_z = (i32)((f32)hw * zoom);
     i32 qh_z = (i32)((f32)qh * zoom);
@@ -143,11 +184,19 @@ void render_hover_preview(SDL_Renderer *rend, i32 grid_x, i32 grid_y, i32 tile_s
         {(f32)(screen_x - hw_z), (f32)screen_y},
     };
 
-    u8 r = 100, g = 200, b = 100;
-    if (tool == 2) {
+    u8 r, g, b;
+    if (!can_place) {
+        r = 255;
+        g = 100;
+        b = 100;
+    } else if (tool == 2) {
         r = 150;
         g = 150;
         b = 200;
+    } else {
+        r = 100;
+        g = 200;
+        b = 100;
     }
 
     SDL_SetRenderDrawColor(rend, r, g, b, 100);

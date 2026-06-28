@@ -4,11 +4,13 @@
 
 // (npt): Inverse isometric projection accounting for camera position and zoom.
 static i32 screen_to_grid(i32 screen_x, i32 screen_y, i32 tile_size, f32 camera_x, f32 camera_y, f32 zoom, i32 *out_gx, i32 *out_gy) {
-    f32 adjusted_x = ((f32)screen_x - camera_x) / zoom;
-    f32 adjusted_y = ((f32)screen_y - camera_y) / zoom;
-
     f32 half_tile = (f32)tile_size / 2.0f;
     f32 quarter_tile = (f32)tile_size / 4.0f;
+
+    // Invert the render transform: screen -> isometric world -> grid
+    // Render adds hw and qh to center the diamond, so subtract them back
+    f32 adjusted_x = ((f32)screen_x - 640.0f) / zoom + camera_x - half_tile;
+    f32 adjusted_y = ((f32)screen_y - 360.0f) / zoom + camera_y - quarter_tile;
 
     f32 gx_f = (adjusted_x / half_tile + adjusted_y / quarter_tile) / 2.0f;
     f32 gy_f = (adjusted_y / quarter_tile - adjusted_x / half_tile) / 2.0f;
@@ -27,8 +29,8 @@ void game_init(Game_State *g) {
     g->world = world_create();
     g->selected_tool = 0;
     g->tile_size = 32;
-    g->camera_x = 640.0f;
-    g->camera_y = 100.0f;
+    g->camera_x = 0.0f;
+    g->camera_y = 0.0f;
     g->zoom = 1.0f;
     g->hover_grid_x = 0;
     g->hover_grid_y = 0;
@@ -44,6 +46,7 @@ void game_update_hover(Game_State *g, i32 mouse_x, i32 mouse_y) {
     if (!g) return;
     screen_to_grid(mouse_x, mouse_y, g->tile_size, g->camera_x, g->camera_y, g->zoom,
                    &g->hover_grid_x, &g->hover_grid_y);
+    g->hover_can_place = world_can_place_at(g->world, g->hover_grid_x, g->hover_grid_y);
 }
 
 // Advance game simulation. dt is delta time in seconds since last frame.

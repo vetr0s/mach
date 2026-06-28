@@ -69,9 +69,8 @@
 #include "engine/ui.h"
 #include "engine/debug.h"
 #include "engine/math/math.c"
-#include "engine/render/font.c"
 #include "engine/render/image.c"
-#include "engine/render/font_truetype.c"
+#include "engine/render/font.c"
 #include "engine/render/render.c"
 #include "engine/core/core.c"
 

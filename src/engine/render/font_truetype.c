@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#define STB_TRUETYPE_IMPLEMENTATION
+// Note: stb_truetype.h is already included by font.c, so we just use the API
 #include "../../../third_party/stb/stb_truetype.h"
 
 FontTrueType* font_truetype_load(const char *path, f32 font_size) {

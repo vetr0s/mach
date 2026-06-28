@@ -1,4 +1,4 @@
-// Bitmap font: simple monospace font for rendering text.
+// Bitmap font: TrueType rendered with immediate drawing.
 
 #ifndef FONT_H
 #define FONT_H
@@ -6,15 +6,7 @@
 #include "../base/base.h"
 #include <SDL3/SDL.h>
 
-// Font metrics
-#define FONT_CHAR_WIDTH 8
-#define FONT_CHAR_HEIGHT 8
-
-typedef struct {
-    SDL_Texture *texture;
-    i32 char_width;
-    i32 char_height;
-} Font;
+typedef struct Font Font;
 
 // Font API
 Font* font_create(SDL_Renderer *rend);

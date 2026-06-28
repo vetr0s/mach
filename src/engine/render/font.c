@@ -2,8 +2,9 @@
 
 #include "font.h"
 #include <stdlib.h>
+#include <string.h>
 
-// (npt): Create a simple monospace bitmap font by drawing characters to a surface.
+// Create a simple monospace bitmap font by drawing characters to a surface.
 // Character grid: 16 chars wide × 8 rows (128 total ASCII chars 32-127).
 // Each char is 8×8 pixels on a white-on-black surface.
 
@@ -30,9 +31,6 @@ Font* font_create(SDL_Renderer *rend) {
     Font *font = (Font *)malloc(sizeof(Font));
     if (!font) return NULL;
 
-    font->char_width = 8;
-    font->char_height = 8;
-
     // Create 16×8 grid surface for 128 characters (32-127 ASCII)
     int tex_w = 16 * 8;
     int tex_h = 8 * 8;
@@ -46,7 +44,7 @@ Font* font_create(SDL_Renderer *rend) {
     u32 black = SDL_MapSurfaceRGB(surf, 0, 0, 0);
     SDL_FillSurfaceRect(surf, NULL, black);
 
-    // (npt): Draw each ASCII character (32-127) as a simple bitmap pattern.
+    // Draw each ASCII character (32-127) as a simple bitmap pattern.
     // Each character is defined as 8 bytes (8 rows × 8 bits).
 
     for (int i = 0; i < 96; i++) {
@@ -136,7 +134,6 @@ Font* font_create(SDL_Renderer *rend) {
             u8 b[] = {0x00, 0x7C, 0x66, 0x60, 0x60, 0x60, 0x60, 0x00};
             memcpy(bitmap, b, 8);
         } break;
-        // Uppercase letters
         case 'A': {
             u8 b[] = {0x3C, 0x66, 0x66, 0x7E, 0x66, 0x66, 0x66, 0x00};
             memcpy(bitmap, b, 8);
@@ -221,7 +218,6 @@ Font* font_create(SDL_Renderer *rend) {
             u8 b[] = {0x7E, 0x06, 0x0C, 0x18, 0x30, 0x60, 0x7E, 0x00};
             memcpy(bitmap, b, 8);
         } break;
-        // Lowercase letters
         case 'b': {
             u8 b[] = {0x60, 0x60, 0x7C, 0x66, 0x66, 0x66, 0x7C, 0x00};
             memcpy(bitmap, b, 8);
@@ -311,7 +307,6 @@ Font* font_create(SDL_Renderer *rend) {
             memcpy(bitmap, b, 8);
         } break;
         default: {
-            // Default: draw a box outline for unknown chars
             u8 b[] = {0xFF, 0x81, 0x81, 0x81, 0x81, 0x81, 0xFF, 0x00};
             memcpy(bitmap, b, 8);
         } break;
@@ -320,22 +315,22 @@ Font* font_create(SDL_Renderer *rend) {
         draw_bitmap_char(surf, i, bitmap);
     }
 
-    font->texture = SDL_CreateTextureFromSurface(rend, surf);
+    font->atlas = SDL_CreateTextureFromSurface(rend, surf);
     SDL_DestroySurface(surf);
 
-    if (!font->texture) {
+    if (!font->atlas) {
         free(font);
         return NULL;
     }
 
-    SDL_SetTextureBlendMode(font->texture, SDL_BLENDMODE_BLEND);
+    SDL_SetTextureBlendMode(font->atlas, SDL_BLENDMODE_BLEND);
     return font;
 }
 
 void font_destroy(Font *font) {
     if (!font) return;
-    if (font->texture) {
-        SDL_DestroyTexture(font->texture);
+    if (font->atlas) {
+        SDL_DestroyTexture(font->atlas);
     }
     free(font);
 }
@@ -343,7 +338,7 @@ void font_destroy(Font *font) {
 void font_render_text(SDL_Renderer *rend, Font *font, const char *text, i32 x, i32 y, u8 r, u8 g, u8 b) {
     if (!rend || !font || !text) return;
 
-    SDL_SetTextureColorMod(font->texture, r, g, b);
+    SDL_SetTextureColorMod(font->atlas, r, g, b);
 
     i32 cur_x = x;
     for (const char *c = text; *c; c++) {
@@ -357,7 +352,7 @@ void font_render_text(SDL_Renderer *rend, Font *font, const char *text, i32 x, i
         SDL_FRect src = {(f32)src_x, (f32)src_y, 8.0f, 8.0f};
         SDL_FRect dst = {(f32)cur_x, (f32)y, 8.0f, 8.0f};
 
-        SDL_RenderTexture(rend, font->texture, &src, &dst);
+        SDL_RenderTexture(rend, font->atlas, &src, &dst);
         cur_x += 8;
     }
 }

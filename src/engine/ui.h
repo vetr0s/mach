@@ -16,8 +16,7 @@
 #define SCREEN_CENTER_Y (SCREEN_HEIGHT / 2)
 
 typedef struct {
-    SDL_Window   *window;
-    SDL_Renderer *renderer;
+    SDL_Window *window;
 } UI_Context;
 
 #endif

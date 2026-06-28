@@ -11,16 +11,24 @@
 #include "engine/debug.h"
 #include "engine/math/math.c"
 #include "engine/render/image.c"
+#include "engine/render/mesh.c"
+#include "engine/render/camera.c"
+#include "engine/render/gpu.c"
 #include "engine/render/font.c"
-#include "engine/render/render.c"
-#include "engine/core/core.c"
 
 // Game
 #include "game/world/world.c"
 #include "game/game.c"
+#include "game/render_game.c"
+#include "game/app.c"
 
-// Application entry point. The engine owns the game loop and game state; main
-// just brings the engine up and tears it down.
+// Core (drives the loop via the Engine_App interface; depends on no game type)
+#include "engine/core/core.c"
+
+#include "game/app.h"
+
+// Application entry point. The engine owns the loop and drives the game through
+// the Engine_App interface; main just wires the two together.
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -30,8 +38,9 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    core_run(&engine);
-    core_shutdown(&engine);
+    Engine_App app = game_app();
+    core_run(&engine, &app);
 
+    core_shutdown(&engine);
     return 0;
 }

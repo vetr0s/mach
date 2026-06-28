@@ -4,20 +4,20 @@
 #define GAME_H
 
 #include "../engine/base/base.h"
+#include "../engine/render/camera.h"
 #include "world/world.h"
 #include <SDL3/SDL.h>
 
 typedef struct {
     World *world;
     i32 selected_tool;
-    i32 tile_size;
-    // Camera
-    f32 camera_x;       // Camera position in screen space
-    f32 camera_y;
-    f32 zoom;           // Zoom level (1.0 = normal, 2.0 = 2x magnified)
-    // Input
+
+    Camera camera;
+
+    // Hover: the grid cell currently under the mouse.
     i32 hover_grid_x;
     i32 hover_grid_y;
+    b32 hover_valid;      // the pick ray hit the ground plane
     b32 hover_can_place;
 } Game_State;
 

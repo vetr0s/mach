@@ -28,15 +28,20 @@ void core_run(Core_Engine *e) {
 
     Font *font = font_create(e->ui.renderer);
 
-    const i32 TICKS_PER_SECOND = 60;
-    const i32 TICK_MS = 1000 / TICKS_PER_SECOND;
+    // (npt): Variable timestep - frame runs at monitor refresh, dt passed to game
+    const u32 TARGET_FRAME_MS = 16;  // Soft cap at ~60 FPS to avoid wasting CPU
+    const f32 MAX_DT = 0.1f;         // Clamp dt to prevent large jumps (e.g., if paused)
 
     i32 frame_count = 0;
     i32 fps = 0;
     u32 fps_timer = SDL_GetTicks();
+    u32 last_frame_time = SDL_GetTicks();
 
     while (e->running) {
         u32 frame_start = SDL_GetTicks();
+        f32 dt = (f32)(frame_start - last_frame_time) / 1000.0f;
+        if (dt > MAX_DT) dt = MAX_DT;
+        last_frame_time = frame_start;
 
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
@@ -65,7 +70,7 @@ void core_run(Core_Engine *e) {
             }
         }
 
-        game_tick(&game);
+        game_tick(&game, dt);
 
         SDL_SetRenderDrawColor(e->ui.renderer, 0x1e, 0x29, 0x3b, 0xff);
         SDL_RenderClear(e->ui.renderer);
@@ -101,9 +106,10 @@ void core_run(Core_Engine *e) {
             fps_timer = SDL_GetTicks();
         }
 
+        // Soft frame cap at TARGET_FRAME_MS to avoid wasting CPU, but allow exceeding if needed
         u32 frame_time = SDL_GetTicks() - frame_start;
-        if (frame_time < TICK_MS) {
-            SDL_Delay(TICK_MS - frame_time);
+        if (frame_time < TARGET_FRAME_MS) {
+            SDL_Delay(TARGET_FRAME_MS - frame_time);
         }
     }
 

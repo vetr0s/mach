@@ -51,9 +51,10 @@ void game_update_hover(Game_State *g, i32 mouse_x, i32 mouse_y) {
                    &g->hover_grid_x, &g->hover_grid_y);
 }
 
-// Advance game simulation by one tick.
-void game_tick(Game_State *g) {
+// Advance game simulation. dt is delta time in seconds since last frame.
+void game_tick(Game_State *g, f32 dt) {
     if (!g || !g->world) return;
+    (void)dt;
     world_tick(g->world);
 }
 

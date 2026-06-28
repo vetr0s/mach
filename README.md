@@ -99,3 +99,32 @@ typedef struct {
 ```
 
 Game code directly iterates and updates entities. No indirection, no query systems. This keeps the game logic readable and performance predictable.
+
+## Dependencies
+
+**Required:**
+- **SDL3** — Windowing, input, rendering. Git submodule; built by `setup.sh`.
+
+**Single-header libraries (stb):**
+- **stb_image.h** — Image loading (PNG, BMP, JPG). Downloaded by `setup.sh`.
+- **stb_truetype.h** — TrueType font rendering. Downloaded by `setup.sh`.
+- **stb_rect_pack.h** — Texture atlasing. Downloaded by `setup.sh`.
+
+All stb headers are public domain. See licensing section below.
+
+## References
+
+**Inspirations and design philosophy:**
+- **RADDBG** — Minimal build system, unity compilation, internal code organization. https://github.com/iomeone/raddbg
+- **Handmade Hero** — Pure C, simple architecture, avoid over-abstraction. https://handmadehero.org
+- **Wookash podcast** — Anton Kaplanyan's talks on game engine design, fat struct ECS. https://www.youtube.com/@wookashvideos
+
+**External libraries:**
+- **SDL3** — https://github.com/libsdl-org/SDL
+- **stb** (Sean Barret) — https://github.com/nothings/stb
+
+## Licensing
+
+- **mach engine & game** — MIT license
+- **SDL3** — Zlib license (see `third_party/SDL/LICENSE.txt`)
+- **stb** — Public domain (see header comments in each .h file)

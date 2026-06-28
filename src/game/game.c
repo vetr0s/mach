@@ -2,22 +2,17 @@
 
 #include "game.h"
 
-// (npt): Inverse isometric projection with proper mathematical solution.
-// Given screen coords, find the grid cell. Uses exact math from solving the system:
-//   screen_x = (grid_x - grid_y) * (tile_size / 2)
-//   screen_y = (grid_x + grid_y) * (tile_size / 4)
-static i32 screen_to_grid(i32 screen_x, i32 screen_y, i32 tile_size, i32 offset_x, i32 offset_y, i32 *out_gx, i32 *out_gy) {
-    f32 adjusted_x = (f32)(screen_x - offset_x);
-    f32 adjusted_y = (f32)(screen_y - offset_y);
+// (npt): Inverse isometric projection accounting for camera position and zoom.
+static i32 screen_to_grid(i32 screen_x, i32 screen_y, i32 tile_size, f32 camera_x, f32 camera_y, f32 zoom, i32 *out_gx, i32 *out_gy) {
+    f32 adjusted_x = ((f32)screen_x - camera_x) / zoom;
+    f32 adjusted_y = ((f32)screen_y - camera_y) / zoom;
 
     f32 half_tile = (f32)tile_size / 2.0f;
     f32 quarter_tile = (f32)tile_size / 4.0f;
 
-    // (npt): Inverse formulas derived from the forward projection equations
     f32 gx_f = (adjusted_x / half_tile + adjusted_y / quarter_tile) / 2.0f;
     f32 gy_f = (adjusted_y / quarter_tile - adjusted_x / half_tile) / 2.0f;
 
-    // (npt): Round to nearest grid cell
     i32 gx = (i32)(gx_f + 0.5f);
     i32 gy = (i32)(gy_f + 0.5f);
 
@@ -32,12 +27,12 @@ void game_init(Game_State *g) {
     g->world = world_create();
     g->selected_tool = 0;
     g->tile_size = 32;
-    g->view_offset_x = 640;
-    g->view_offset_y = 100;
+    g->camera_x = 640.0f;
+    g->camera_y = 100.0f;
+    g->zoom = 1.0f;
     g->hover_grid_x = 0;
     g->hover_grid_y = 0;
 
-    // Spawn a test miner and storage to verify rendering
     if (g->world) {
         world_spawn_miner(g->world, 5, 5);
         world_spawn_storage(g->world, 6, 5);
@@ -47,7 +42,7 @@ void game_init(Game_State *g) {
 // Update hover grid position based on mouse screen coordinates.
 void game_update_hover(Game_State *g, i32 mouse_x, i32 mouse_y) {
     if (!g) return;
-    screen_to_grid(mouse_x, mouse_y, g->tile_size, g->view_offset_x, g->view_offset_y,
+    screen_to_grid(mouse_x, mouse_y, g->tile_size, g->camera_x, g->camera_y, g->zoom,
                    &g->hover_grid_x, &g->hover_grid_y);
 }
 
@@ -72,7 +67,6 @@ void game_handle_input(Game_State *g, i32 mouse_x, i32 mouse_y, i32 button) {
 
     game_update_hover(g, mouse_x, mouse_y);
 
-    // Left click: place selected tool or delete if in delete mode
     if (button == 1) {
         if (g->selected_tool == 1) {
             world_spawn_miner(g->world, g->hover_grid_x, g->hover_grid_y);
@@ -104,4 +98,25 @@ void game_handle_key(Game_State *g, SDL_Scancode scancode) {
     default:
         break;
     }
+}
+
+// Handle key release for camera panning.
+void game_handle_key_up(Game_State *g, SDL_Scancode scancode) {
+    (void)g;
+    (void)scancode;
+}
+
+// Pan camera by offset (in screen space).
+void game_camera_pan(Game_State *g, f32 dx, f32 dy) {
+    if (!g) return;
+    g->camera_x += dx;
+    g->camera_y += dy;
+}
+
+// Zoom camera (positive = zoom in, negative = zoom out).
+void game_camera_zoom(Game_State *g, f32 zoom_delta) {
+    if (!g) return;
+    g->zoom += zoom_delta;
+    if (g->zoom < 0.1f) g->zoom = 0.1f;
+    if (g->zoom > 5.0f) g->zoom = 5.0f;
 }

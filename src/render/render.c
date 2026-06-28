@@ -47,21 +47,25 @@ void render_line(SDL_Renderer *rend, i32 x1, i32 y1, i32 x2, i32 y2, u8 r, u8 g,
 }
 
 static void render_rect_iso(SDL_Renderer *rend, i32 grid_x, i32 grid_y, i32 tile_size,
-                            u8 r, u8 g, u8 b, i32 offset_x, i32 offset_y) {
+                            u8 r, u8 g, u8 b, i32 camera_x, i32 camera_y, f32 zoom) {
     Vec2 pos = grid_to_isometric(grid_x, grid_y, tile_size);
 
     i32 hw = tile_size / 2;
     i32 qh = tile_size / 4;
 
-    // (npt): Center the diamond on the grid position by offsetting by half the dimensions
-    i32 screen_x = (i32)pos.x + offset_x + hw;
-    i32 screen_y = (i32)pos.y + offset_y + qh;
+    // (npt): Apply camera transform: position - camera, then scale by zoom
+    i32 screen_x = (i32)(((f32)pos.x + (f32)hw - (f32)camera_x) * zoom);
+    i32 screen_y = (i32)(((f32)pos.y + (f32)qh - (f32)camera_y) * zoom);
+
+    // (npt): Scale diamond dimensions by zoom
+    i32 hw_z = (i32)((f32)hw * zoom);
+    i32 qh_z = (i32)((f32)qh * zoom);
 
     SDL_FPoint points[4] = {
-        {(f32)screen_x, (f32)(screen_y - qh)},           // top
-        {(f32)(screen_x + hw), (f32)screen_y},           // right
-        {(f32)screen_x, (f32)(screen_y + qh)},           // bottom
-        {(f32)(screen_x - hw), (f32)screen_y},           // left
+        {(f32)screen_x, (f32)(screen_y - qh_z)},
+        {(f32)(screen_x + hw_z), (f32)screen_y},
+        {(f32)screen_x, (f32)(screen_y + qh_z)},
+        {(f32)(screen_x - hw_z), (f32)screen_y},
     };
 
     SDL_SetRenderDrawColor(rend, r, g, b, 255);
@@ -71,24 +75,28 @@ static void render_rect_iso(SDL_Renderer *rend, i32 grid_x, i32 grid_y, i32 tile
     }
 }
 
-static void render_miner(SDL_Renderer *rend, Entity_Miner *miner, i32 tile_size, i32 offset_x, i32 offset_y) {
-    render_rect_iso(rend, miner->grid_x, miner->grid_y, tile_size, 139, 90, 43, offset_x, offset_y);
+static void render_miner(SDL_Renderer *rend, Entity_Miner *miner, i32 tile_size, i32 camera_x, i32 camera_y, f32 zoom) {
+    render_rect_iso(rend, miner->grid_x, miner->grid_y, tile_size, 139, 90, 43, camera_x, camera_y, zoom);
 
     Vec2 pos = grid_to_isometric(miner->grid_x, miner->grid_y, tile_size);
-    i32 cx = (i32)pos.x + offset_x + tile_size / 2;
-    i32 cy = (i32)pos.y + offset_y + tile_size / 4;
+    i32 hw = tile_size / 2;
+    i32 qh = tile_size / 4;
+    i32 cx = (i32)(((f32)pos.x + (f32)hw - (f32)camera_x) * zoom);
+    i32 cy = (i32)(((f32)pos.y + (f32)qh - (f32)camera_y) * zoom);
 
     SDL_SetRenderDrawColor(rend, 200, 200, 200, 255);
     SDL_RenderLine(rend, cx - 3, cy - 2, cx + 3, cy + 2);
     SDL_RenderLine(rend, cx - 3, cy + 2, cx + 3, cy - 2);
 }
 
-static void render_storage(SDL_Renderer *rend, Entity_Storage *storage, i32 tile_size, i32 offset_x, i32 offset_y) {
-    render_rect_iso(rend, storage->grid_x, storage->grid_y, tile_size, 150, 150, 150, offset_x, offset_y);
+static void render_storage(SDL_Renderer *rend, Entity_Storage *storage, i32 tile_size, i32 camera_x, i32 camera_y, f32 zoom) {
+    render_rect_iso(rend, storage->grid_x, storage->grid_y, tile_size, 150, 150, 150, camera_x, camera_y, zoom);
 
     Vec2 pos = grid_to_isometric(storage->grid_x, storage->grid_y, tile_size);
-    i32 cx = (i32)pos.x + offset_x + tile_size / 2;
-    i32 cy = (i32)pos.y + offset_y + tile_size / 4;
+    i32 hw = tile_size / 2;
+    i32 qh = tile_size / 4;
+    i32 cx = (i32)(((f32)pos.x + (f32)hw - (f32)camera_x) * zoom);
+    i32 cy = (i32)(((f32)pos.y + (f32)qh - (f32)camera_y) * zoom);
 
     SDL_SetRenderDrawColor(rend, 200, 100, 50, 255);
     i32 fill_height = (storage->ore_stored * tile_size / 4) / storage->ore_capacity;
@@ -99,21 +107,21 @@ static void render_storage(SDL_Renderer *rend, Entity_Storage *storage, i32 tile
 }
 
 // Render all entities in the world to the given viewport.
-void render_world(UI_Context *ui, World *w, i32 tile_size, i32 offset_x, i32 offset_y) {
+void render_world(UI_Context *ui, World *w, i32 tile_size, i32 camera_x, i32 camera_y, f32 zoom) {
     if (!ui || !ui->renderer || !w) return;
     for (i32 i = 0; i < w->entity_count; i++) {
         Entity *e = &w->entities[i];
 
         if (e->type == ENTITY_MINER) {
-            render_miner(ui->renderer, &e->data.miner, tile_size, offset_x, offset_y);
+            render_miner(ui->renderer, &e->data.miner, tile_size, camera_x, camera_y, zoom);
         } else if (e->type == ENTITY_STORAGE) {
-            render_storage(ui->renderer, &e->data.storage, tile_size, offset_x, offset_y);
+            render_storage(ui->renderer, &e->data.storage, tile_size, camera_x, camera_y, zoom);
         }
     }
 }
 
 // Render a semi-transparent preview at the snapped grid position.
-void render_hover_preview(SDL_Renderer *rend, i32 grid_x, i32 grid_y, i32 tile_size, i32 offset_x, i32 offset_y, i32 tool) {
+void render_hover_preview(SDL_Renderer *rend, i32 grid_x, i32 grid_y, i32 tile_size, i32 camera_x, i32 camera_y, f32 zoom, i32 tool) {
     if (!rend) return;
 
     Vec2 pos = grid_to_isometric(grid_x, grid_y, tile_size);
@@ -121,15 +129,18 @@ void render_hover_preview(SDL_Renderer *rend, i32 grid_x, i32 grid_y, i32 tile_s
     i32 hw = tile_size / 2;
     i32 qh = tile_size / 4;
 
-    // (npt): Use same centering as render_rect_iso so preview matches placed machine
-    i32 screen_x = (i32)pos.x + offset_x + hw;
-    i32 screen_y = (i32)pos.y + offset_y + qh;
+    // (npt): Apply camera transform matching render_rect_iso
+    i32 screen_x = (i32)(((f32)pos.x + (f32)hw - (f32)camera_x) * zoom);
+    i32 screen_y = (i32)(((f32)pos.y + (f32)qh - (f32)camera_y) * zoom);
+
+    i32 hw_z = (i32)((f32)hw * zoom);
+    i32 qh_z = (i32)((f32)qh * zoom);
 
     SDL_FPoint points[4] = {
-        {(f32)screen_x, (f32)(screen_y - qh)},
-        {(f32)(screen_x + hw), (f32)screen_y},
-        {(f32)screen_x, (f32)(screen_y + qh)},
-        {(f32)(screen_x - hw), (f32)screen_y},
+        {(f32)screen_x, (f32)(screen_y - qh_z)},
+        {(f32)(screen_x + hw_z), (f32)screen_y},
+        {(f32)screen_x, (f32)(screen_y + qh_z)},
+        {(f32)(screen_x - hw_z), (f32)screen_y},
     };
 
     u8 r = 100, g = 200, b = 100;

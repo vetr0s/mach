@@ -28,19 +28,36 @@ void core_run(Core_Engine *e) {
 
     Font *font = font_create(e->ui.renderer);
 
-    // (npt): Variable timestep - uncapped frame rate to see maximum performance
-    const f32 MAX_DT = 0.1f;  // Clamp dt to prevent large jumps (e.g., if paused)
+    // (npt): Variable timestep with soft cap at 120 FPS to balance performance and CPU usage
+    const u32 TARGET_FRAME_MS = 8;  // ~120 FPS soft cap
+    const f32 MAX_DT = 0.1f;        // Clamp dt to prevent large jumps
 
     i32 frame_count = 0;
     i32 fps = 0;
     u32 fps_timer = SDL_GetTicks();
     u32 last_frame_time = SDL_GetTicks();
 
+    // Camera panning state
+    f32 pan_speed = 300.0f;  // pixels per second
+
     while (e->running) {
         u32 frame_start = SDL_GetTicks();
         f32 dt = (f32)(frame_start - last_frame_time) / 1000.0f;
         if (dt > MAX_DT) dt = MAX_DT;
         last_frame_time = frame_start;
+
+        // Update keyboard state for continuous input
+        const u8 *key_state = SDL_GetKeyboardState(NULL);
+
+        // Camera panning with arrow keys and WASD
+        f32 pan_x = 0.0f, pan_y = 0.0f;
+        if (key_state[SDL_SCANCODE_LEFT] || key_state[SDL_SCANCODE_A]) pan_x -= pan_speed * dt;
+        if (key_state[SDL_SCANCODE_RIGHT] || key_state[SDL_SCANCODE_D]) pan_x += pan_speed * dt;
+        if (key_state[SDL_SCANCODE_UP] || key_state[SDL_SCANCODE_W]) pan_y -= pan_speed * dt;
+        if (key_state[SDL_SCANCODE_DOWN] || key_state[SDL_SCANCODE_S]) pan_y += pan_speed * dt;
+        if (pan_x != 0.0f || pan_y != 0.0f) {
+            game_camera_pan(&game, pan_x, pan_y);
+        }
 
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
@@ -64,6 +81,11 @@ void core_run(Core_Engine *e) {
                 }
                 break;
             }
+            case SDL_EVENT_MOUSE_WHEEL: {
+                f32 zoom_delta = (event.wheel.direction == SDL_MOUSEWHEEL_NORMAL) ? event.wheel.y * 0.1f : event.wheel.y * -0.1f;
+                game_camera_zoom(&game, zoom_delta);
+                break;
+            }
             default:
                 break;
             }
@@ -74,9 +96,9 @@ void core_run(Core_Engine *e) {
         SDL_SetRenderDrawColor(e->ui.renderer, 0x1e, 0x29, 0x3b, 0xff);
         SDL_RenderClear(e->ui.renderer);
 
-        render_world(&e->ui, game.world, game.tile_size, game.view_offset_x, game.view_offset_y);
+        render_world(&e->ui, game.world, game.tile_size, (i32)game.camera_x, (i32)game.camera_y, game.zoom);
         render_hover_preview(e->ui.renderer, game.hover_grid_x, game.hover_grid_y, game.tile_size,
-                            game.view_offset_x, game.view_offset_y, game.selected_tool);
+                            (i32)game.camera_x, (i32)game.camera_y, game.zoom, game.selected_tool);
 
         // Debug display with font
         if (font) {
@@ -103,6 +125,12 @@ void core_run(Core_Engine *e) {
             fps = frame_count;
             frame_count = 0;
             fps_timer = SDL_GetTicks();
+        }
+
+        // Soft frame cap at 120 FPS
+        u32 frame_time = SDL_GetTicks() - frame_start;
+        if (frame_time < TARGET_FRAME_MS) {
+            SDL_Delay(TARGET_FRAME_MS - frame_time);
         }
     }
 

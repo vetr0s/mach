@@ -1,5 +1,9 @@
 # mach engine — roadmap
 
+## NOTES
+
+- RE: gdd, think city skylines mixed with miners haven and a pinch of factorio
+
 ## Core engine
 - [x] Game loop: update/render separation, variable timestep with soft cap
 - [x] Input system: keyboard, mouse

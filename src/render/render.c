@@ -149,43 +149,36 @@ void render_hover_preview(SDL_Renderer *rend, i32 grid_x, i32 grid_y, i32 tile_s
 void render_debug_text(SDL_Renderer *rend, i32 fps, i32 tool, i32 screen_w, i32 screen_h) {
     (void)screen_w;
     (void)screen_h;
-    (void)tool;
 
     if (!rend) return;
 
     i32 x = 10, y = 10;
-    i32 line_h = 20;
 
-    render_rect_filled(rend, x - 5, y - 5, 200, 120, 0, 0, 0, 200);
-    render_rect_outline(rend, x - 5, y - 5, 200, 120, 200, 200, 200);
+    // Background panel
+    render_rect_filled(rend, x, y, 150, 80, 0, 0, 0, 220);
+    render_rect_outline(rend, x, y, 150, 80, 100, 200, 100);
 
-    // (npt): Simple numeric FPS display using filled rectangles
-    i32 digit_y = y;
-    i32 digit_w = 6;
-    i32 digit_h = 10;
+    // (npt): FPS bar - draw filled rectangles representing FPS value
+    i32 bar_width = (fps * 120) / 60;
+    if (bar_width > 120) bar_width = 120;
+    render_rect_filled(rend, x + 10, y + 10, bar_width, 15, 100, 255, 100, 255);
+    render_rect_outline(rend, x + 10, y + 10, 120, 15, 100, 200, 100);
 
-    if (fps >= 100) {
-        i32 hundreds = fps / 100;
-        for (i32 i = 0; i < hundreds; i++) {
-            render_rect_filled(rend, x + i * 8, digit_y, digit_w, digit_h, 100, 255, 100, 255);
-        }
+    // Tool indicator: 3 colored blocks
+    u8 tool_colors[4][3] = {
+        {100, 100, 100},  // 0 = none (gray)
+        {100, 255, 100},  // 1 = miner (green)
+        {150, 150, 255},  // 2 = storage (blue)
+        {255, 100, 100},  // 3 = delete (red)
+    };
+
+    for (i32 i = 0; i < 3; i++) {
+        u8 r = tool_colors[i + 1][0];
+        u8 g = tool_colors[i + 1][1];
+        u8 b = tool_colors[i + 1][2];
+        u8 a = (i + 1 == tool) ? 255 : 100;
+
+        render_rect_filled(rend, x + 10 + i * 35, y + 35, 30, 30, r, g, b, a);
+        render_rect_outline(rend, x + 10 + i * 35, y + 35, 30, 30, r, g, b);
     }
-
-    render_line(rend, x + 50, digit_y, x + 50, digit_y + digit_h, 100, 200, 100);
-    render_line(rend, x + 52, digit_y, x + 52, digit_y + digit_h, 100, 200, 100);
-
-    y += line_h;
-
-    render_line(rend, x, y, x + 40, y, 150, 150, 200);
-    render_line(rend, x, y + 2, x + 40, y + 2, 150, 150, 200);
-
-    y += line_h;
-    render_line(rend, x, y, x + 15, y, 200, 200, 100);
-    render_line(rend, x, y + 2, x + 15, y + 2, 200, 200, 100);
-    render_line(rend, x + 20, y, x + 35, y, 200, 200, 100);
-    render_line(rend, x + 20, y + 2, x + 35, y + 2, 200, 200, 100);
-
-    y += line_h;
-    render_line(rend, x, y, x + 20, y, 200, 100, 100);
-    render_line(rend, x, y + 2, x + 20, y + 2, 200, 100, 100);
 }

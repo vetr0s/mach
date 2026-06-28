@@ -1,29 +1,28 @@
-// Font implementation: hardcoded 8x8 bitmap font, immediate-mode rendering
-// (included into mach.c).
+// Font implementation: 8x8 glyphs baked into a GPU atlas (included into mach.c).
 //
-// Glyphs are stored as a static table indexed by (ascii - FONT_FIRST_CHAR).
-// Each glyph is FONT_HEIGHT rows of 8 bits, MSB = leftmost pixel. Undefined
-// printable characters render blank.
+// Glyphs are stored as a static bit table, then expanded into an R8 atlas
+// texture at startup. The atlas is a 16x6 grid of 8x8 cells: indices 0..94 hold
+// printable ASCII (32..126), and the last cell is a solid white texel so the 2D
+// overlay can draw filled rectangles with the same texture/pipeline.
 
 #include "font.h"
 #include "../debug.h"
 #include <stdlib.h>
+#include <string.h>
 
-#define FONT_GLYPH_W   8   // glyph cell width in pixels
-#define FONT_GLYPH_H   8   // glyph cell height in pixels
-#define FONT_ADVANCE   9   // horizontal step per character (1px tracking)
-#define FONT_FIRST_CHAR 32 // first ASCII codepoint in the table (space)
+#define FONT_FIRST_CHAR 32
 #define FONT_LAST_CHAR  126
-#define FONT_GLYPH_COUNT (FONT_LAST_CHAR - FONT_FIRST_CHAR + 1)
+#define FONT_GLYPH_COUNT (FONT_LAST_CHAR - FONT_FIRST_CHAR + 1)  // 95
 
-struct Font {
-    i32 glyph_w;
-    i32 glyph_h;
-    i32 advance;
-};
+#define CELL      8
+#define ATLAS_COLS 16
+#define ATLAS_ROWS 6
+#define ATLAS_W   (ATLAS_COLS * CELL)  // 128
+#define ATLAS_H   (ATLAS_ROWS * CELL)  // 48
+#define WHITE_CELL FONT_GLYPH_COUNT     // index 95 -> col 15, row 5
 
-// 8x8 glyphs indexed by (ascii - FONT_FIRST_CHAR). Entries left unset are blank.
-static const u8 GLYPHS[FONT_GLYPH_COUNT][FONT_GLYPH_H] = {
+// 8x8 glyphs indexed by (ascii - FONT_FIRST_CHAR). MSB = leftmost pixel.
+static const u8 GLYPHS[FONT_GLYPH_COUNT][CELL] = {
     [' ' - FONT_FIRST_CHAR] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
     ['0' - FONT_FIRST_CHAR] = {0x3C, 0x66, 0x66, 0x66, 0x66, 0x66, 0x3C, 0x00},
     ['1' - FONT_FIRST_CHAR] = {0x18, 0x38, 0x18, 0x18, 0x18, 0x18, 0x3C, 0x00},
@@ -90,46 +89,111 @@ static const u8 GLYPHS[FONT_GLYPH_COUNT][FONT_GLYPH_H] = {
     ['z' - FONT_FIRST_CHAR] = {0x00, 0x7E, 0x0C, 0x18, 0x30, 0x60, 0x7E, 0x00},
 };
 
-Font* font_create(SDL_Renderer *rend) {
-    (void)rend;  // immediate-mode font needs no GPU resources
+// Expand the bit table into an R8 pixel buffer (caller frees).
+static u8 *font_build_pixels(void) {
+    u8 *px = (u8 *)calloc(ATLAS_W * ATLAS_H, 1);
+    if (!px) return NULL;
 
-    Font *font = (Font *)malloc(sizeof(Font));
-    if (!font) {
-        LOG_ERROR("font_create: allocation failed");
+    for (i32 idx = 0; idx < FONT_GLYPH_COUNT; idx++) {
+        i32 cx = (idx % ATLAS_COLS) * CELL;
+        i32 cy = (idx / ATLAS_COLS) * CELL;
+        for (i32 r = 0; r < CELL; r++) {
+            u8 bits = GLYPHS[idx][r];
+            for (i32 c = 0; c < CELL; c++) {
+                if (bits & (0x80 >> c)) px[(cy + r) * ATLAS_W + (cx + c)] = 255;
+            }
+        }
+    }
+    // Solid white cell for filled rects.
+    i32 wx = (WHITE_CELL % ATLAS_COLS) * CELL;
+    i32 wy = (WHITE_CELL / ATLAS_COLS) * CELL;
+    for (i32 r = 0; r < CELL; r++)
+        for (i32 c = 0; c < CELL; c++)
+            px[(wy + r) * ATLAS_W + (wx + c)] = 255;
+
+    return px;
+}
+
+Font *font_create(SDL_GPUDevice *device) {
+    Font *font = (Font *)calloc(1, sizeof(Font));
+    if (!font) return NULL;
+
+    font->glyph_w = CELL;
+    font->glyph_h = CELL;
+    font->advance = CELL + 1;
+    font->atlas_w = (f32)ATLAS_W;
+    font->atlas_h = (f32)ATLAS_H;
+    font->white_u = ((WHITE_CELL % ATLAS_COLS) * CELL + CELL / 2) / (f32)ATLAS_W;
+    font->white_v = ((WHITE_CELL / ATLAS_COLS) * CELL + CELL / 2) / (f32)ATLAS_H;
+
+    u8 *px = font_build_pixels();
+    if (!px) { free(font); return NULL; }
+
+    SDL_GPUTextureCreateInfo tci = {0};
+    tci.type = SDL_GPU_TEXTURETYPE_2D;
+    tci.format = SDL_GPU_TEXTUREFORMAT_R8_UNORM;
+    tci.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+    tci.width = ATLAS_W;
+    tci.height = ATLAS_H;
+    tci.layer_count_or_depth = 1;
+    tci.num_levels = 1;
+    tci.sample_count = SDL_GPU_SAMPLECOUNT_1;
+    font->atlas = SDL_CreateGPUTexture(device, &tci);
+
+    SDL_GPUTransferBufferCreateInfo tbi = {
+        .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD, .size = ATLAS_W * ATLAS_H};
+    SDL_GPUTransferBuffer *tb = SDL_CreateGPUTransferBuffer(device, &tbi);
+    if (!font->atlas || !tb) {
+        LOG_ERROR("font_create: atlas/transfer creation failed: %s", SDL_GetError());
+        free(px);
+        font_destroy(device, font);
         return NULL;
     }
 
-    font->glyph_w = FONT_GLYPH_W;
-    font->glyph_h = FONT_GLYPH_H;
-    font->advance = FONT_ADVANCE;
+    void *map = SDL_MapGPUTransferBuffer(device, tb, false);
+    memcpy(map, px, ATLAS_W * ATLAS_H);
+    SDL_UnmapGPUTransferBuffer(device, tb);
+    free(px);
 
-    LOG_INFO("font created (%dx%d bitmap glyphs)", font->glyph_w, font->glyph_h);
+    SDL_GPUCommandBuffer *cmd = SDL_AcquireGPUCommandBuffer(device);
+    SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(cmd);
+    SDL_GPUTextureTransferInfo src = {
+        .transfer_buffer = tb, .offset = 0, .pixels_per_row = ATLAS_W, .rows_per_layer = ATLAS_H};
+    SDL_GPUTextureRegion dst = {.texture = font->atlas, .w = ATLAS_W, .h = ATLAS_H, .d = 1};
+    SDL_UploadToGPUTexture(copy, &src, &dst, false);
+    SDL_EndGPUCopyPass(copy);
+    SDL_SubmitGPUCommandBuffer(cmd);
+    SDL_ReleaseGPUTransferBuffer(device, tb);
+
+    SDL_GPUSamplerCreateInfo sci = {0};
+    sci.min_filter = SDL_GPU_FILTER_NEAREST;
+    sci.mag_filter = SDL_GPU_FILTER_NEAREST;
+    sci.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
+    sci.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    sci.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    sci.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    font->sampler = SDL_CreateGPUSampler(device, &sci);
+
+    LOG_INFO("font atlas created (%dx%d R8, %d glyphs)", ATLAS_W, ATLAS_H, FONT_GLYPH_COUNT);
     return font;
 }
 
-void font_destroy(Font *font) {
-    if (font) free(font);
+void font_destroy(SDL_GPUDevice *device, Font *font) {
+    if (!font) return;
+    if (font->sampler) SDL_ReleaseGPUSampler(device, font->sampler);
+    if (font->atlas) SDL_ReleaseGPUTexture(device, font->atlas);
+    free(font);
 }
 
-void font_render_text(SDL_Renderer *rend, Font *font, const char *text, i32 x, i32 y, u8 r, u8 g, u8 b) {
-    if (!rend || !font || !text) return;
-
-    SDL_SetRenderDrawColor(rend, r, g, b, 255);
-
-    i32 cur_x = x;
-    for (const char *c = text; *c; c++) {
-        u8 ch = (u8)*c;
-        if (ch >= FONT_FIRST_CHAR && ch <= FONT_LAST_CHAR) {
-            const u8 *glyph = GLYPHS[ch - FONT_FIRST_CHAR];
-            for (i32 row = 0; row < font->glyph_h; row++) {
-                u8 bits = glyph[row];
-                for (i32 col = 0; col < font->glyph_w; col++) {
-                    if (bits & (0x80 >> col)) {
-                        SDL_RenderPoint(rend, (f32)(cur_x + col), (f32)(y + row));
-                    }
-                }
-            }
-        }
-        cur_x += font->advance;
-    }
+b32 font_glyph_uv(const Font *font, char ch, f32 *u0, f32 *v0, f32 *u1, f32 *v1) {
+    u8 c = (u8)ch;
+    if (c < FONT_FIRST_CHAR || c > FONT_LAST_CHAR) return MACH_FALSE;
+    i32 idx = c - FONT_FIRST_CHAR;
+    f32 x0 = (f32)((idx % ATLAS_COLS) * CELL);
+    f32 y0 = (f32)((idx / ATLAS_COLS) * CELL);
+    *u0 = x0 / font->atlas_w;
+    *v0 = y0 / font->atlas_h;
+    *u1 = (x0 + CELL) / font->atlas_w;
+    *v1 = (y0 + CELL) / font->atlas_h;
+    return MACH_TRUE;
 }

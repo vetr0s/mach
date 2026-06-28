@@ -7,7 +7,7 @@
 - [ ] Memory: custom allocators, arena allocation
 
 ## Rendering
-- [x] 3D renderer on SDL_GPU (Metal/Vulkan/D3D12), runtime MSL shaders
+- [x] 3D renderer on SDL_GPU (Metal backend; runtime-compiled MSL shaders)
 - [x] Lit geometry: directional light + depth buffer
 - [x] Procedural meshes (cube, plane)
 - [x] Camera system: perspective + orthographic, pan/zoom, mouse-pick rays
@@ -19,7 +19,24 @@
 - [ ] External mesh assets (OBJ/glTF)
 - [ ] Sprite batching / instancing
 - [ ] Window resize handling (recreate depth target)
-- [ ] SPIR-V/DXIL shaders for non-Metal backends
+- [ ] **[v0.4.0] Cross-platform shaders.** The engine is currently macOS-only at
+      runtime: shaders are hand-written MSL and the device is created with
+      `SDL_GPU_SHADERFORMAT_MSL`, so it won't start on Windows/Linux. SDL_GPU only
+      accepts *precompiled bytecode* for Vulkan/D3D12 (no runtime source compile
+      like Metal), so going cross-platform means:
+      1. Rewrite the two shaders (3D lit, 2D overlay) once in HLSL, using
+         SDL_GPU's register-space binding model (vertex uniforms `space1`,
+         fragment uniforms `space3`, textures/samplers `space0`/`space2`).
+      2. Add `scripts/shaders.sh` to compile HLSL offline → SPIR-V (Vulkan, via
+         glslang) → MSL (Metal, via spirv-cross). This covers macOS/Linux/Windows
+         (Windows runs Vulkan). Bake outputs into a generated C header so the
+         single-binary unity build is preserved (no runtime asset files).
+      3. `gpu.c`: create the device with all formats and load the blob matching
+         `SDL_GetGPUShaderFormats`; drop the inline MSL strings.
+      - DXIL/D3D12 deferred: it needs the heavy DXC toolchain and isn't required
+        while Windows has Vulkan. Add later if a Vulkan-less Windows target shows up.
+      - Blocked today on tooling: no shadercross/DXC/glslang installed and no
+        Homebrew formula for shadercross — see the dev-environment note below.
 
 ## Math
 - [x] Vector2/3/4 types and operations
@@ -63,3 +80,12 @@
 - [x] macOS: building and running
 - [ ] Linux: build and test
 - [ ] Windows: build and test
+
+> **Note: move the primary dev environment off macOS.** macOS is a poor fit for
+> this kind of low-level graphics work — Apple deprecated OpenGL (frozen at 4.1),
+> has no native Vulkan, and the cross-platform shader toolchain (shadercross, DXC)
+> isn't readily available (no Homebrew formula), making the offline shader build
+> painful to even set up here. Metal-only is the path of least resistance on Mac,
+> which is exactly the lock-in we want to avoid for a cross-platform engine.
+> Plan to develop primarily on **Linux** (native Vulkan, full toolchain via the
+> package manager) and keep macOS as a secondary/test target.

@@ -5,6 +5,7 @@
 
 #include "../base/base.h"
 #include "../world/world.h"
+#include <SDL3/SDL.h>
 
 typedef struct {
     World *world;
@@ -21,5 +22,6 @@ void game_tick(Game_State *g);
 void game_shutdown(Game_State *g);
 void game_update_hover(Game_State *g, i32 mouse_x, i32 mouse_y);
 void game_handle_input(Game_State *g, i32 mouse_x, i32 mouse_y, i32 button);
+void game_handle_key(Game_State *g, SDL_Scancode scancode);
 
 #endif

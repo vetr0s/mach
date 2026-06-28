@@ -28,8 +28,12 @@ void core_run(Core_Engine *e) {
     const i32 TICKS_PER_SECOND = 60;
     const i32 TICK_MS = 1000 / TICKS_PER_SECOND;
 
+    i32 frame_count = 0;
+    i32 fps = 0;
+    u32 fps_timer = SDL_GetTicks();
+
     while (e->running) {
-        i32 frame_start = SDL_GetTicks();
+        u32 frame_start = SDL_GetTicks();
 
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
@@ -40,19 +44,16 @@ void core_run(Core_Engine *e) {
             case SDL_EVENT_KEY_DOWN:
                 if (event.key.scancode == SDL_SCANCODE_ESCAPE) {
                     e->running = 0;
+                } else {
+                    game_handle_key(&game, event.key.scancode);
                 }
                 break;
             case SDL_EVENT_MOUSE_MOTION:
                 game_update_hover(&game, event.motion.x, event.motion.y);
                 break;
             case SDL_EVENT_MOUSE_BUTTON_DOWN: {
-                i32 button = 0;
-                if (event.button.button == SDL_BUTTON_LEFT) button = 1;
-                else if (event.button.button == SDL_BUTTON_MIDDLE) button = 2;
-                else if (event.button.button == SDL_BUTTON_RIGHT) button = 3;
-
-                if (button != 0) {
-                    game_handle_input(&game, event.button.x, event.button.y, button);
+                if (event.button.button == SDL_BUTTON_LEFT) {
+                    game_handle_input(&game, event.button.x, event.button.y, 1);
                 }
                 break;
             }
@@ -61,23 +62,28 @@ void core_run(Core_Engine *e) {
             }
         }
 
-        // Tick the simulation
         game_tick(&game);
 
-        // Render
         SDL_SetRenderDrawColor(e->ui.renderer, 0x1e, 0x29, 0x3b, 0xff);
         SDL_RenderClear(e->ui.renderer);
 
         render_world(&e->ui, game.world, game.tile_size, game.view_offset_x, game.view_offset_y);
-
-        // (npt): Show a preview diamond at the snapped grid position
         render_hover_preview(e->ui.renderer, game.hover_grid_x, game.hover_grid_y, game.tile_size,
                             game.view_offset_x, game.view_offset_y, game.selected_tool);
 
+        render_debug_text(e->ui.renderer, fps, game.selected_tool, 1280, 720);
+
         SDL_RenderPresent(e->ui.renderer);
 
-        // Frame rate limiting
-        i32 frame_time = SDL_GetTicks() - frame_start;
+        frame_count++;
+        u32 elapsed = SDL_GetTicks() - fps_timer;
+        if (elapsed >= 1000) {
+            fps = frame_count;
+            frame_count = 0;
+            fps_timer = SDL_GetTicks();
+        }
+
+        u32 frame_time = SDL_GetTicks() - frame_start;
         if (frame_time < TICK_MS) {
             SDL_Delay(TICK_MS - frame_time);
         }

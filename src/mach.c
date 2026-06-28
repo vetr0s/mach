@@ -13,7 +13,7 @@
   RENDERING
   [ ] Sprite system: loading, drawing, transforms
   [ ] Texture loading: PNG/BMP support
-  [ ] Drawing primitives: rectangles, circles, lines
+  [x] Drawing primitives: rectangles, circles, lines
   [ ] Camera system: viewport, scrolling
   [ ] Sprite batching: efficient rendering
 

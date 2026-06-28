@@ -11,6 +11,41 @@ Vec2 grid_to_isometric(i32 grid_x, i32 grid_y, i32 tile_size) {
     return result;
 }
 
+// Drawing primitives
+
+void render_rect_filled(SDL_Renderer *rend, i32 x, i32 y, i32 w, i32 h, u8 r, u8 g, u8 b, u8 a) {
+    if (!rend) return;
+    SDL_SetRenderDrawColor(rend, r, g, b, a);
+    SDL_FRect rect = {(f32)x, (f32)y, (f32)w, (f32)h};
+    SDL_RenderFillRect(rend, &rect);
+}
+
+void render_rect_outline(SDL_Renderer *rend, i32 x, i32 y, i32 w, i32 h, u8 r, u8 g, u8 b) {
+    if (!rend) return;
+    SDL_SetRenderDrawColor(rend, r, g, b, 255);
+    SDL_FRect rect = {(f32)x, (f32)y, (f32)w, (f32)h};
+    SDL_RenderRect(rend, &rect);
+}
+
+void render_circle_filled(SDL_Renderer *rend, i32 cx, i32 cy, i32 radius, u8 r, u8 g, u8 b, u8 a) {
+    if (!rend || radius <= 0) return;
+    SDL_SetRenderDrawColor(rend, r, g, b, a);
+
+    for (i32 y = -radius; y <= radius; y++) {
+        for (i32 x = -radius; x <= radius; x++) {
+            if (x * x + y * y <= radius * radius) {
+                SDL_RenderPoint(rend, (f32)(cx + x), (f32)(cy + y));
+            }
+        }
+    }
+}
+
+void render_line(SDL_Renderer *rend, i32 x1, i32 y1, i32 x2, i32 y2, u8 r, u8 g, u8 b) {
+    if (!rend) return;
+    SDL_SetRenderDrawColor(rend, r, g, b, 255);
+    SDL_RenderLine(rend, (f32)x1, (f32)y1, (f32)x2, (f32)y2);
+}
+
 static void render_rect_iso(SDL_Renderer *rend, i32 grid_x, i32 grid_y, i32 tile_size,
                             u8 r, u8 g, u8 b, i32 offset_x, i32 offset_y) {
     Vec2 pos = grid_to_isometric(grid_x, grid_y, tile_size);
@@ -108,4 +143,49 @@ void render_hover_preview(SDL_Renderer *rend, i32 grid_x, i32 grid_y, i32 tile_s
     for (i32 i = 0; i < 4; i++) {
         SDL_RenderLine(rend, points[i].x, points[i].y, points[(i + 1) % 4].x, points[(i + 1) % 4].y);
     }
+}
+
+// Debug text display: FPS and current tool binds.
+void render_debug_text(SDL_Renderer *rend, i32 fps, i32 tool, i32 screen_w, i32 screen_h) {
+    (void)screen_w;
+    (void)screen_h;
+    (void)tool;
+
+    if (!rend) return;
+
+    i32 x = 10, y = 10;
+    i32 line_h = 20;
+
+    render_rect_filled(rend, x - 5, y - 5, 200, 120, 0, 0, 0, 200);
+    render_rect_outline(rend, x - 5, y - 5, 200, 120, 200, 200, 200);
+
+    // (npt): Simple numeric FPS display using filled rectangles
+    i32 digit_y = y;
+    i32 digit_w = 6;
+    i32 digit_h = 10;
+
+    if (fps >= 100) {
+        i32 hundreds = fps / 100;
+        for (i32 i = 0; i < hundreds; i++) {
+            render_rect_filled(rend, x + i * 8, digit_y, digit_w, digit_h, 100, 255, 100, 255);
+        }
+    }
+
+    render_line(rend, x + 50, digit_y, x + 50, digit_y + digit_h, 100, 200, 100);
+    render_line(rend, x + 52, digit_y, x + 52, digit_y + digit_h, 100, 200, 100);
+
+    y += line_h;
+
+    render_line(rend, x, y, x + 40, y, 150, 150, 200);
+    render_line(rend, x, y + 2, x + 40, y + 2, 150, 150, 200);
+
+    y += line_h;
+    render_line(rend, x, y, x + 15, y, 200, 200, 100);
+    render_line(rend, x, y + 2, x + 15, y + 2, 200, 200, 100);
+    render_line(rend, x + 20, y, x + 35, y, 200, 200, 100);
+    render_line(rend, x + 20, y + 2, x + 35, y + 2, 200, 200, 100);
+
+    y += line_h;
+    render_line(rend, x, y, x + 20, y, 200, 100, 100);
+    render_line(rend, x, y + 2, x + 20, y + 2, 200, 100, 100);
 }

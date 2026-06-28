@@ -65,20 +65,42 @@ void game_shutdown(Game_State *g) {
     }
 }
 
-// Handle mouse input for machine placement and deletion. Button: 1=place miner, 2=place storage, 3=delete.
+// Handle mouse input for machine placement and deletion.
 void game_handle_input(Game_State *g, i32 mouse_x, i32 mouse_y, i32 button) {
     if (!g || !g->world) return;
 
     game_update_hover(g, mouse_x, mouse_y);
 
+    // Left click: place selected tool or delete if in delete mode
     if (button == 1) {
-        world_spawn_miner(g->world, g->hover_grid_x, g->hover_grid_y);
-    } else if (button == 2) {
-        world_spawn_storage(g->world, g->hover_grid_x, g->hover_grid_y);
-    } else if (button == 3) {
-        i32 entity_id = world_get_entity_at(g->world, g->hover_grid_x, g->hover_grid_y);
-        if (entity_id != 0) {
-            world_despawn(g->world, entity_id);
+        if (g->selected_tool == 1) {
+            world_spawn_miner(g->world, g->hover_grid_x, g->hover_grid_y);
+        } else if (g->selected_tool == 2) {
+            world_spawn_storage(g->world, g->hover_grid_x, g->hover_grid_y);
+        } else if (g->selected_tool == 3) {
+            i32 entity_id = world_get_entity_at(g->world, g->hover_grid_x, g->hover_grid_y);
+            if (entity_id != 0) {
+                world_despawn(g->world, entity_id);
+            }
         }
+    }
+}
+
+// Handle keyboard input for tool selection and actions.
+void game_handle_key(Game_State *g, SDL_Scancode scancode) {
+    if (!g) return;
+
+    switch (scancode) {
+    case SDL_SCANCODE_1:
+        g->selected_tool = (g->selected_tool == 1) ? 0 : 1;
+        break;
+    case SDL_SCANCODE_2:
+        g->selected_tool = (g->selected_tool == 2) ? 0 : 2;
+        break;
+    case SDL_SCANCODE_3:
+        g->selected_tool = (g->selected_tool == 3) ? 0 : 3;
+        break;
+    default:
+        break;
     }
 }

@@ -42,15 +42,16 @@ typedef struct {
 } Entity;
 
 // World state: all entities and game state
-#define MAX_ENTITIES 10000
+#define MAX_ENTITIES    10000
+#define WORLD_GRID_SIZE 256
 
 typedef struct {
     Entity entities[MAX_ENTITIES];
     i32 entity_count;
 
-    // Grid state: what's at each position
-    // 0 = empty, >0 = entity index + 1
-    i32 grid[256][256];
+    // Grid state: what's at each position.
+    // 0 = empty, >0 = entity ID (entity index + 1).
+    i32 grid[WORLD_GRID_SIZE][WORLD_GRID_SIZE];
 
     // Time tracking
     i32 tick;
@@ -70,6 +71,9 @@ void world_despawn(World *w, i32 entity_id);
 // Query
 i32 world_get_entity_at(World *w, i32 x, i32 y);
 Entity* world_get_entity(World *w, i32 entity_id);
-int world_can_place_at(World *w, i32 x, i32 y);
+b32 world_can_place_at(World *w, i32 x, i32 y);
+
+// Read the grid position of any entity regardless of its concrete type.
+void entity_grid_pos(const Entity *e, i32 *out_x, i32 *out_y);
 
 #endif

@@ -12,7 +12,7 @@ typedef struct {
     i32        running;
 } Core_Engine;
 
-int  core_init(Core_Engine *e, const char *title, i32 w, i32 h);
+b32  core_init(Core_Engine *e, const char *title, i32 w, i32 h);
 void core_run(Core_Engine *e);
 void core_shutdown(Core_Engine *e);
 

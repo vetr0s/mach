@@ -145,6 +145,16 @@ void render_hover_preview(SDL_Renderer *rend, i32 grid_x, i32 grid_y, i32 tile_s
     }
 }
 
+// (npt): Draw a simple digit using 7-segment style lines (very basic).
+static void draw_digit(SDL_Renderer *rend, i32 x, i32 y, i32 digit) {
+    // Draw simple vertical bars for each digit (0-9)
+    // Just draw bars representing the digit value visually
+    i32 bar_height = 8;
+    for (i32 i = 0; i < digit % 10; i++) {
+        render_rect_filled(rend, x + i * 3, y, 2, bar_height, 150, 200, 100, 255);
+    }
+}
+
 // Debug text display: FPS and current tool binds.
 void render_debug_text(SDL_Renderer *rend, i32 fps, i32 tool, i32 screen_w, i32 screen_h) {
     (void)screen_w;
@@ -155,14 +165,15 @@ void render_debug_text(SDL_Renderer *rend, i32 fps, i32 tool, i32 screen_w, i32 
     i32 x = 10, y = 10;
 
     // Background panel
-    render_rect_filled(rend, x, y, 150, 80, 0, 0, 0, 220);
-    render_rect_outline(rend, x, y, 150, 80, 100, 200, 100);
+    render_rect_filled(rend, x, y, 180, 100, 0, 0, 0, 220);
+    render_rect_outline(rend, x, y, 180, 100, 100, 200, 100);
 
-    // (npt): FPS bar - draw filled rectangles representing FPS value
-    i32 bar_width = (fps * 120) / 60;
-    if (bar_width > 120) bar_width = 120;
-    render_rect_filled(rend, x + 10, y + 10, bar_width, 15, 100, 255, 100, 255);
-    render_rect_outline(rend, x + 10, y + 10, 120, 15, 100, 200, 100);
+    // FPS display - draw tens and ones digits
+    i32 fps_tens = fps / 10;
+    i32 fps_ones = fps % 10;
+
+    draw_digit(rend, x + 15, y + 12, fps_tens);
+    draw_digit(rend, x + 50, y + 12, fps_ones);
 
     // Tool indicator: 3 colored blocks
     u8 tool_colors[4][3] = {
@@ -176,9 +187,17 @@ void render_debug_text(SDL_Renderer *rend, i32 fps, i32 tool, i32 screen_w, i32 
         u8 r = tool_colors[i + 1][0];
         u8 g = tool_colors[i + 1][1];
         u8 b = tool_colors[i + 1][2];
-        u8 a = (i + 1 == tool) ? 255 : 100;
 
-        render_rect_filled(rend, x + 10 + i * 35, y + 35, 30, 30, r, g, b, a);
-        render_rect_outline(rend, x + 10 + i * 35, y + 35, 30, 30, r, g, b);
+        i32 size = (i + 1 == tool) ? 40 : 32;
+        i32 offset = (i + 1 == tool) ? -4 : 0;
+        i32 thick = (i + 1 == tool) ? 3 : 1;
+
+        render_rect_filled(rend, x + 20 + i * 48 + offset, y + 50 + offset, size, size, r, g, b, 255);
+
+        // Thicker outline for selected tool
+        for (i32 j = 0; j < thick; j++) {
+            render_rect_outline(rend, x + 20 + i * 48 + offset - j, y + 50 + offset - j,
+                               size + j * 2, size + j * 2, r, g, b);
+        }
     }
 }

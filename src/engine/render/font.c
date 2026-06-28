@@ -1,29 +1,17 @@
-// Font implementation: bitmap font rendering (included into mach.c).
+// Font implementation: Proggy Clean rendered to bitmap atlas (included into mach.c).
 
 #include "font.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
-// Create a simple monospace bitmap font by drawing characters to a surface.
-// Character grid: 16 chars wide × 8 rows (128 total ASCII chars 32-127).
-// Each char is 8×8 pixels on a white-on-black surface.
+#define STB_TRUETYPE_IMPLEMENTATION
+#include "../../../third_party/stb/stb_truetype.h"
 
-static void draw_bitmap_char(SDL_Surface *surf, int char_idx, u8 *bitmap) {
-    int grid_x = (char_idx % 16) * 8;
-    int grid_y = (char_idx / 16) * 8;
-
-    u32 white = SDL_MapSurfaceRGB(surf, 255, 255, 255);
-
-    for (int row = 0; row < 8; row++) {
-        u8 bits = bitmap[row];
-        for (int col = 0; col < 8; col++) {
-            if (bits & (0x80 >> col)) {
-                SDL_Rect rect = {grid_x + col, grid_y + row, 1, 1};
-                SDL_FillSurfaceRect(surf, &rect, white);
-            }
-        }
-    }
-}
+#define FONT_SIZE 8
+#define CHARS_PER_ROW 16
+#define CHARS_ROWS 8
+#define CHAR_SIZE 8
 
 Font* font_create(SDL_Renderer *rend) {
     if (!rend) return NULL;
@@ -31,11 +19,33 @@ Font* font_create(SDL_Renderer *rend) {
     Font *font = (Font *)malloc(sizeof(Font));
     if (!font) return NULL;
 
-    // Create 16×8 grid surface for 128 characters (32-127 ASCII)
-    int tex_w = 16 * 8;
-    int tex_h = 8 * 8;
+    // Try to load Proggy Clean TTF
+    FILE *f = fopen("assets/fonts/ProggyClean.ttf/ProggyClean.ttf", "rb");
+    int use_proggy = 0;
+
+    stbtt_fontinfo info = {0};
+    u8 *font_data = NULL;
+
+    if (f) {
+        fseek(f, 0, SEEK_END);
+        long fsize = ftell(f);
+        fseek(f, 0, SEEK_SET);
+
+        font_data = (u8 *)malloc(fsize);
+        if (font_data && fread(font_data, 1, fsize, f) == (size_t)fsize) {
+            if (stbtt_InitFont(&info, font_data, 0)) {
+                use_proggy = 1;
+            }
+        }
+        fclose(f);
+    }
+
+    // Create 16x8 grid surface (128 chars, 8x8 each)
+    int tex_w = CHARS_PER_ROW * CHAR_SIZE;
+    int tex_h = CHARS_ROWS * CHAR_SIZE;
     SDL_Surface *surf = SDL_CreateSurface(tex_w, tex_h, SDL_PIXELFORMAT_RGBA8888);
     if (!surf) {
+        if (font_data) free(font_data);
         free(font);
         return NULL;
     }
@@ -44,284 +54,62 @@ Font* font_create(SDL_Renderer *rend) {
     u32 black = SDL_MapSurfaceRGB(surf, 0, 0, 0);
     SDL_FillSurfaceRect(surf, NULL, black);
 
-    // Draw each ASCII character (32-127) as a simple bitmap pattern.
-    // Each character is defined as 8 bytes (8 rows × 8 bits).
+    if (use_proggy) {
+        // Render Proggy Clean TTF to grid
+        f32 scale = stbtt_ScaleForPixelHeight(&info, FONT_SIZE);
+        u32 white = SDL_MapSurfaceRGB(surf, 255, 255, 255);
 
-    for (int i = 0; i < 96; i++) {
-        char ch = (char)(32 + i);
-        u8 bitmap[8] = {0};
+        for (int i = 0; i < 96; i++) {
+            unsigned char ch = (unsigned char)(32 + i);
+            int grid_x = (i % CHARS_PER_ROW) * CHAR_SIZE;
+            int grid_y = (i / CHARS_PER_ROW) * CHAR_SIZE;
 
-        // Generate a simple bitmap for each character
-        switch (ch) {
-        case ' ': memset(bitmap, 0x00, 8); break;
-        case '0': {
-            u8 b[] = {0x3C, 0x66, 0x66, 0x66, 0x66, 0x66, 0x3C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case '1': {
-            u8 b[] = {0x18, 0x38, 0x18, 0x18, 0x18, 0x18, 0x3C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case '2': {
-            u8 b[] = {0x3C, 0x66, 0x06, 0x0C, 0x18, 0x30, 0x7E, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case '3': {
-            u8 b[] = {0x3C, 0x66, 0x06, 0x1C, 0x06, 0x66, 0x3C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case '4': {
-            u8 b[] = {0x0C, 0x1C, 0x3C, 0x6C, 0x7E, 0x0C, 0x0C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case '5': {
-            u8 b[] = {0x7E, 0x60, 0x7C, 0x06, 0x06, 0x66, 0x3C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case '6': {
-            u8 b[] = {0x3C, 0x66, 0x60, 0x7C, 0x66, 0x66, 0x3C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case '7': {
-            u8 b[] = {0x7E, 0x06, 0x0C, 0x18, 0x30, 0x60, 0x60, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case '8': {
-            u8 b[] = {0x3C, 0x66, 0x66, 0x3C, 0x66, 0x66, 0x3C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case '9': {
-            u8 b[] = {0x3C, 0x66, 0x66, 0x3E, 0x06, 0x66, 0x3C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case ':': {
-            u8 b[] = {0x00, 0x18, 0x18, 0x00, 0x18, 0x18, 0x00, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'F': {
-            u8 b[] = {0x7E, 0x60, 0x7C, 0x60, 0x60, 0x60, 0x60, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'M': {
-            u8 b[] = {0x63, 0x77, 0x7F, 0x6B, 0x63, 0x63, 0x63, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'P': {
-            u8 b[] = {0x7C, 0x66, 0x7C, 0x60, 0x60, 0x60, 0x60, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'S': {
-            u8 b[] = {0x3C, 0x66, 0x60, 0x3C, 0x06, 0x66, 0x3C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'T': {
-            u8 b[] = {0x7E, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'a': {
-            u8 b[] = {0x00, 0x3C, 0x06, 0x3E, 0x66, 0x66, 0x3C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'e': {
-            u8 b[] = {0x00, 0x3C, 0x66, 0x7E, 0x60, 0x66, 0x3C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'o': {
-            u8 b[] = {0x00, 0x3C, 0x66, 0x66, 0x66, 0x66, 0x3C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'r': {
-            u8 b[] = {0x00, 0x7C, 0x66, 0x60, 0x60, 0x60, 0x60, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'A': {
-            u8 b[] = {0x3C, 0x66, 0x66, 0x7E, 0x66, 0x66, 0x66, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'B': {
-            u8 b[] = {0x7C, 0x66, 0x7C, 0x66, 0x66, 0x66, 0x7C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'C': {
-            u8 b[] = {0x3C, 0x66, 0x60, 0x60, 0x60, 0x66, 0x3C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'D': {
-            u8 b[] = {0x78, 0x6C, 0x66, 0x66, 0x66, 0x6C, 0x78, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'E': {
-            u8 b[] = {0x7E, 0x60, 0x7C, 0x60, 0x60, 0x60, 0x7E, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'G': {
-            u8 b[] = {0x3C, 0x66, 0x60, 0x6E, 0x66, 0x66, 0x3C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'H': {
-            u8 b[] = {0x66, 0x66, 0x7E, 0x66, 0x66, 0x66, 0x66, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'I': {
-            u8 b[] = {0x3C, 0x18, 0x18, 0x18, 0x18, 0x18, 0x3C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'J': {
-            u8 b[] = {0x0E, 0x06, 0x06, 0x06, 0x66, 0x66, 0x3C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'K': {
-            u8 b[] = {0x66, 0x6C, 0x78, 0x70, 0x78, 0x6C, 0x66, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'L': {
-            u8 b[] = {0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x7E, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'N': {
-            u8 b[] = {0x63, 0x77, 0x7F, 0x6B, 0x63, 0x63, 0x63, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'O': {
-            u8 b[] = {0x3C, 0x66, 0x66, 0x66, 0x66, 0x66, 0x3C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'Q': {
-            u8 b[] = {0x3C, 0x66, 0x66, 0x66, 0x6E, 0x7C, 0x06, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'R': {
-            u8 b[] = {0x7C, 0x66, 0x66, 0x7C, 0x78, 0x6C, 0x66, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'U': {
-            u8 b[] = {0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x3C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'V': {
-            u8 b[] = {0x66, 0x66, 0x66, 0x66, 0x3C, 0x3C, 0x18, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'W': {
-            u8 b[] = {0x63, 0x63, 0x6B, 0x7F, 0x77, 0x63, 0x63, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'X': {
-            u8 b[] = {0x66, 0x66, 0x3C, 0x18, 0x3C, 0x66, 0x66, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'Y': {
-            u8 b[] = {0x66, 0x66, 0x3C, 0x18, 0x18, 0x18, 0x18, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'Z': {
-            u8 b[] = {0x7E, 0x06, 0x0C, 0x18, 0x30, 0x60, 0x7E, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'b': {
-            u8 b[] = {0x60, 0x60, 0x7C, 0x66, 0x66, 0x66, 0x7C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'c': {
-            u8 b[] = {0x00, 0x3C, 0x60, 0x60, 0x60, 0x60, 0x3C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'd': {
-            u8 b[] = {0x06, 0x06, 0x3E, 0x66, 0x66, 0x66, 0x3E, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'f': {
-            u8 b[] = {0x1C, 0x30, 0x7E, 0x30, 0x30, 0x30, 0x30, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'g': {
-            u8 b[] = {0x00, 0x3E, 0x66, 0x66, 0x3E, 0x06, 0x3C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'h': {
-            u8 b[] = {0x60, 0x60, 0x7C, 0x66, 0x66, 0x66, 0x66, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'i': {
-            u8 b[] = {0x18, 0x00, 0x18, 0x18, 0x18, 0x18, 0x3C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'j': {
-            u8 b[] = {0x0C, 0x00, 0x0C, 0x0C, 0x0C, 0x6C, 0x38, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'k': {
-            u8 b[] = {0x60, 0x60, 0x66, 0x6C, 0x78, 0x6C, 0x66, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'l': {
-            u8 b[] = {0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x3C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'm': {
-            u8 b[] = {0x00, 0x7C, 0xA6, 0x92, 0x92, 0x82, 0x82, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'n': {
-            u8 b[] = {0x00, 0x7C, 0x66, 0x66, 0x66, 0x66, 0x66, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'p': {
-            u8 b[] = {0x00, 0x7C, 0x66, 0x66, 0x7C, 0x60, 0x60, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'q': {
-            u8 b[] = {0x00, 0x3E, 0x66, 0x66, 0x3E, 0x06, 0x06, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 's': {
-            u8 b[] = {0x00, 0x3C, 0x60, 0x3C, 0x06, 0x06, 0x3C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 't': {
-            u8 b[] = {0x30, 0x7E, 0x30, 0x30, 0x30, 0x30, 0x1C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'u': {
-            u8 b[] = {0x00, 0x66, 0x66, 0x66, 0x66, 0x66, 0x3E, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'v': {
-            u8 b[] = {0x00, 0x66, 0x66, 0x66, 0x3C, 0x3C, 0x18, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'w': {
-            u8 b[] = {0x00, 0x63, 0x63, 0x6B, 0x7F, 0x37, 0x63, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'x': {
-            u8 b[] = {0x00, 0x66, 0x3C, 0x18, 0x3C, 0x66, 0x66, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'y': {
-            u8 b[] = {0x00, 0x66, 0x66, 0x3E, 0x06, 0x06, 0x3C, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        case 'z': {
-            u8 b[] = {0x00, 0x7E, 0x0C, 0x18, 0x30, 0x60, 0x7E, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
-        default: {
-            u8 b[] = {0xFF, 0x81, 0x81, 0x81, 0x81, 0x81, 0xFF, 0x00};
-            memcpy(bitmap, b, 8);
-        } break;
+            // Render glyph to bitmap
+            u8 *glyph_bitmap = (u8 *)malloc(CHAR_SIZE * CHAR_SIZE);
+            if (glyph_bitmap) {
+                memset(glyph_bitmap, 0, CHAR_SIZE * CHAR_SIZE);
+                stbtt_MakeCodepointBitmap(&info, glyph_bitmap, CHAR_SIZE, CHAR_SIZE,
+                                         CHAR_SIZE, scale, scale, ch);
+
+                // Copy to surface pixel-by-pixel using SDL_FillSurfaceRect
+                for (int gy = 0; gy < CHAR_SIZE; gy++) {
+                    for (int gx = 0; gx < CHAR_SIZE; gx++) {
+                        u8 alpha = glyph_bitmap[gy * CHAR_SIZE + gx];
+                        if (alpha > 127) {
+                            SDL_Rect pixel_rect = {grid_x + gx, grid_y + gy, 1, 1};
+                            SDL_FillSurfaceRect(surf, &pixel_rect, white);
+                        }
+                    }
+                }
+                free(glyph_bitmap);
+            }
         }
+        fprintf(stderr, "[FONT] Loaded Proggy Clean at %dpx\n", FONT_SIZE);
+    } else {
+        // Fallback: simple boxes to verify rendering works
+        fprintf(stderr, "[FONT] Proggy Clean not found, using test pattern\n");
 
-        draw_bitmap_char(surf, i, bitmap);
+        u32 white = SDL_MapSurfaceRGB(surf, 255, 255, 255);
+
+        // Draw test pattern: fill first character to verify rendering
+        SDL_Rect test_rect = {0, 0, CHAR_SIZE, CHAR_SIZE};
+        SDL_FillSurfaceRect(surf, &test_rect, white);
     }
 
     font->atlas = SDL_CreateTextureFromSurface(rend, surf);
-    SDL_DestroySurface(surf);
 
     if (!font->atlas) {
+        fprintf(stderr, "[FONT] Error: failed to create texture from surface\n");
+        SDL_DestroySurface(surf);
+        if (font_data) free(font_data);
         free(font);
         return NULL;
     }
+
+    fprintf(stderr, "[FONT] Atlas texture created: %dx%d\n", surf->w, surf->h);
+    SDL_DestroySurface(surf);
+
+    if (font_data) free(font_data);
 
     SDL_SetTextureBlendMode(font->atlas, SDL_BLENDMODE_BLEND);
     return font;
@@ -338,21 +126,42 @@ void font_destroy(Font *font) {
 void font_render_text(SDL_Renderer *rend, Font *font, const char *text, i32 x, i32 y, u8 r, u8 g, u8 b) {
     if (!rend || !font || !text) return;
 
+    if (!font->atlas) {
+        fprintf(stderr, "[FONT] Error: font->atlas is NULL\n");
+        return;
+    }
+
+    static int debug_once = 1;
+    if (debug_once && text[0]) {
+        fprintf(stderr, "[FONT] Render: text='%s' at (%d,%d) RGB(%d,%d,%d) atlas=%p\n", text, x, y, r, g, b, font->atlas);
+        debug_once = 0;
+    }
+
     SDL_SetTextureColorMod(font->atlas, r, g, b);
 
     i32 cur_x = x;
+    int char_count = 0;
     for (const char *c = text; *c; c++) {
         u8 ch = (u8)*c;
         if (ch < 32 || ch > 127) continue;
 
+        char_count++;
         i32 char_idx = ch - 32;
-        i32 src_x = (char_idx % 16) * 8;
-        i32 src_y = (char_idx / 16) * 8;
+        i32 src_x = (char_idx % CHARS_PER_ROW) * CHAR_SIZE;
+        i32 src_y = (char_idx / CHARS_PER_ROW) * CHAR_SIZE;
 
-        SDL_FRect src = {(f32)src_x, (f32)src_y, 8.0f, 8.0f};
-        SDL_FRect dst = {(f32)cur_x, (f32)y, 8.0f, 8.0f};
+        SDL_FRect src = {(f32)src_x, (f32)src_y, (f32)CHAR_SIZE, (f32)CHAR_SIZE};
+        SDL_FRect dst = {(f32)cur_x, (f32)y, (f32)CHAR_SIZE, (f32)CHAR_SIZE};
 
-        SDL_RenderTexture(rend, font->atlas, &src, &dst);
-        cur_x += 8;
+        int result = SDL_RenderTexture(rend, font->atlas, &src, &dst);
+        if (result != 0 && char_count == 1) {
+            fprintf(stderr, "[FONT] SDL_RenderTexture error: %s\n", SDL_GetError());
+        }
+
+        cur_x += CHAR_SIZE;
+    }
+
+    if (char_count > 0 && debug_once == 0) {
+        fprintf(stderr, "[FONT] Rendered %d chars\n", char_count);
     }
 }

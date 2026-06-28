@@ -4,8 +4,8 @@
 #define CORE_H
 
 #include "../base/base.h"
-#include "../os/os.h"
-#include "../ui/ui.h"
+#include "../os.h"
+#include "../ui.h"
 
 typedef struct {
     UI_Context ui;

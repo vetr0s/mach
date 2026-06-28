@@ -1,7 +1,7 @@
 // Core implementation (included into mach.c).
 
 #include "core.h"
-#include "../game/game.h"
+#include "../../game/game.h"
 #include "../render/render.h"
 #include <stdio.h>
 

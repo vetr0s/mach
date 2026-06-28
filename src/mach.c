@@ -63,16 +63,19 @@
   [ ] Windows: build and test
 */
 
-#include "base/base.h"
-#include "os/os.h"
-#include "ui/ui.h"
-#include "math/math.c"
-#include "world/world.c"
-#include "render/font.c"
-#include "render/render.c"
-#include "core/core.c"
+// Engine
+#include "engine/base/base.h"
+#include "engine/os.h"
+#include "engine/ui.h"
+#include "engine/debug.h"
+#include "engine/math/math.c"
+#include "engine/render/font.c"
+#include "engine/render/render.c"
+#include "engine/core/core.c"
+
+// Game
+#include "game/world/world.c"
 #include "game/game.c"
-#include "debug/debug.h"
 
 // Application entry point. Initialize engine and game, run main loop, clean up.
 int main(int argc, char **argv) {

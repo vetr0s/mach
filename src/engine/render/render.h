@@ -4,8 +4,8 @@
 #define RENDER_H
 
 #include "../base/base.h"
-#include "../ui/ui.h"
-#include "../world/world.h"
+#include "../ui.h"
+#include "../../game/world/world.h"
 #include "../math/math.h"
 #include "font.h"
 

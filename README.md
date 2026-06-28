@@ -32,12 +32,17 @@ Now you can:
 - `C-]` to jump to definition
 - `C-M-]` to go back
 
-## What is this
+## Philosophy
 
-- A game and its engine, built together toward one goal.
-- Pure C, no frameworks. SDL3 for windowing/input/rendering.
-- Unity build: one `.c` file, one compiler invocation.
-- Minimal tooling. The build is a shell script that calls the C compiler.
+**Pure C, no frameworks.** SDL3 for windowing/input/rendering only.
+
+**Unity build.** All code compiles in a single `clang` invocation. No separate build system—just `build.sh` (a shell script calling the compiler directly). Inspired by **RADDBG** and **Handmade Hero**.
+
+**Engine ÷ Game separation.** The engine (rendering, input, window management) lives in `src/engine/`. The game (entity types, rules, content) lives in `src/game/`. A future game would reuse `src/engine/` and write new `src/game/` code.
+
+**Fat struct ECS.** No generic component system. Each entity type is a full struct (e.g., `Entity_Miner`, `Entity_Storage`). Game logic directly accesses entity data. Inspired by Anton Kaplanyan's approach in *Working on the Wookash podcast*.
+
+**Modular subsystems.** Each subsystem (math, render, input, core) is self-contained. Headers declare the API; implementations are included into the unity root. Follows RADDBG's internal organization style.
 
 ## Platforms
 
@@ -45,18 +50,52 @@ Now you can:
 - Linux (scaffolding in place)
 - Windows (scaffolding in place)
 
-## Directory
+## Architecture
 
 ```
-build.sh                  Compiler invocation
-scripts/setup.sh          SDL3 build (run once)
 src/
-  mach.c                  Unity root, includes all modules
-  base/                   Fundamental types and utilities
-  os/                     Platform abstraction layer
-  ui/                     Window, renderer, event handling
-  core/                   Engine lifecycle
-  game/                   Game-specific logic
-  debug/                  Debug utilities (assertions, logging)
-third_party/SDL/          SDL3 (git submodule)
+  engine/                 # Reusable game engine
+    base/                 # Fundamental types (i32, f32, Vec2, etc.)
+    math/                 # Vector math, utilities
+    core/                 # Game loop, timing, window lifecycle
+    render/               # Drawing primitives, camera, font rendering
+    os.h                  # Platform detection
+    ui.h                  # Window/renderer context
+    debug.h               # Assertions, debug logging
+    
+  game/                   # Game-specific code (factory automation sim)
+    game.h/.c             # Game state and tick logic
+    world/                # Entity management, grid simulation
+    entities/             # (Future) Miner, conveyor, factory entities
+    systems/              # (Future) Resource flow, production rules
+    
+  mach.c                  # Unity root: includes engine + game, defines main()
+
+build.sh                  # Compiler invocation (macOS/Linux)
+build.bat                 # Compiler invocation (Windows)
+scripts/setup.sh          # SDL3 build (run once)
+third_party/SDL/          # SDL3 submodule
 ```
+
+## Entity System
+
+Entities are **fat structs**, not generic components:
+```c
+typedef struct {
+    i32 grid_x, grid_y;
+    i32 ore_stored;
+    i32 ore_capacity;
+} Entity_Storage;
+```
+
+The `World` tracks all entities in direct arrays and a grid-based spatial index:
+```c
+typedef struct {
+    Entity entities[MAX_ENTITIES];
+    i32 entity_count;
+    i32 grid[256][256];  // Spatial hash: what's at each grid cell
+    i32 tick;
+} World;
+```
+
+Game code directly iterates and updates entities. No indirection, no query systems. This keeps the game logic readable and performance predictable.

@@ -3,7 +3,7 @@
 #ifndef WORLD_H
 #define WORLD_H
 
-#include "../base/base.h"
+#include "../../engine/base/base.h"
 
 typedef enum {
     ENTITY_INVALID = 0,

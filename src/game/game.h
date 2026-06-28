@@ -3,8 +3,8 @@
 #ifndef GAME_H
 #define GAME_H
 
-#include "../base/base.h"
-#include "../world/world.h"
+#include "../engine/base/base.h"
+#include "world/world.h"
 #include <SDL3/SDL.h>
 
 typedef struct {

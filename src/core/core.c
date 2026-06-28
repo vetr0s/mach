@@ -3,6 +3,7 @@
 #include "core.h"
 #include "../game/game.h"
 #include "../render/render.h"
+#include <stdio.h>
 
 // Initialize SDL, create window and renderer.
 int core_init(Core_Engine *e, const char *title, i32 w, i32 h) {
@@ -24,6 +25,8 @@ int core_init(Core_Engine *e, const char *title, i32 w, i32 h) {
 void core_run(Core_Engine *e) {
     Game_State game = {0};
     game_init(&game);
+
+    Font *font = font_create(e->ui.renderer);
 
     const i32 TICKS_PER_SECOND = 60;
     const i32 TICK_MS = 1000 / TICKS_PER_SECOND;
@@ -71,7 +74,22 @@ void core_run(Core_Engine *e) {
         render_hover_preview(e->ui.renderer, game.hover_grid_x, game.hover_grid_y, game.tile_size,
                             game.view_offset_x, game.view_offset_y, game.selected_tool);
 
-        render_debug_text(e->ui.renderer, fps, game.selected_tool, 1280, 720);
+        // Debug display with font
+        if (font) {
+            char fps_text[32];
+            snprintf(fps_text, sizeof(fps_text), "FPS: %d", fps);
+            font_render_text(e->ui.renderer, font, fps_text, 10, 10, 100, 200, 100);
+
+            const char *tool_names[] = {"None", "Miner", "Storage", "Delete"};
+            const char *tool_name = (game.selected_tool >= 0 && game.selected_tool <= 3)
+                                   ? tool_names[game.selected_tool]
+                                   : "?";
+            char tool_text[32];
+            snprintf(tool_text, sizeof(tool_text), "Tool: %s", tool_name);
+            font_render_text(e->ui.renderer, font, tool_text, 10, 20, 100, 200, 100);
+
+            font_render_text(e->ui.renderer, font, "1:Miner 2:Storage 3:Delete", 10, 35, 150, 150, 150);
+        }
 
         SDL_RenderPresent(e->ui.renderer);
 
@@ -89,6 +107,7 @@ void core_run(Core_Engine *e) {
         }
     }
 
+    if (font) font_destroy(font);
     game_shutdown(&game);
 }
 

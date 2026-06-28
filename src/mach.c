@@ -65,6 +65,7 @@
 #include "ui/ui.h"
 #include "math/math.c"
 #include "world/world.c"
+#include "render/font.c"
 #include "render/render.c"
 #include "core/core.c"
 #include "game/game.c"

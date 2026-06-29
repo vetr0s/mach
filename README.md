@@ -4,11 +4,15 @@ A game engine and game, co-developed as a single unit. Built in C with SDL3.
 
 **Version:** v0.4.0
 
+A minimal **2D isometric** engine driving a factory/automation game. Rendering is
+pure 2D over SDL_Renderer — no shaders, no GPU pipeline code, no offline shader
+tooling. (Real 3D is deferred until it's actually needed; see `ARCHITECTURE.md`.)
+
 ## Setup
 
 **macOS / Linux** (bash):
 ```bash
-./scripts/setup.sh      # One-time: build SDL3
+./scripts/setup.sh      # One-time: build SDL3, fetch stb
 ./build.sh              # Build the game
 ./build/mach_debug      # Run
 ```
@@ -19,49 +23,20 @@ scripts\setup.bat       :: One-time: build SDL3 (cmake + MSVC), fetch stb
 build.bat               :: Build the game
 build\mach_debug.exe    :: Run
 ```
-The `.bat` files are thin wrappers around the PowerShell scripts, so you don't
-need to type `powershell -ExecutionPolicy Bypass -File ...` yourself.
-Windows runs on the **Vulkan** backend (we don't ship D3D12/DXIL yet), so the
-machine needs a Vulkan-capable GPU driver — `gpu.c` requests only SPIR-V/MSL,
-which makes SDL_GPU skip D3D12 and select Vulkan automatically. Any current GPU
-driver already includes the Vulkan runtime; **no SDK or extra install needed**.
+The `.bat` files are thin wrappers around the PowerShell scripts.
 
 ### Dependencies
 
-Shaders are authored once in HLSL and cross-compiled offline into a *committed*
-C header (`src/engine/render/shaders_generated.h`). That keeps a clean split:
-
-- **To clone, build, and run** — no shader tooling at all. Just a C compiler and
-  the SDL3 you build in `setup` (plus, on Linux/Windows, the GPU driver's Vulkan
-  runtime, which is already there). The baked shaders ship in the repo.
-- **To recompile the shaders** — only needed if you *edit* a `.hlsl`. Re-run
-  `./scripts/shaders.sh` (bash) or `scripts\shaders.bat` (Windows), which need
-  `glslangValidator` + `spirv-cross` on PATH. The LunarG Vulkan SDK is the
-  easiest one-stop install for both. Commit the regenerated header.
-
-> Optional: the Vulkan SDK also bundles the **validation layers**. They aren't
-> required to run — the debug build just logs "Validation layers not found,
-> continuing without validation" and proceeds — but they're a useful diagnostic
-> when bringing the Vulkan path up on a new machine for the first time.
-
-**How the baked header is generated.** `scripts/shaders.sh` (and its Windows
-twin `shaders.ps1`) is a thin pipeline over two tools, run once per shader for
-each target format:
-
-1. **HLSL → SPIR-V** with `glslangValidator -V -D` (Vulkan: Linux/Windows).
-2. **SPIR-V → MSL** with `spirv-cross --msl --msl-decoration-binding` (Metal:
-   macOS). The `--msl-decoration-binding` flag makes MSL resource indices follow
-   the SPIR-V binding decoration, so they match SDL_GPU's Metal backend.
-3. **blob → C array** — each `.spv`/`.metal` is emitted as a
-   `static const unsigned char[]` + length (via `od`/`awk` in bash, native byte
-   handling in PowerShell) and concatenated into `shaders_generated.h`.
-
-No DXC or SDL_shadercross is involved. DXIL/D3D12 is deferred (it needs DXC);
-Windows runs on Vulkan for now.
+- **A C compiler + SDL3** is all you need to clone, build, and run. SDL3 is a
+  git submodule built once by `setup`. SDL_Renderer (part of SDL3) provides
+  hardware-accelerated 2D on the native backend (Metal/Vulkan/D3D) — **no shader
+  toolchain, no GPU SDK, nothing extra to install.**
+- **stb** single-header libraries are fetched by `setup`: `stb_image.h` for
+  loading sprite/texture art. Public domain.
 
 ## Controls
 
-- **WASD / Arrows** — pan the camera across the ground
+- **WASD / Arrows** — pan the camera across the grid
 - **Scroll wheel** — zoom in/out
 - **1 / 2 / 3** — select Miner / Storage / Delete tool (press again to deselect)
 - **Left click** — apply the current tool to the hovered tile
@@ -73,29 +48,35 @@ Generate tags for Emacs:
 ```bash
 ./scripts/tags.sh
 ```
-
-Then add to your Emacs init:
+Then in your Emacs init:
 ```elisp
 (setq tags-file-name "/path/to/mach/TAGS")
 (define-key global-map "\C-]" 'find-tag)
 (define-key global-map "\C-\M-]" 'pop-tag-mark)
 ```
-
-Now you can:
-- `C-]` to jump to definition
-- `C-M-]` to go back
+`C-]` jumps to a definition, `C-M-]` goes back.
 
 ## Philosophy
 
 **Pure C, no frameworks.** SDL3 for windowing/input/rendering only.
 
-**Unity build.** All code compiles in a single `clang` invocation. No separate build system—just `build.sh` (a shell script calling the compiler directly). Inspired by **RADDBG** and **Handmade Hero**.
+**Unity build.** All code compiles in a single `clang` invocation. No separate
+build system — just `build.sh` calling the compiler directly. Inspired by
+**RADDBG** and **Handmade Hero**.
 
-**Engine ÷ Game separation.** The engine (rendering, input, window management) lives in `src/engine/`. The game (entity types, rules, content) lives in `src/game/`. The dependency only points one way: the engine drives the game through the `Engine_App` callback interface (`engine/app.h`) and never names a game type. The game implements those callbacks (`game/app.c`) and hands them to the engine from `main()`. A future game reuses `src/engine/` untouched and writes new `src/game/` code.
+**Engine ÷ Game separation.** The engine (rendering, input, window management)
+lives in `src/engine/`. The game (entity types, rules, content) lives in
+`src/game/`. The dependency points one way: **`src/engine/` never names a game
+type.** The game owns the loop in `main()` and calls into the engine (raylib-style);
+the engine drives nothing. A future game reuses `src/engine/` untouched.
 
-**Fat struct ECS.** No generic component system. Each entity type is a full struct (e.g., `Entity_Miner`, `Entity_Storage`). Game logic directly accesses entity data. Inspired by Anton Mikhailov's approach discussed on the *Wookash Podcast*.
+**Minimal & 2D.** SDL_Renderer for 2D; isometric is a coordinate transform, not a
+3D projection. The "3D look" is faked with shaded blocks. The engine stays small
+and opinionated; capability is added only when a concrete need pulls it in.
 
-**Modular subsystems.** Each subsystem (math, render, input, core) is self-contained. Headers declare the API; implementations are included into the unity root. Follows RADDBG's internal organization style.
+**Fat struct ECS.** No generic component system. Each entity type is a full struct
+(e.g., `Entity_Miner`, `Entity_Storage`). Game logic accesses entity data directly.
+Inspired by Anton Mikhailov's approach on the *Wookash Podcast*.
 
 ## Platforms
 
@@ -109,30 +90,27 @@ Now you can:
 src/
   engine/                 # Reusable game engine
     base/                 # Fundamental types (i32, f32, Vec2, etc.)
-    math/                 # Vec2/3/4, Mat4, projections, transforms
-    core/                 # Game loop, timing, window lifecycle
-    render/               # SDL_GPU renderer: gpu, mesh, camera, font (atlas)
-    app.h                 # Engine_App interface (engine drives the game via this)
+    math/                 # Vec2/3/4, Mat4, transforms (Vec2 + iso used by 2D)
+    core/                 # Frame loop steps, timing, window lifecycle
+    render/               # 2D renderer: render2d (SDL_Renderer + iso), font, image
     os.h                  # Platform detection
     ui.h                  # Window context + screen constants
     debug.h               # Assertions, leveled logging
 
   game/                   # Game-specific code (factory automation sim)
-    app.c                 # Implements Engine_App: wires game into the engine
-    game.h/.c             # Game state, input, iso camera, tick logic
-    render_game.h/.c      # Draws the world as 3D geometry (game-side)
+    app.c                 # Glue: bridges the engine API and the game internals
+    game.h/.c             # Game state, input, 2D iso camera, hover-pick
+    render_game.h/.c      # Draws the world as iso tiles + shaded blocks
     world/                # Entity management, grid simulation
-    
+
   mach.c                  # Unity root: includes engine + game, defines main()
 
-build.sh                  # Compiler invocation (macOS/Linux)
-build.bat                 # Compiler invocation (Windows)
-scripts/setup.sh          # SDL3 build, run once (macOS/Linux)
-scripts/setup.ps1         # SDL3 build, run once (Windows)  [setup.bat wraps this]
-scripts/shaders.sh        # Cross-compile HLSL shaders (macOS/Linux; only when editing them)
-scripts/shaders.ps1       # Cross-compile HLSL shaders (Windows; only when editing them) [shaders.bat wraps this]
+build.sh / build.bat      # Compiler invocation (macOS-Linux / Windows)
+scripts/setup.sh / .ps1   # SDL3 build + stb fetch, run once
 third_party/SDL/          # SDL3 submodule
 ```
+
+See **`ARCHITECTURE.md`** for the engine thesis and design rationale.
 
 ## Entity System
 
@@ -145,50 +123,46 @@ typedef struct {
 } Entity_Storage;
 ```
 
-The `World` tracks all entities in direct arrays and a grid-based spatial index:
+The `World` tracks all entities in direct arrays plus a grid spatial index:
 ```c
 typedef struct {
     Entity entities[MAX_ENTITIES];
     i32 entity_count;
-    i32 grid[256][256];  // Spatial hash: what's at each grid cell
+    i32 grid[256][256];  // what's at each grid cell (entity id, or 0)
     i32 tick;
 } World;
 ```
 
-Game code directly iterates and updates entities. No indirection, no query systems. This keeps the game logic readable and performance predictable.
+Game code directly iterates and updates entities. No indirection, no query
+systems — readable logic and predictable performance.
 
 ## Rendering
 
-The engine renders in **true 3D** on **SDL_GPU** (Metal on macOS, Vulkan elsewhere). Shaders are authored once in **HLSL** (`src/engine/render/shaders/`) and cross-compiled offline by `scripts/shaders.sh` to SPIR-V (Vulkan) and MSL (Metal), baked into `shaders_generated.h`. The generated header is committed, so a normal `./build.sh` needs no shader toolchain — only re-run `scripts/shaders.sh` after editing a `.hlsl` (requires `glslang` + `spirv-cross`).
+Pure **2D over SDL_Renderer** (`src/engine/render/`):
 
-- **`gpu.{h,c}`** — device, swapchain, depth buffer, a lit 3D pipeline, and a textured 2D overlay pipeline; frame lifecycle and draw calls.
-- **`mesh.{h,c}`** — GPU vertex/index buffers and procedural primitives (cube, plane).
-- **`camera.{h,c}`** — a projection-agnostic `Camera` (perspective **or** orthographic), view/projection matrices, and mouse-pick rays.
-- **`font.{h,c}`** — an 8×8 bitmap font baked into a GPU atlas, drawn as textured quads through the 2D overlay.
+- **`render2d.{h,c}`** — the render layer: clear/present, filled rects and convex
+  polygons (`SDL_RenderGeometry`), text, sprite loading/drawing, and a 2D pan+zoom
+  `Camera2D`. Plus isometric transforms (`iso_to_screen` / `screen_to_iso`).
+- **`font.{h,c}`** — an 8×8 bitmap font baked into an `SDL_Texture` atlas, tinted
+  per-draw with color mod.
+- **`image.{h,c}`** — `stb_image` loader for sprite/texture art.
 
-**Isometric is a camera configuration, not a baked-in projection.** The factory view is just an orthographic `Camera` aimed down the (1,1,1) axis, with real depth buffering and directional lighting so machines have shape and occlusion. A different project can swap in a perspective or top-down camera and reuse the whole renderer — the engine is not isometric-only.
-
-## Dependencies
-
-**Required:**
-- **SDL3** — Windowing, input, rendering. Git submodule; built by `setup.sh`.
-
-**Single-header libraries (stb):**
-- **stb_image.h** — Image loading (PNG, BMP, JPG). Downloaded by `setup.sh`.
-- **stb_truetype.h** / **stb_rect_pack.h** — Vendored for future asset/font work; the current font is a hardcoded 8×8 bitmap baked into a GPU atlas (no runtime TrueType).
-
-All stb headers are public domain. See licensing section below.
+**Isometric is a coordinate transform, not a projection.** The grid maps to 2:1
+diamond tiles; machines are drawn as **shaded blocks** (bright top + two darker
+side faces) sorted back-to-front, which reads as 3D depth without any 3D. Swapping
+to a top-down or free 2D camera is just a different transform — the renderer isn't
+isometric-only.
 
 ## References
 
 **Inspirations and design philosophy:**
-- **RAD Debugger (raddbg)** — Minimal build system, unity compilation, internal code organization. https://github.com/EpicGames/raddebugger
+- **RAD Debugger (raddbg)** — Minimal build system, unity compilation. https://github.com/EpicGames/raddebugger
 - **Handmade Hero** — Pure C, simple architecture, avoid over-abstraction. https://handmadehero.org
-- **Wookash Podcast** — Anton Mikhailov's talks on game engine design, fat struct ECS. https://www.youtube.com/channel/UC9J9u3apteD0EuFjzRpt71w
+- **Wookash Podcast** — Anton Mikhailov on engine design, fat struct ECS. https://www.youtube.com/channel/UC9J9u3apteD0EuFjzRpt71w
 
 **External libraries:**
 - **SDL3** — https://github.com/libsdl-org/SDL
-- **stb** (Sean Barret) — https://github.com/nothings/stb
+- **stb** (Sean Barrett) — https://github.com/nothings/stb
 
 ## Licensing
 

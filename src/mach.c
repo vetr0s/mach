@@ -1,8 +1,9 @@
 // Unity build root. Includes every translation unit and defines main().
 //
-// The whole engine compiles as one translation unit: this file #includes all
-// the .c sources directly, so the compiler sees everything at once. See TODO.md
-// for the roadmap.
+// The whole engine compiles as one translation unit: this file #includes all the
+// .c sources directly, so the compiler sees everything at once. The game owns the
+// loop in main() and drives the engine through its public API. See ARCHITECTURE.md
+// for the design and TODO.md for the roadmap.
 
 // Engine
 #include "engine/base/base.h"
@@ -11,10 +12,9 @@
 #include "engine/debug.h"
 #include "engine/math/math.c"
 #include "engine/render/image.c"
-#include "engine/render/mesh.c"
-#include "engine/render/camera.c"
-#include "engine/render/gpu.c"
 #include "engine/render/font.c"
+#include "engine/render/render2d.c"
+#include "engine/core/core.c"
 
 // Game
 #include "game/world/world.c"
@@ -22,25 +22,41 @@
 #include "game/render_game.c"
 #include "game/app.c"
 
-// Core (drives the loop via the Engine_App interface; depends on no game type)
-#include "engine/core/core.c"
-
-#include "game/app.h"
-
-// Application entry point. The engine owns the loop and drives the game through
-// the Engine_App interface; main just wires the two together.
+// Application entry point. The game owns the frame loop and calls into the engine
+// through its public API; the engine keeps window lifecycle and frame timing.
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
 
-    Core_Engine engine = {0};
-    if (!core_init(&engine, "mach", SCREEN_WIDTH, SCREEN_HEIGHT)) {
+    Engine engine = {0};
+    if (!engine_init(&engine, "mach", SCREEN_WIDTH, SCREEN_HEIGHT)) {
         return 1;
     }
 
-    Engine_App app = game_app();
-    core_run(&engine, &app);
+    App app = {0};
+    app_init(&app, &engine);
 
-    core_shutdown(&engine);
+    LOG_INFO("entering main loop");
+    while (engine_running(&engine)) {
+        f32 dt = engine_frame_begin(&engine);
+
+        SDL_Event ev;
+        while (engine_poll_event(&engine, &ev)) {
+            app_handle_event(&app, &ev);
+        }
+
+        app_update(&app, dt);
+
+        if (engine_render_begin(&engine)) {
+            app_render(&app, &engine);
+            engine_render_end(&engine);
+        }
+
+        engine_frame_end(&engine);
+    }
+    LOG_INFO("exited main loop");
+
+    app_shutdown(&app, &engine);
+    engine_shutdown(&engine);
     return 0;
 }

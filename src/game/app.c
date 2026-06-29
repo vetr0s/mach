@@ -15,7 +15,7 @@ Window_Config game_window_config(void) {
         .width = 1280,
         .height = 720,
         .fullscreen = MACH_FALSE,
-        .resizable = MACH_FALSE,
+        .resizable = MACH_TRUE,
     };
 }
 

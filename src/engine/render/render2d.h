@@ -33,6 +33,10 @@ typedef struct {
 b32  r2d_init(Renderer *r, SDL_Window *window);
 void r2d_shutdown(Renderer *r);
 
+// Re-read the window size and update the logical presentation. Call after the
+// window is resized so render and input coordinates track the new size.
+void r2d_resized(Renderer *r);
+
 // Frame.
 void r2d_begin(Renderer *r, u8 clear_r, u8 clear_g, u8 clear_b);
 void r2d_present(Renderer *r);

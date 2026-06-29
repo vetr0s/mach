@@ -78,9 +78,9 @@ f32 engine_frame_begin(Engine *e) {
     return dt;
 }
 
-// Drain the next game-relevant event into `out`. Window lifecycle events
-// (quit / Escape) are consumed here and clear `running` instead of reaching the
-// game. Returns false when the queue is empty.
+// Drain the next game-relevant event into `out`. Window lifecycle events (quit,
+// Escape, resize) are consumed here instead of reaching the game. Returns false
+// when the queue is empty.
 b32 engine_poll_event(Engine *e, SDL_Event *out) {
     while (SDL_PollEvent(out)) {
         if (out->type == SDL_EVENT_QUIT) {
@@ -90,6 +90,8 @@ b32 engine_poll_event(Engine *e, SDL_Event *out) {
                    out->key.scancode == SDL_SCANCODE_ESCAPE) {
             LOG_INFO("escape pressed, exiting");
             e->running = 0;
+        } else if (out->type == SDL_EVENT_WINDOW_RESIZED) {
+            r2d_resized(&e->r2d);
         } else {
             return MACH_TRUE;
         }

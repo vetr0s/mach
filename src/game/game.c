@@ -1,7 +1,6 @@
 // Game implementation (included into mach.c).
 
 #include "game.h"
-#include "../engine/ui.h"
 #include "../engine/debug.h"
 #include <math.h>
 
@@ -37,11 +36,10 @@ void game_init(Game_State *g) {
 
 // Update the hovered grid cell by inverse-projecting the mouse onto the ground
 // plane. Grid cell (x,y) is the tile centered at iso coordinate (x, y).
-void game_update_hover(Game_State *g, i32 mouse_x, i32 mouse_y) {
+void game_update_hover(Game_State *g, f32 screen_w, f32 screen_h, i32 mouse_x, i32 mouse_y) {
     if (!g) return;
 
-    Vec2 grid = screen_to_iso(&g->camera, (f32)SCREEN_WIDTH, (f32)SCREEN_HEIGHT,
-                              (f32)mouse_x, (f32)mouse_y);
+    Vec2 grid = screen_to_iso(&g->camera, screen_w, screen_h, (f32)mouse_x, (f32)mouse_y);
     g->hover_grid_x = (i32)floorf(grid.x + 0.5f);
     g->hover_grid_y = (i32)floorf(grid.y + 0.5f);
     g->hover_valid = (g->hover_grid_x >= 0 && g->hover_grid_x < WORLD_GRID_SIZE &&
@@ -67,10 +65,10 @@ void game_shutdown(Game_State *g) {
 }
 
 // Handle mouse input for machine placement and deletion.
-void game_handle_input(Game_State *g, i32 mouse_x, i32 mouse_y, i32 button) {
+void game_handle_input(Game_State *g, f32 screen_w, f32 screen_h, i32 mouse_x, i32 mouse_y, i32 button) {
     if (!g || !g->world) return;
 
-    game_update_hover(g, mouse_x, mouse_y);
+    game_update_hover(g, screen_w, screen_h, mouse_x, mouse_y);
     if (button != 1 || !g->hover_valid) return;
 
     switch (g->selected_tool) {

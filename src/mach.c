@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
     (void)argv;
 
     Engine engine = {0};
-    if (!engine_init(&engine, "mach", SCREEN_WIDTH, SCREEN_HEIGHT)) {
+    if (!engine_init(&engine, game_window_config())) {
         return 1;
     }
 
@@ -41,7 +41,7 @@ int main(int argc, char **argv) {
 
         SDL_Event ev;
         while (engine_poll_event(&engine, &ev)) {
-            app_handle_event(&app, &ev);
+            app_handle_event(&app, &engine, &ev);
         }
 
         app_update(&app, dt);

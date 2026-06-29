@@ -16,9 +16,9 @@
 #define CLEAR_G 0x29
 #define CLEAR_B 0x3b
 
-// Initialize SDL, create the window, bring up the 2D renderer, and start the
-// frame-timing clocks.
-b32 engine_init(Engine *e, const char *title, i32 w, i32 h) {
+// Initialize SDL, create the window from the game's config, bring up the 2D
+// renderer, and start the frame-timing clocks.
+b32 engine_init(Engine *e, Window_Config cfg) {
     LOG_INFO("mach v%d.%d.%d starting up",
              MACH_VERSION_MAJOR, MACH_VERSION_MINOR, MACH_VERSION_PATCH);
 
@@ -27,7 +27,10 @@ b32 engine_init(Engine *e, const char *title, i32 w, i32 h) {
         return MACH_FALSE;
     }
 
-    e->ui.window = SDL_CreateWindow(title, w, h, 0);
+    SDL_WindowFlags flags = 0;
+    if (cfg.fullscreen) flags |= SDL_WINDOW_FULLSCREEN;
+    if (cfg.resizable)  flags |= SDL_WINDOW_RESIZABLE;
+    e->ui.window = SDL_CreateWindow(cfg.title, cfg.width, cfg.height, flags);
     if (!e->ui.window) {
         LOG_ERROR("SDL_CreateWindow failed: %s", SDL_GetError());
         SDL_Quit();

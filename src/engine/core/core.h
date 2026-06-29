@@ -25,8 +25,8 @@ typedef struct {
     i32 fps;               // last completed window's frame count
 } Engine;
 
-// Lifecycle.
-b32  engine_init(Engine *e, const char *title, i32 w, i32 h);
+// Lifecycle. The game supplies the window configuration.
+b32  engine_init(Engine *e, Window_Config cfg);
 void engine_shutdown(Engine *e);
 
 // True until a quit is requested (window close or Escape).

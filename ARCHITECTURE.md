@@ -49,13 +49,13 @@ The game owns control flow; the engine is a library it calls into:
 
 ```c
 int main(void) {
-    Engine engine = {0}; engine_init(&engine, "mach", 1280, 720);
+    Engine engine = {0}; engine_init(&engine, game_window_config());  // game sizes the window
     App    app    = {0}; app_init(&app, &engine);
 
     while (engine_running(&engine)) {
         f32 dt = engine_frame_begin(&engine);
         SDL_Event ev;
-        while (engine_poll_event(&engine, &ev)) app_handle_event(&app, &ev);
+        while (engine_poll_event(&engine, &ev)) app_handle_event(&app, &engine, &ev);
         app_update(&app, dt);
         if (engine_render_begin(&engine)) {        // clear
             app_render(&app, &engine);             // game draws via r2d

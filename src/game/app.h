@@ -1,9 +1,7 @@
-// Game application: its state plus render resources, and the entry points the
-// game's own loop calls each frame.
+// Game application: its state and the entry points the loop calls each frame.
 //
-// (npt): No engine-side callback vtable. The game owns the loop in main() and
-// invokes these directly. This header is the bridge layer, so it's the one place
-// allowed to know both the engine API and the game internals.
+// This is the bridge layer — the one place that knows both the engine API and
+// the game internals. The game owns the loop in main() and calls these directly.
 
 #ifndef GAME_APP_H
 #define GAME_APP_H

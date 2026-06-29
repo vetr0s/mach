@@ -1,8 +1,7 @@
 // Core implementation (included into mach.c).
 //
-// (npt): The engine exposes the frame loop as discrete steps; the game owns the
-// loop in main() and calls them. The engine keeps window lifecycle (quit/escape)
-// and frame timing/cap, but no longer drives the application.
+// The engine exposes the frame loop as discrete steps; the game owns the loop in
+// main() and calls them. The engine keeps window lifecycle and frame timing.
 
 #include "core.h"
 #include "../debug.h"

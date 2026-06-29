@@ -1,7 +1,5 @@
-// Game application glue (included into mach.c).
-//
-// (npt): Adapts the game state + render resources to the game-owned loop. This is
-// the only place that knows both the engine API and the game internals.
+// Game application glue (included into mach.c): wires the game state into the
+// loop's per-frame entry points.
 
 #include "app.h"
 #include "game.h"

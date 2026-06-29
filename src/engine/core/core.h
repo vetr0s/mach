@@ -1,16 +1,14 @@
-// Core engine lifecycle and the building blocks of the frame loop.
+// Core engine lifecycle and the per-frame steps of the loop.
 //
-// (npt): The engine no longer owns the loop. The game drives it from main() and
-// calls these per-frame steps directly (raylib-style). The engine still owns
-// window lifecycle: engine_poll_event intercepts quit/escape and clears
-// `running`, and the engine keeps frame timing + the soft frame cap.
+// The game owns the loop (in main()) and calls these steps directly. The engine
+// owns window lifecycle — engine_poll_event intercepts quit/Escape — and keeps
+// the frame timing and soft frame cap.
 
 #ifndef CORE_H
 #define CORE_H
 
 #include <SDL3/SDL.h>
 #include "../base/base.h"
-#include "../os.h"
 #include "../ui.h"
 #include "../render/render2d.h"
 
@@ -19,8 +17,7 @@ typedef struct {
     Renderer     r2d;    // 2D renderer (SDL_Renderer + bitmap font)
     i32          running;
 
-    // (npt): Frame timing. These were locals in the old engine-owned loop; now
-    // that the game owns the loop, they persist on the engine across iterations.
+    // Frame timing, persisted across loop iterations (the game owns the loop).
     u32 frame_start;       // tick at the current frame's start (for the cap)
     u32 last_frame_time;   // tick at the previous frame's start (for dt)
     u32 fps_timer;         // start of the current 1s FPS sampling window

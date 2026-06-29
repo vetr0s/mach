@@ -19,7 +19,7 @@ b32 r2d_init(Renderer *r, SDL_Window *window) {
         return MACH_FALSE;
     }
 
-    // (npt): Our loop has its own frame cap, so disable vsync to let it govern.
+    // Our loop has its own frame cap, so disable vsync and let it govern.
     SDL_SetRenderVSync(r->sdl, 0);
     SDL_SetRenderDrawBlendMode(r->sdl, SDL_BLENDMODE_BLEND);
 

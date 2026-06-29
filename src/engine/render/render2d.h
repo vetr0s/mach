@@ -1,9 +1,5 @@
-// 2D renderer (Layer 1+2 combined) over SDL_Renderer.
-//
-// (npt): This is the whole render layer now. We dropped SDL_GPU and the offline
-// shader pipeline — SDL_Renderer gives hardware-accelerated 2D (sprites, geometry,
-// text) on the native backend with zero shader tooling. Real 3D is deferred until
-// it's actually needed and understood. See ARCHITECTURE.md.
+// 2D renderer over SDL_Renderer: frame, primitives, text, sprites, and an
+// isometric camera. See ARCHITECTURE.md for the design.
 
 #ifndef RENDER2D_H
 #define RENDER2D_H
@@ -50,9 +46,8 @@ void r2d_text(Renderer *r, f32 x, f32 y, f32 scale, const char *text, Vec4 color
 SDL_Texture *r2d_load_texture(Renderer *r, const char *path);
 void r2d_sprite(Renderer *r, SDL_Texture *tex, f32 x, f32 y, f32 scale, Vec4 tint);
 
-// Isometric projection. Pure transforms (no Renderer needed) so game logic can
-// convert without touching SDL. `elev` is block height in units; the inverse
-// solves on the ground plane (elev 0).
+// Isometric projection helpers (no Renderer needed). `elev` is block height in
+// units; the inverse solves on the ground plane (elev 0).
 Vec2 iso_to_screen(const Camera2D *cam, f32 screen_w, f32 screen_h,
                    f32 grid_x, f32 grid_y, f32 elev);
 Vec2 screen_to_iso(const Camera2D *cam, f32 screen_w, f32 screen_h,

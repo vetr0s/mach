@@ -229,6 +229,24 @@ b32 gpu_init(Gpu_Renderer *gpu, SDL_Window *window) {
         return MACH_FALSE;
     }
 
+    // Decouple present rate from the display refresh so the loop's own frame cap
+    // governs (VSYNC would otherwise pin us to ~60 Hz). MAILBOX is uncapped with
+    // no tearing; IMMEDIATE is uncapped with tearing; VSYNC is the guaranteed
+    // fallback. Both fast modes are optional per backend/driver.
+    SDL_GPUPresentMode present = SDL_GPU_PRESENTMODE_VSYNC;
+    if (SDL_WindowSupportsGPUPresentMode(gpu->device, window, SDL_GPU_PRESENTMODE_MAILBOX)) {
+        present = SDL_GPU_PRESENTMODE_MAILBOX;
+    } else if (SDL_WindowSupportsGPUPresentMode(gpu->device, window, SDL_GPU_PRESENTMODE_IMMEDIATE)) {
+        present = SDL_GPU_PRESENTMODE_IMMEDIATE;
+    }
+    if (!SDL_SetGPUSwapchainParameters(gpu->device, window,
+            SDL_GPU_SWAPCHAINCOMPOSITION_SDR, present)) {
+        LOG_ERROR("SDL_SetGPUSwapchainParameters failed: %s", SDL_GetError());
+    }
+    LOG_INFO("present mode: %s",
+             present == SDL_GPU_PRESENTMODE_MAILBOX    ? "mailbox" :
+             present == SDL_GPU_PRESENTMODE_IMMEDIATE  ? "immediate" : "vsync");
+
     i32 w, h;
     SDL_GetWindowSizeInPixels(window, &w, &h);
     gpu->width = (u32)w;

@@ -35,4 +35,8 @@ cmake --build $SDL_BUILD_DIR --config Release
 cmake --install $SDL_BUILD_DIR --config Release
 
 Write-Host "SDL3 ready at $SDL_INSTALL_PREFIX" -ForegroundColor Green
+
+# Download stb single-header libraries.
+& (Join-Path $PSScriptRoot "download_stb.ps1")
+
 Write-Host "Next: .\build.bat" -ForegroundColor Green

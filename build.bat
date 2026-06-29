@@ -39,7 +39,7 @@ cl.exe /std:c11 ^
     src\mach.c ^
     /link /LIBPATH:"%SDL_PREFIX%\lib" SDL3.lib
 
-REM Copy the SDL3 DLL next to the executable.
-copy /Y "%SDL_PREFIX%\lib\SDL3.dll" build\
+REM Copy the SDL3 DLL next to the executable (CMake installs it under \bin).
+copy /Y "%SDL_PREFIX%\bin\SDL3.dll" build\
 
 echo Build complete: %OUT_FILE%

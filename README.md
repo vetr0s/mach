@@ -42,6 +42,21 @@ C header (`src/engine/render/shaders_generated.h`). That keeps a clean split:
 > continuing without validation" and proceeds — but they're a useful diagnostic
 > when bringing the Vulkan path up on a new machine for the first time.
 
+**How the baked header is generated.** `scripts/shaders.sh` (and its Windows
+twin `shaders.ps1`) is a thin pipeline over two tools, run once per shader for
+each target format:
+
+1. **HLSL → SPIR-V** with `glslangValidator -V -D` (Vulkan: Linux/Windows).
+2. **SPIR-V → MSL** with `spirv-cross --msl --msl-decoration-binding` (Metal:
+   macOS). The `--msl-decoration-binding` flag makes MSL resource indices follow
+   the SPIR-V binding decoration, so they match SDL_GPU's Metal backend.
+3. **blob → C array** — each `.spv`/`.metal` is emitted as a
+   `static const unsigned char[]` + length (via `od`/`awk` in bash, native byte
+   handling in PowerShell) and concatenated into `shaders_generated.h`.
+
+No DXC or SDL_shadercross is involved. DXIL/D3D12 is deferred (it needs DXC);
+Windows runs on Vulkan for now.
+
 ## Controls
 
 - **WASD / Arrows** — pan the camera across the ground

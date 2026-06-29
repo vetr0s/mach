@@ -2,7 +2,7 @@
 
 A game engine and game, co-developed as a single unit. Built in C with SDL3.
 
-**Version:** v0.4.0
+**Version:** v0.5.0
 
 A minimal **2D isometric** engine driving a factory/automation game. Rendering is
 pure 2D over SDL_Renderer — no shaders, no GPU pipeline code, no offline shader

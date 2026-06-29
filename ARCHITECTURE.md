@@ -128,22 +128,32 @@ toolchain (`glslang` + `spirv-cross`) — only editing a `.hlsl` does.
 
 The game owns control flow. The engine is a library it calls into.
 
+As shipped in step 1, the loop exposes the frame as discrete steps the game
+calls in order:
+
 ```c
 int main(void) {
-    Engine e; engine_init(&e, "mach", 1280, 720);
-    Game g;   game_init(&g, &e);
+    Engine engine = {0}; engine_init(&engine, "mach", 1280, 720);
+    App    app    = {0}; app_init(&app, &engine);
 
-    while (engine_running(&e)) {
-        engine_poll(&e);                 // pump input/window events
-        game_update(&g, engine_dt(&e));
+    while (engine_running(&engine)) {
+        f32 dt = engine_frame_begin(&engine);          // delta time
 
-        engine_begin_frame(&e);
-            game_render(&g, &e);         // batteries, or the game's own pipelines
-        engine_end_frame(&e);
+        SDL_Event ev;
+        while (engine_poll_event(&engine, &ev))         // drain game events
+            app_handle_event(&app, &ev);                // (quit/Esc handled in engine)
+
+        app_update(&app, dt);
+
+        if (engine_render_begin(&engine)) {             // false => skip (minimized)
+            app_render(&app, &engine);                  // batteries, or own pipelines
+            engine_render_end(&engine);                 // engine overlay + present
+        }
+        engine_frame_end(&engine);                      // FPS + frame cap
     }
 
-    game_shutdown(&g);
-    engine_shutdown(&e);
+    app_shutdown(&app, &engine);
+    engine_shutdown(&engine);
     return 0;
 }
 ```
@@ -152,6 +162,11 @@ This replaces the `Engine_App` callback vtable. The directory/dependency rule is
 unchanged and is what actually enforces separation: **`src/engine/` never names a
 type from `src/game/`.** Inverting the loop back to the game does not weaken that
 — the boundary was always the dependency direction, not the callbacks.
+
+> Transitional note: the game still drains **raw `SDL_Event`s** via
+> `engine_poll_event`. Replacing that with an engine-owned input-query layer
+> (raylib's `IsKeyDown`-style state, no raw events in game code) is deliberately
+> deferred to a later step — step 1 only flips loop ownership.
 
 ## Memory
 
@@ -183,8 +198,10 @@ game starts retaining entity references between frames.
 
 Current state vs. this target, lowest-risk change first:
 
-1. **Flip the loop** to game-owned (raylib-style), retire the `Engine_App`
-   vtable. Small, contained, immediate ergonomic win.
+1. ~~**Flip the loop** to game-owned (raylib-style), retire the `Engine_App`
+   vtable.~~ **Done.** `Core_Engine`→`Engine`, `core_*`→`engine_*`, the loop now
+   lives in `main()`; the engine exposes per-frame steps. Input is still raw
+   `SDL_Event` (query layer deferred).
 2. **Split `gpu.c`** into the generic Layer 1 core + the Layer 2 batteries
    (sprite/text/mesh helpers move into batteries on top of the generic core).
 3. **Rebuild the shader bake** as one cross-platform tool emitting reflection;

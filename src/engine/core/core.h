@@ -13,10 +13,12 @@
 #include "../os.h"
 #include "../ui.h"
 #include "../render/gpu.h"
+#include "../render/draw.h"
 
 typedef struct {
     UI_Context   ui;
-    Gpu_Renderer gpu;
+    Gpu_Device   gpu;    // Layer 1: device, frame, passes, draw primitives
+    Draw         draw;   // Layer 2: built-in pipelines, font, overlay batch
     i32          running;
 
     // (npt): Frame timing. These were locals in the old engine-owned loop; now

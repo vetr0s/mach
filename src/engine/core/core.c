@@ -35,7 +35,16 @@ b32 engine_init(Engine *e, const char *title, i32 w, i32 h) {
         return MACH_FALSE;
     }
 
-    if (!gpu_init(&e->gpu, e->ui.window)) {
+    if (!gpu_device_init(&e->gpu, e->ui.window)) {
+        SDL_DestroyWindow(e->ui.window);
+        e->ui.window = NULL;
+        SDL_Quit();
+        return MACH_FALSE;
+    }
+
+    if (!draw_init(&e->draw, &e->gpu)) {
+        draw_shutdown(&e->draw);
+        gpu_device_shutdown(&e->gpu);
         SDL_DestroyWindow(e->ui.window);
         e->ui.window = NULL;
         SDL_Quit();
@@ -54,7 +63,8 @@ b32 engine_init(Engine *e, const char *title, i32 w, i32 h) {
 
 // Clean up GPU resources and close the window.
 void engine_shutdown(Engine *e) {
-    gpu_shutdown(&e->gpu);
+    draw_shutdown(&e->draw);
+    gpu_device_shutdown(&e->gpu);
     if (e->ui.window) {
         SDL_DestroyWindow(e->ui.window);
         e->ui.window = NULL;
@@ -95,19 +105,29 @@ b32 engine_poll_event(Engine *e, SDL_Event *out) {
     return MACH_FALSE;
 }
 
-// Begin the GPU frame. Returns false when there is no swapchain image (e.g.
-// minimized); the game should skip rendering and not call engine_render_end.
+// Begin the GPU frame and open the scene pass (clear color + depth). Returns
+// false when there is no swapchain image (e.g. minimized); the game should skip
+// rendering and not call engine_render_end.
 b32 engine_render_begin(Engine *e) {
-    return gpu_begin_frame(&e->gpu, CLEAR_R, CLEAR_G, CLEAR_B);
+    if (!gpu_begin_frame(&e->gpu)) return MACH_FALSE;
+    gpu_begin_pass(&e->gpu, &(Gpu_PassDesc){
+        .clear = MACH_TRUE, .clear_r = CLEAR_R, .clear_g = CLEAR_G, .clear_b = CLEAR_B,
+        .use_depth = MACH_TRUE,
+    });
+    return MACH_TRUE;
 }
 
 // Finish the GPU frame: draw the engine's debug overlay (FPS, top-left) on top
-// of whatever the game rendered, then present.
+// of whatever the game rendered, end the scene pass, flush the 2D overlay in its
+// own pass, then present.
 void engine_render_end(Engine *e) {
     char line[32];
     snprintf(line, sizeof(line), "FPS: %d", e->fps);
-    gpu_draw_text(&e->gpu, 10.0f, 10.0f, 2.0f, line, (Vec4){0.45f, 0.85f, 0.45f, 1.0f});
-    gpu_end_frame(&e->gpu);
+    draw_text(&e->draw, 10.0f, 10.0f, 2.0f, line, (Vec4){0.45f, 0.85f, 0.45f, 1.0f});
+
+    gpu_end_pass(&e->gpu);          // end the scene pass
+    draw_flush_overlay(&e->draw);   // overlay pass (loads the scene, draws HUD)
+    gpu_end_frame(&e->gpu);         // submit
 }
 
 // End-of-frame bookkeeping: update the 1s FPS sample and sleep to honor the soft

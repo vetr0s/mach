@@ -6,7 +6,7 @@
 #ifndef RENDER_GAME_H
 #define RENDER_GAME_H
 
-#include "../engine/render/gpu.h"
+#include "../engine/render/draw.h"
 #include "game.h"
 
 typedef struct {
@@ -18,7 +18,7 @@ void game_render_init(Game_Render *gr, SDL_GPUDevice *device);
 void game_render_shutdown(Game_Render *gr, SDL_GPUDevice *device);
 
 // Draw the world (ground, machines, hover preview) for the given frame. Must be
-// called inside gpu_begin_frame/gpu_end_frame.
-void game_render_draw(Gpu_Renderer *gpu, Game_Render *gr, const Game_State *game);
+// called inside the engine's scene pass (between engine_render_begin/_end).
+void game_render_draw(Draw *dr, Game_Render *gr, const Game_State *game);
 
 #endif

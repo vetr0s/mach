@@ -202,8 +202,13 @@ Current state vs. this target, lowest-risk change first:
    vtable.~~ **Done.** `Core_Engine`→`Engine`, `core_*`→`engine_*`, the loop now
    lives in `main()`; the engine exposes per-frame steps. Input is still raw
    `SDL_Event` (query layer deferred).
-2. **Split `gpu.c`** into the generic Layer 1 core + the Layer 2 batteries
-   (sprite/text/mesh helpers move into batteries on top of the generic core).
+2. ~~**Split `gpu.c`** into the generic Layer 1 core + the Layer 2 batteries.~~
+   **Done.** `gpu.{h,c}` is now the generic core (`Gpu_Device`: frame, passes,
+   `gpu_make_pipeline`/`gpu_make_shader`, draw primitives). `draw.{h,c}` is the
+   batteries (lit + overlay pipelines, font, overlay batch; `draw_mesh`/
+   `draw_text`/`draw_rect`). The engine holds both; render passes are now
+   explicit. Pipeline config is still hand-written in `draw.c` — step 3 moves it
+   to generated reflection.
 3. **Rebuild the shader bake** as one cross-platform tool emitting reflection;
    move pipeline configuration from hardcoded constants to generated data; let
    the game own its shaders through it.

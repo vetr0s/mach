@@ -1,8 +1,10 @@
-// GPU renderer: SDL_GPU device, frame lifecycle, and draw API.
+// GPU core (Layer 1): SDL_GPU device, frame lifecycle, render passes, and
+// generic resource + draw primitives.
 //
-// This is the engine's rendering backend. It is deliberately game-agnostic:
-// it knows about meshes, cameras, and 2D overlays, but nothing about
-// isometric grids or factory machines. Higher layers compose these.
+// (npt): This layer is deliberately game- and content-agnostic. It knows about
+// devices, pipelines, buffers, passes, and draws — but nothing about "lit
+// geometry," "overlays," "sprites," or fonts. The batteries layer (draw.{h,c})
+// and the game compose these primitives into actual rendering. See ARCHITECTURE.md.
 
 #ifndef GPU_H
 #define GPU_H
@@ -10,18 +12,6 @@
 #include <SDL3/SDL.h>
 #include "../base/base.h"
 #include "../math/math.h"
-#include "mesh.h"
-#include "font.h"
-
-// Max 2D overlay quads accumulated per frame (text glyphs + rects).
-#define GPU_MAX_OVERLAY_QUADS 8192
-
-// 2D overlay vertex: screen-space position, atlas UV, tint color.
-typedef struct {
-    Vec2 pos;
-    Vec2 uv;
-    Vec4 color;
-} Vertex2D;
 
 typedef struct {
     SDL_GPUDevice *device;
@@ -35,41 +25,78 @@ typedef struct {
     SDL_GPUTextureFormat  depth_format;
     u32 width, height;
 
-    SDL_GPUGraphicsPipeline *pipeline_3d;  // lit, depth-tested geometry
-    SDL_GPUGraphicsPipeline *pipeline_2d;  // textured, alpha-blended overlay
-
-    Font *font;  // built-in bitmap font/atlas used by the 2D overlay
-
-    // 2D overlay batch. Quads accumulate on the CPU during the frame and are
-    // uploaded + drawn in a final color pass by gpu_end_frame.
-    SDL_GPUBuffer         *overlay_vbuf;
-    SDL_GPUTransferBuffer *overlay_transfer;
-    Vertex2D              *overlay_cpu;
-    u32                    overlay_count;   // vertices (6 per quad)
-
     // Per-frame state, valid between gpu_begin_frame and gpu_end_frame.
     SDL_GPUCommandBuffer *cmd;
     SDL_GPUTexture       *swapchain;
     SDL_GPURenderPass    *pass;
-} Gpu_Renderer;
+} Gpu_Device;
+
+// One vertex attribute in an interleaved buffer (single buffer slot 0).
+typedef struct {
+    u32 location;
+    SDL_GPUVertexElementFormat format;
+    u32 offset;
+} Gpu_VertexAttr;
+
+// Everything needed to build a graphics pipeline. The color target is the
+// swapchain and the depth target is the device's depth texture; both are filled
+// in by gpu_make_pipeline.
+typedef struct {
+    SDL_GPUShader *vertex_shader;
+    SDL_GPUShader *fragment_shader;
+    u32 vertex_pitch;                 // stride of one interleaved vertex
+    const Gpu_VertexAttr *attrs;
+    u32 num_attrs;
+    b32 depth_test;                   // depth test + write against the depth target
+    b32 alpha_blend;                  // standard src-alpha blending on the color target
+    SDL_GPUCullMode cull_mode;
+} Gpu_PipelineDesc;
+
+// A render pass over the swapchain (and optionally the depth target).
+typedef struct {
+    f32 clear_r, clear_g, clear_b;
+    b32 clear;                        // color load op: true = CLEAR, false = LOAD
+    b32 use_depth;                    // attach + clear the depth target
+} Gpu_PassDesc;
 
 // Lifecycle.
-b32  gpu_init(Gpu_Renderer *gpu, SDL_Window *window);
-void gpu_shutdown(Gpu_Renderer *gpu);
+b32  gpu_device_init(Gpu_Device *d, SDL_Window *window);
+void gpu_device_shutdown(Gpu_Device *d);
 
-// Frame. gpu_begin_frame returns false when there is no swapchain image this
-// frame (e.g. the window is minimized); skip drawing and do not call end_frame.
-b32  gpu_begin_frame(Gpu_Renderer *gpu, f32 clear_r, f32 clear_g, f32 clear_b);
-void gpu_end_frame(Gpu_Renderer *gpu);
+// Resource creation. Shaders take both baked blobs; the device's chosen format
+// selects which one is used (entrypoint "main0" for MSL, "main" for SPIR-V).
+SDL_GPUShader *gpu_make_shader(Gpu_Device *d,
+                               const unsigned char *spv, unsigned long spv_len,
+                               const unsigned char *msl, unsigned long msl_len,
+                               SDL_GPUShaderStage stage,
+                               u32 num_uniform_buffers, u32 num_samplers);
+SDL_GPUGraphicsPipeline *gpu_make_pipeline(Gpu_Device *d, const Gpu_PipelineDesc *desc);
+SDL_GPUBuffer *gpu_make_vertex_buffer(Gpu_Device *d, u32 size);
 
-// 3D drawing. Call gpu_begin_3d once per frame to bind the lit pipeline and set
-// the camera + light, then gpu_draw_mesh per object. Must be inside a frame.
-void gpu_begin_3d(Gpu_Renderer *gpu, Mat4 view_proj, Vec3 light_dir);
-void gpu_draw_mesh(Gpu_Renderer *gpu, const Mesh *mesh, Mat4 model, Vec4 color);
+// Frame. gpu_begin_frame acquires the command buffer + swapchain image; it
+// returns false when there is no image this frame (e.g. minimized) — skip
+// rendering and do not call gpu_end_frame.
+b32  gpu_begin_frame(Gpu_Device *d);
+void gpu_end_frame(Gpu_Device *d);
 
-// 2D overlay. Call any time during a frame; quads are drawn on top of the scene
-// when the frame ends. Uses the renderer's built-in font.
-void gpu_draw_rect(Gpu_Renderer *gpu, f32 x, f32 y, f32 w, f32 h, Vec4 color);
-void gpu_draw_text(Gpu_Renderer *gpu, f32 x, f32 y, f32 scale, const char *text, Vec4 color);
+// Render passes, within a frame. Begin one, issue draws, end it. A frame may
+// contain several (e.g. a depth-tested scene pass then a color-only overlay).
+void gpu_begin_pass(Gpu_Device *d, const Gpu_PassDesc *desc);
+void gpu_end_pass(Gpu_Device *d);
+
+// Draw submission, within a pass.
+void gpu_apply_pipeline(Gpu_Device *d, SDL_GPUGraphicsPipeline *pipeline);
+void gpu_push_vertex_uniform(Gpu_Device *d, u32 slot, const void *data, u32 size);
+void gpu_push_fragment_uniform(Gpu_Device *d, u32 slot, const void *data, u32 size);
+void gpu_bind_vertex_buffer(Gpu_Device *d, SDL_GPUBuffer *vbuf);
+void gpu_bind_index_buffer(Gpu_Device *d, SDL_GPUBuffer *ibuf);   // 16-bit indices
+void gpu_bind_fragment_sampler(Gpu_Device *d, SDL_GPUTexture *tex, SDL_GPUSampler *sampler);
+void gpu_draw_indexed(Gpu_Device *d, u32 index_count);
+void gpu_draw(Gpu_Device *d, u32 vertex_count);
+
+// Upload CPU bytes into a vertex buffer via a transfer buffer. Call within a
+// frame but outside any render pass (it opens its own copy pass).
+void gpu_upload_buffer(Gpu_Device *d, SDL_GPUTransferBuffer *transfer,
+                       SDL_GPUBuffer *dst, const void *src, u32 size);
 
 #endif

@@ -16,6 +16,7 @@
 #include "engine/render/camera.c"
 #include "engine/render/gpu.c"
 #include "engine/render/font.c"
+#include "engine/render/draw.c"
 #include "engine/core/core.c"
 
 // Game

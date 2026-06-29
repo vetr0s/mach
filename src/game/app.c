@@ -52,8 +52,8 @@ void app_update(App *a, f32 dt) {
 }
 
 void app_render(App *a, Engine *e) {
-    Gpu_Renderer *gpu = &e->gpu;
-    game_render_draw(gpu, &a->render, &a->game);
+    Draw *dr = &e->draw;
+    game_render_draw(dr, &a->render, &a->game);
 
     // Game HUD, drawn below the engine's FPS line.
     static const char *tool_names[] = {"None", "Miner", "Storage", "Delete"};
@@ -66,8 +66,8 @@ void app_render(App *a, Engine *e) {
     const Vec4 grey  = {0.70f, 0.70f, 0.75f, 1.0f};
     char line[64];
     snprintf(line, sizeof(line), "Tool: %s", tool);
-    gpu_draw_text(gpu, 10.0f, 30.0f, 2.0f, line, green);
-    gpu_draw_text(gpu, 10.0f, 50.0f, 2.0f, "1:Miner 2:Storage 3:Delete", grey);
+    draw_text(dr, 10.0f, 30.0f, 2.0f, line, green);
+    draw_text(dr, 10.0f, 50.0f, 2.0f, "1:Miner 2:Storage 3:Delete", grey);
 }
 
 void app_shutdown(App *a, Engine *e) {

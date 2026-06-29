@@ -1,7 +1,14 @@
 # Engine redesign discussion — 2026-06-28
 
-Archive of the design conversation that produced `ARCHITECTURE.md`. Kept so the
-reasoning isn't lost. This is a digest of the dialogue, not a verbatim transcript.
+> **Superseded.** This archives the discussion that landed on owning an SDL_GPU
+> renderer with an offline HLSL shader pipeline. That direction was later
+> **reversed** in favor of a minimal 2D engine on SDL_Renderer (no shaders, no
+> GPU pipeline). See `ARCHITECTURE.md` for the current thesis. Kept as a record of
+> the reasoning — the exploration is what made the 2D decision clear.
+
+Archive of the design conversation that produced the original `ARCHITECTURE.md`.
+Kept so the reasoning isn't lost. This is a digest of the dialogue, not a verbatim
+transcript.
 
 ## Starting point: the worry
 

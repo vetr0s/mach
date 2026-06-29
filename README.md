@@ -81,6 +81,7 @@ src/
 build.sh                  # Compiler invocation (macOS/Linux)
 build.bat                 # Compiler invocation (Windows)
 scripts/setup.sh          # SDL3 build (run once)
+scripts/shaders.sh        # Cross-compile HLSL shaders (only when editing them)
 third_party/SDL/          # SDL3 submodule
 ```
 
@@ -109,7 +110,7 @@ Game code directly iterates and updates entities. No indirection, no query syste
 
 ## Rendering
 
-The engine renders in **true 3D** on **SDL_GPU** (Metal on macOS, Vulkan/D3D12 elsewhere). Shaders are authored in MSL and compiled at runtime; there is no shader build step.
+The engine renders in **true 3D** on **SDL_GPU** (Metal on macOS, Vulkan elsewhere). Shaders are authored once in **HLSL** (`src/engine/render/shaders/`) and cross-compiled offline by `scripts/shaders.sh` to SPIR-V (Vulkan) and MSL (Metal), baked into `shaders_generated.h`. The generated header is committed, so a normal `./build.sh` needs no shader toolchain — only re-run `scripts/shaders.sh` after editing a `.hlsl` (requires `glslang` + `spirv-cross`).
 
 - **`gpu.{h,c}`** — device, swapchain, depth buffer, a lit 3D pipeline, and a textured 2D overlay pipeline; frame lifecycle and draw calls.
 - **`mesh.{h,c}`** — GPU vertex/index buffers and procedural primitives (cube, plane).

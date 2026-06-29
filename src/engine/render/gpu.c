@@ -2,48 +2,18 @@
 
 #include "gpu.h"
 #include "../debug.h"
+#include "shaders_generated.h"
 #include <string.h>
 #include <stddef.h>
 
-// --- Shaders (Metal Shading Language, runtime-compiled) ---------------------
+// --- Shaders ----------------------------------------------------------------
 //
-// SDL_GPU Metal binding model (see third_party/SDL/src/gpu/metal):
-//   - vertex input buffer  -> [[buffer(14 + slot)]]
-//   - vertex uniform slot i -> [[buffer(i)]]
-//   - fragment uniform slot i -> [[buffer(i)]]
-//   - vertex attributes via [[stage_in]] / [[attribute(location)]]
+// Shaders are authored once in HLSL (src/engine/render/shaders/*.hlsl) and
+// cross-compiled offline by scripts/shaders.sh into shaders_generated.h: a
+// SPIR-V blob (Vulkan: Linux/Windows) and an MSL blob (Metal: macOS) per stage.
+// gpu_load_shader picks the blob matching the device's chosen format.
 //
-// 3D lit pipeline: transform by model then view_proj; shade with one directional
-// light plus a constant ambient term.
-static const char *GPU_SHADER_3D =
-    "#include <metal_stdlib>\n"
-    "using namespace metal;\n"
-    "struct VSIn { float3 position [[attribute(0)]]; float3 normal [[attribute(1)]]; };\n"
-    "struct VSOut { float4 position [[position]]; float3 normal; };\n"
-    "struct Frame { float4x4 view_proj; };\n"
-    "struct Draw  { float4x4 model; };\n"
-    "vertex VSOut vs_main(VSIn in [[stage_in]],\n"
-    "                     constant Frame& frame [[buffer(0)]],\n"
-    "                     constant Draw& draw [[buffer(1)]]) {\n"
-    "    VSOut out;\n"
-    "    float4 world = draw.model * float4(in.position, 1.0);\n"
-    "    out.position = frame.view_proj * world;\n"
-    "    out.normal = (draw.model * float4(in.normal, 0.0)).xyz;\n"
-    "    return out;\n"
-    "}\n"
-    "struct Light { float4 dir; float4 ambient; };\n"
-    "struct Color { float4 rgba; };\n"
-    "fragment float4 fs_main(VSOut in [[stage_in]],\n"
-    "                        constant Light& light [[buffer(0)]],\n"
-    "                        constant Color& color [[buffer(1)]]) {\n"
-    "    float3 N = normalize(in.normal);\n"
-    "    float3 L = normalize(-light.dir.xyz);\n"
-    "    float ndl = max(dot(N, L), 0.0);\n"
-    "    float lit = light.ambient.x + (1.0 - light.ambient.x) * ndl;\n"
-    "    return float4(color.rgba.rgb * lit, color.rgba.a);\n"
-    "}\n";
-
-// Uniform block layouts. float4 used throughout to dodge MSL float3 packing.
+// Uniform block layouts. float4 used throughout to dodge std140/float3 packing.
 typedef struct { Mat4 view_proj; } Gpu_FrameVS;
 typedef struct { Mat4 model;     } Gpu_DrawVS;
 typedef struct { Vec4 dir; Vec4 ambient; } Gpu_LightFS;
@@ -51,27 +21,43 @@ typedef struct { Vec4 rgba;      } Gpu_ColorFS;
 
 #define GPU_AMBIENT 0.30f
 
-static SDL_GPUShader *gpu_load_shader(SDL_GPUDevice *device, const char *msl,
-                                      SDL_GPUShaderStage stage, const char *entry,
+// Create a shader from its baked blobs, selecting the one matching the device's
+// format. spirv-cross renames the entrypoint to "main0" (Metal reserves "main");
+// the SPIR-V path keeps glslang's "main".
+static SDL_GPUShader *gpu_load_shader(Gpu_Renderer *gpu,
+                                      const unsigned char *spv, unsigned long spv_len,
+                                      const unsigned char *msl, unsigned long msl_len,
+                                      SDL_GPUShaderStage stage,
                                       u32 num_uniform_buffers, u32 num_samplers) {
     SDL_GPUShaderCreateInfo info = {0};
-    info.code = (const u8 *)msl;
-    info.code_size = strlen(msl);
-    info.entrypoint = entry;
-    info.format = SDL_GPU_SHADERFORMAT_MSL;
+    if (gpu->shader_format == SDL_GPU_SHADERFORMAT_MSL) {
+        info.code = msl;
+        info.code_size = msl_len;
+        info.format = SDL_GPU_SHADERFORMAT_MSL;
+        info.entrypoint = "main0";
+    } else {
+        info.code = spv;
+        info.code_size = spv_len;
+        info.format = SDL_GPU_SHADERFORMAT_SPIRV;
+        info.entrypoint = "main";
+    }
     info.stage = stage;
     info.num_uniform_buffers = num_uniform_buffers;
     info.num_samplers = num_samplers;
-    SDL_GPUShader *s = SDL_CreateGPUShader(device, &info);
-    if (!s) LOG_ERROR("shader compile failed (%s): %s", entry, SDL_GetError());
+    SDL_GPUShader *s = SDL_CreateGPUShader(gpu->device, &info);
+    if (!s) LOG_ERROR("shader create failed: %s", SDL_GetError());
     return s;
 }
 
 static b32 gpu_create_pipeline_3d(Gpu_Renderer *gpu) {
-    SDL_GPUShader *vs = gpu_load_shader(gpu->device, GPU_SHADER_3D,
-                                        SDL_GPU_SHADERSTAGE_VERTEX, "vs_main", 2, 0);
-    SDL_GPUShader *fs = gpu_load_shader(gpu->device, GPU_SHADER_3D,
-                                        SDL_GPU_SHADERSTAGE_FRAGMENT, "fs_main", 2, 0);
+    SDL_GPUShader *vs = gpu_load_shader(gpu,
+        shader_lit_vert_spv, shader_lit_vert_spv_len,
+        shader_lit_vert_msl, shader_lit_vert_msl_len,
+        SDL_GPU_SHADERSTAGE_VERTEX, 2, 0);
+    SDL_GPUShader *fs = gpu_load_shader(gpu,
+        shader_lit_frag_spv, shader_lit_frag_spv_len,
+        shader_lit_frag_msl, shader_lit_frag_msl_len,
+        SDL_GPU_SHADERSTAGE_FRAGMENT, 2, 0);
     if (!vs || !fs) {
         if (vs) SDL_ReleaseGPUShader(gpu->device, vs);
         if (fs) SDL_ReleaseGPUShader(gpu->device, fs);
@@ -123,29 +109,19 @@ static b32 gpu_create_pipeline_3d(Gpu_Renderer *gpu) {
     return MACH_TRUE;
 }
 
-// 2D overlay shader: screen-space quads sampling the R8 font atlas. The atlas's
-// white texel lets the same shader draw solid rects (sample == 1).
-static const char *GPU_SHADER_2D =
-    "#include <metal_stdlib>\n"
-    "using namespace metal;\n"
-    "struct VSIn { float2 pos [[attribute(0)]]; float2 uv [[attribute(1)]]; float4 color [[attribute(2)]]; };\n"
-    "struct VSOut { float4 position [[position]]; float2 uv; float4 color; };\n"
-    "struct Frame { float4x4 proj; };\n"
-    "vertex VSOut vs2d(VSIn in [[stage_in]], constant Frame& f [[buffer(0)]]) {\n"
-    "    VSOut o; o.position = f.proj * float4(in.pos, 0.0, 1.0); o.uv = in.uv; o.color = in.color; return o;\n"
-    "}\n"
-    "fragment float4 fs2d(VSOut in [[stage_in]], texture2d<float> atlas [[texture(0)]], sampler smp [[sampler(0)]]) {\n"
-    "    float a = atlas.sample(smp, in.uv).r;\n"
-    "    return float4(in.color.rgb, in.color.a * a);\n"
-    "}\n";
-
+// 2D overlay pipeline (overlay.*.hlsl): screen-space quads sampling the R8 font
+// atlas. The atlas's white texel lets the same shader draw solid rects.
 typedef struct { Mat4 proj; } Gpu_Frame2D;
 
 static b32 gpu_create_pipeline_2d(Gpu_Renderer *gpu) {
-    SDL_GPUShader *vs = gpu_load_shader(gpu->device, GPU_SHADER_2D,
-                                        SDL_GPU_SHADERSTAGE_VERTEX, "vs2d", 1, 0);
-    SDL_GPUShader *fs = gpu_load_shader(gpu->device, GPU_SHADER_2D,
-                                        SDL_GPU_SHADERSTAGE_FRAGMENT, "fs2d", 0, 1);
+    SDL_GPUShader *vs = gpu_load_shader(gpu,
+        shader_overlay_vert_spv, shader_overlay_vert_spv_len,
+        shader_overlay_vert_msl, shader_overlay_vert_msl_len,
+        SDL_GPU_SHADERSTAGE_VERTEX, 1, 0);
+    SDL_GPUShader *fs = gpu_load_shader(gpu,
+        shader_overlay_frag_spv, shader_overlay_frag_spv_len,
+        shader_overlay_frag_msl, shader_overlay_frag_msl_len,
+        SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 1);
     if (!vs || !fs) {
         if (vs) SDL_ReleaseGPUShader(gpu->device, vs);
         if (fs) SDL_ReleaseGPUShader(gpu->device, fs);
@@ -221,12 +197,30 @@ static SDL_GPUTexture *gpu_create_depth_texture(Gpu_Renderer *gpu) {
 b32 gpu_init(Gpu_Renderer *gpu, SDL_Window *window) {
     gpu->window = window;
 
-    gpu->device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_MSL, /*debug=*/true, NULL);
+    // Request every format we bake; SDL picks a backend and we load the blob to
+    // match. SPIR-V covers Vulkan (Linux/Windows), MSL covers Metal (macOS).
+    SDL_GPUShaderFormat formats = SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_MSL;
+    gpu->device = SDL_CreateGPUDevice(formats, /*debug=*/true, NULL);
     if (!gpu->device) {
         LOG_ERROR("SDL_CreateGPUDevice failed: %s", SDL_GetError());
         return MACH_FALSE;
     }
-    LOG_INFO("GPU device created (driver: %s)", SDL_GetGPUDeviceDriver(gpu->device));
+
+    // Narrow to the single format this backend accepts.
+    SDL_GPUShaderFormat available = SDL_GetGPUShaderFormats(gpu->device);
+    if (available & SDL_GPU_SHADERFORMAT_MSL) {
+        gpu->shader_format = SDL_GPU_SHADERFORMAT_MSL;
+    } else if (available & SDL_GPU_SHADERFORMAT_SPIRV) {
+        gpu->shader_format = SDL_GPU_SHADERFORMAT_SPIRV;
+    } else {
+        LOG_ERROR("no baked shader format supported by GPU backend");
+        SDL_DestroyGPUDevice(gpu->device);
+        gpu->device = NULL;
+        return MACH_FALSE;
+    }
+    LOG_INFO("GPU device created (driver: %s, shaders: %s)",
+             SDL_GetGPUDeviceDriver(gpu->device),
+             gpu->shader_format == SDL_GPU_SHADERFORMAT_MSL ? "MSL" : "SPIR-V");
 
     if (!SDL_ClaimWindowForGPUDevice(gpu->device, window)) {
         LOG_ERROR("SDL_ClaimWindowForGPUDevice failed: %s", SDL_GetError());

@@ -27,6 +27,10 @@ typedef struct {
     SDL_GPUDevice *device;
     SDL_Window    *window;
 
+    // The single bytecode format chosen at init (MSL on Metal, SPIR-V on
+    // Vulkan); selects which baked blob + entrypoint each shader loads.
+    SDL_GPUShaderFormat shader_format;
+
     SDL_GPUTexture       *depth_texture;
     SDL_GPUTextureFormat  depth_format;
     u32 width, height;

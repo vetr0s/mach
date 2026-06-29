@@ -1,9 +1,9 @@
-// Font implementation: 8x8 glyphs baked into a GPU atlas (included into mach.c).
+// Font implementation: 8x8 glyphs baked into an SDL_Texture atlas (included into
+// mach.c).
 //
-// Glyphs are stored as a static bit table, then expanded into an R8 atlas
-// texture at startup. The atlas is a 16x6 grid of 8x8 cells: indices 0..94 hold
-// printable ASCII (32..126), and the last cell is a solid white texel so the 2D
-// overlay can draw filled rectangles with the same texture/pipeline.
+// Glyphs are stored as a static bit table, then expanded into an RGBA atlas
+// texture at startup (white pixels with alpha; transparent elsewhere). Text is
+// drawn by blitting glyph cells with a per-draw color mod for tint.
 
 #include "font.h"
 #include "../debug.h"
@@ -19,7 +19,6 @@
 #define ATLAS_ROWS 6
 #define ATLAS_W   (ATLAS_COLS * CELL)  // 128
 #define ATLAS_H   (ATLAS_ROWS * CELL)  // 48
-#define WHITE_CELL FONT_GLYPH_COUNT     // index 95 -> col 15, row 5
 
 // 8x8 glyphs indexed by (ascii - FONT_FIRST_CHAR). MSB = leftmost pixel.
 static const u8 GLYPHS[FONT_GLYPH_COUNT][CELL] = {
@@ -89,9 +88,10 @@ static const u8 GLYPHS[FONT_GLYPH_COUNT][CELL] = {
     ['z' - FONT_FIRST_CHAR] = {0x00, 0x7E, 0x0C, 0x18, 0x30, 0x60, 0x7E, 0x00},
 };
 
-// Expand the bit table into an R8 pixel buffer (caller frees).
-static u8 *font_build_pixels(void) {
-    u8 *px = (u8 *)calloc(ATLAS_W * ATLAS_H, 1);
+// Expand the bit table into an RGBA pixel buffer (caller frees). Set bits become
+// opaque white; everything else is transparent.
+static u32 *font_build_pixels(void) {
+    u32 *px = (u32 *)calloc(ATLAS_W * ATLAS_H, sizeof(u32));
     if (!px) return NULL;
 
     for (i32 idx = 0; idx < FONT_GLYPH_COUNT; idx++) {
@@ -100,21 +100,14 @@ static u8 *font_build_pixels(void) {
         for (i32 r = 0; r < CELL; r++) {
             u8 bits = GLYPHS[idx][r];
             for (i32 c = 0; c < CELL; c++) {
-                if (bits & (0x80 >> c)) px[(cy + r) * ATLAS_W + (cx + c)] = 255;
+                if (bits & (0x80 >> c)) px[(cy + r) * ATLAS_W + (cx + c)] = 0xFFFFFFFFu;
             }
         }
     }
-    // Solid white cell for filled rects.
-    i32 wx = (WHITE_CELL % ATLAS_COLS) * CELL;
-    i32 wy = (WHITE_CELL / ATLAS_COLS) * CELL;
-    for (i32 r = 0; r < CELL; r++)
-        for (i32 c = 0; c < CELL; c++)
-            px[(wy + r) * ATLAS_W + (wx + c)] = 255;
-
     return px;
 }
 
-Font *font_create(SDL_GPUDevice *device) {
+Font *font_create(SDL_Renderer *renderer) {
     Font *font = (Font *)calloc(1, sizeof(Font));
     if (!font) return NULL;
 
@@ -123,77 +116,41 @@ Font *font_create(SDL_GPUDevice *device) {
     font->advance = CELL + 1;
     font->atlas_w = (f32)ATLAS_W;
     font->atlas_h = (f32)ATLAS_H;
-    font->white_u = ((WHITE_CELL % ATLAS_COLS) * CELL + CELL / 2) / (f32)ATLAS_W;
-    font->white_v = ((WHITE_CELL / ATLAS_COLS) * CELL + CELL / 2) / (f32)ATLAS_H;
 
-    u8 *px = font_build_pixels();
+    u32 *px = font_build_pixels();
     if (!px) { free(font); return NULL; }
 
-    SDL_GPUTextureCreateInfo tci = {0};
-    tci.type = SDL_GPU_TEXTURETYPE_2D;
-    tci.format = SDL_GPU_TEXTUREFORMAT_R8_UNORM;
-    tci.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
-    tci.width = ATLAS_W;
-    tci.height = ATLAS_H;
-    tci.layer_count_or_depth = 1;
-    tci.num_levels = 1;
-    tci.sample_count = SDL_GPU_SAMPLECOUNT_1;
-    font->atlas = SDL_CreateGPUTexture(device, &tci);
-
-    SDL_GPUTransferBufferCreateInfo tbi = {
-        .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD, .size = ATLAS_W * ATLAS_H};
-    SDL_GPUTransferBuffer *tb = SDL_CreateGPUTransferBuffer(device, &tbi);
-    if (!font->atlas || !tb) {
-        LOG_ERROR("font_create: atlas/transfer creation failed: %s", SDL_GetError());
+    font->atlas = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32,
+                                    SDL_TEXTUREACCESS_STATIC, ATLAS_W, ATLAS_H);
+    if (!font->atlas) {
+        LOG_ERROR("font_create: SDL_CreateTexture failed: %s", SDL_GetError());
         free(px);
-        font_destroy(device, font);
+        free(font);
         return NULL;
     }
-
-    void *map = SDL_MapGPUTransferBuffer(device, tb, false);
-    memcpy(map, px, ATLAS_W * ATLAS_H);
-    SDL_UnmapGPUTransferBuffer(device, tb);
+    SDL_UpdateTexture(font->atlas, NULL, px, ATLAS_W * (i32)sizeof(u32));
+    SDL_SetTextureBlendMode(font->atlas, SDL_BLENDMODE_BLEND);
+    SDL_SetTextureScaleMode(font->atlas, SDL_SCALEMODE_NEAREST);
     free(px);
 
-    SDL_GPUCommandBuffer *cmd = SDL_AcquireGPUCommandBuffer(device);
-    SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(cmd);
-    SDL_GPUTextureTransferInfo src = {
-        .transfer_buffer = tb, .offset = 0, .pixels_per_row = ATLAS_W, .rows_per_layer = ATLAS_H};
-    SDL_GPUTextureRegion dst = {.texture = font->atlas, .w = ATLAS_W, .h = ATLAS_H, .d = 1};
-    SDL_UploadToGPUTexture(copy, &src, &dst, false);
-    SDL_EndGPUCopyPass(copy);
-    SDL_SubmitGPUCommandBuffer(cmd);
-    SDL_ReleaseGPUTransferBuffer(device, tb);
-
-    SDL_GPUSamplerCreateInfo sci = {0};
-    sci.min_filter = SDL_GPU_FILTER_NEAREST;
-    sci.mag_filter = SDL_GPU_FILTER_NEAREST;
-    sci.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
-    sci.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-    sci.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-    sci.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-    font->sampler = SDL_CreateGPUSampler(device, &sci);
-
-    LOG_INFO("font atlas created (%dx%d R8, %d glyphs)", ATLAS_W, ATLAS_H, FONT_GLYPH_COUNT);
+    LOG_INFO("font atlas created (%dx%d RGBA, %d glyphs)", ATLAS_W, ATLAS_H, FONT_GLYPH_COUNT);
     return font;
 }
 
-void font_destroy(SDL_GPUDevice *device, Font *font) {
+void font_destroy(Font *font) {
     if (!font) return;
-    if (font->sampler) SDL_ReleaseGPUSampler(device, font->sampler);
-    if (font->atlas) SDL_ReleaseGPUTexture(device, font->atlas);
+    if (font->atlas) SDL_DestroyTexture(font->atlas);
     free(font);
 }
 
-b32 font_glyph_uv(const Font *font, char ch, f32 *u0, f32 *v0, f32 *u1, f32 *v1) {
+b32 font_glyph_src(const Font *font, char ch, SDL_FRect *out) {
+    (void)font;
     u8 c = (u8)ch;
     if (c < FONT_FIRST_CHAR || c > FONT_LAST_CHAR) return MACH_FALSE;
     i32 idx = c - FONT_FIRST_CHAR;
-    f32 x0 = (f32)((idx % ATLAS_COLS) * CELL);
-    f32 y0 = (f32)((idx / ATLAS_COLS) * CELL);
-    *u0 = x0 / font->atlas_w;
-    *v0 = y0 / font->atlas_h;
-    *u1 = (x0 + CELL) / font->atlas_w;
-    *v1 = (y0 + CELL) / font->atlas_h;
+    out->x = (f32)((idx % ATLAS_COLS) * CELL);
+    out->y = (f32)((idx / ATLAS_COLS) * CELL);
+    out->w = (f32)CELL;
+    out->h = (f32)CELL;
     return MACH_TRUE;
 }

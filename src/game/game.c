@@ -5,24 +5,15 @@
 #include "../engine/debug.h"
 #include <math.h>
 
-// Camera zoom limits (orthographic half-height, world units).
-#define ZOOM_MIN 3.0f
-#define ZOOM_MAX 60.0f
+// Camera zoom limits (pixels-per-iso-unit multiplier).
+#define ZOOM_MIN 0.5f
+#define ZOOM_MAX 5.0f
 
-// Set up the isometric camera: an orthographic camera looking along (1,1,1),
-// which yields a true isometric projection. Other games can swap this for a
-// perspective or top-down camera without touching the renderer.
-static void setup_iso_camera(Camera *c, Vec3 target) {
-    Vec3 dir = vec3_normalize((Vec3){1.0f, 1.0f, 1.0f});
-    c->target = target;
-    c->position = vec3_add(target, vec3_scale(dir, 60.0f));
-    c->up = (Vec3){0.0f, 1.0f, 0.0f};
-    c->projection = CAMERA_ORTHOGRAPHIC;
-    c->fov_y = math_radians(60.0f);
-    c->ortho_size = 10.0f;
-    c->near_plane = 0.1f;
-    c->far_plane = 200.0f;
-    c->aspect = (f32)SCREEN_WIDTH / (f32)SCREEN_HEIGHT;
+// Center the 2D iso camera on grid cell (cx, cy) at a default zoom.
+static void setup_camera(Camera2D *c, f32 cx, f32 cy) {
+    c->pan.x = (cx - cy) * (ISO_TILE_W * 0.5f);
+    c->pan.y = (cx + cy) * (ISO_TILE_H * 0.5f);
+    c->zoom = 2.0f;
 }
 
 // Initialize game state with an empty world and spawn test entities for development.
@@ -34,34 +25,29 @@ void game_init(Game_State *g) {
     g->hover_valid = MACH_FALSE;
     g->hover_can_place = MACH_FALSE;
 
-    setup_iso_camera(&g->camera, (Vec3){5.0f, 0.0f, 5.0f});
+    setup_camera(&g->camera, 5.0f, 5.0f);
 
     if (g->world) {
         world_spawn_miner(g->world, 5, 5);
         world_spawn_storage(g->world, 6, 5);
     }
 
-    LOG_INFO("game initialized (iso ortho camera)");
+    LOG_INFO("game initialized (2D iso camera)");
 }
 
-// Update the hovered grid cell by casting a ray from the mouse onto the ground
-// plane (y = 0). Grid cell (x,y) is centered at world (x, 0, y).
+// Update the hovered grid cell by inverse-projecting the mouse onto the ground
+// plane. Grid cell (x,y) is the tile centered at iso coordinate (x, y).
 void game_update_hover(Game_State *g, i32 mouse_x, i32 mouse_y) {
     if (!g) return;
 
-    Vec3 origin, dir;
-    camera_screen_ray(&g->camera, (f32)mouse_x, (f32)mouse_y,
-                      SCREEN_WIDTH, SCREEN_HEIGHT, &origin, &dir);
-
-    if (fabsf(dir.y) < 1e-6f) { g->hover_valid = MACH_FALSE; return; }
-    f32 t = -origin.y / dir.y;
-    if (t < 0.0f) { g->hover_valid = MACH_FALSE; return; }
-
-    Vec3 hit = vec3_add(origin, vec3_scale(dir, t));
-    g->hover_grid_x = (i32)floorf(hit.x + 0.5f);
-    g->hover_grid_y = (i32)floorf(hit.z + 0.5f);
-    g->hover_valid = MACH_TRUE;
-    g->hover_can_place = world_can_place_at(g->world, g->hover_grid_x, g->hover_grid_y);
+    Vec2 grid = screen_to_iso(&g->camera, (f32)SCREEN_WIDTH, (f32)SCREEN_HEIGHT,
+                              (f32)mouse_x, (f32)mouse_y);
+    g->hover_grid_x = (i32)floorf(grid.x + 0.5f);
+    g->hover_grid_y = (i32)floorf(grid.y + 0.5f);
+    g->hover_valid = (g->hover_grid_x >= 0 && g->hover_grid_x < WORLD_GRID_SIZE &&
+                      g->hover_grid_y >= 0 && g->hover_grid_y < WORLD_GRID_SIZE);
+    g->hover_can_place = g->hover_valid &&
+                         world_can_place_at(g->world, g->hover_grid_x, g->hover_grid_y);
 }
 
 // Advance game simulation. dt is delta time in seconds since last frame.
@@ -124,26 +110,17 @@ void game_handle_key(Game_State *g, SDL_Scancode scancode) {
     }
 }
 
-// Pan the camera across the ground plane. (dx, dy) is screen-space motion in
-// pixels; convert to world units and move along the camera's right/forward axes.
+// Pan the camera. (dx, dy) is screen-space motion in pixels; divide by zoom to
+// move the iso-space focus point by the same on-screen amount at any zoom.
 void game_camera_pan(Game_State *g, f32 dx, f32 dy) {
     if (!g) return;
-
-    f32 world_per_pixel = (2.0f * g->camera.ortho_size) / (f32)SCREEN_HEIGHT;
-
-    Vec3 view = vec3_normalize(vec3_sub(g->camera.target, g->camera.position));
-    Vec3 right = vec3_normalize(vec3_cross(view, g->camera.up));
-    Vec3 forward = vec3_normalize((Vec3){view.x, 0.0f, view.z});  // view along ground
-
-    Vec3 move = vec3_add(vec3_scale(right, dx * world_per_pixel),
-                         vec3_scale(forward, -dy * world_per_pixel));
-    g->camera.target = vec3_add(g->camera.target, move);
-    g->camera.position = vec3_add(g->camera.position, move);
+    g->camera.pan.x += dx / g->camera.zoom;
+    g->camera.pan.y += dy / g->camera.zoom;
 }
 
-// Zoom the orthographic camera. Positive delta zooms in (smaller view volume).
+// Zoom the camera. Positive delta zooms in (larger tiles).
 void game_camera_zoom(Game_State *g, f32 zoom_delta) {
     if (!g) return;
-    g->camera.ortho_size *= (1.0f - zoom_delta);
-    g->camera.ortho_size = math_clamp(g->camera.ortho_size, ZOOM_MIN, ZOOM_MAX);
+    g->camera.zoom *= (1.0f + zoom_delta);
+    g->camera.zoom = math_clamp(g->camera.zoom, ZOOM_MIN, ZOOM_MAX);
 }

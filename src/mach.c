@@ -12,11 +12,8 @@
 #include "engine/debug.h"
 #include "engine/math/math.c"
 #include "engine/render/image.c"
-#include "engine/render/mesh.c"
-#include "engine/render/camera.c"
-#include "engine/render/gpu.c"
 #include "engine/render/font.c"
-#include "engine/render/draw.c"
+#include "engine/render/render2d.c"
 #include "engine/core/core.c"
 
 // Game

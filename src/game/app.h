@@ -14,8 +14,7 @@
 #include "render_game.h"
 
 typedef struct {
-    Game_State  game;
-    Game_Render render;
+    Game_State game;
 } App;
 
 void app_init(App *a, Engine *e);

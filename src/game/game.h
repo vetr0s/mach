@@ -4,7 +4,7 @@
 #define GAME_H
 
 #include "../engine/base/base.h"
-#include "../engine/render/camera.h"
+#include "../engine/render/render2d.h"
 #include "world/world.h"
 #include <SDL3/SDL.h>
 
@@ -12,12 +12,12 @@ typedef struct {
     World *world;
     i32 selected_tool;
 
-    Camera camera;
+    Camera2D camera;
 
     // Hover: the grid cell currently under the mouse.
     i32 hover_grid_x;
     i32 hover_grid_y;
-    b32 hover_valid;      // the pick ray hit the ground plane
+    b32 hover_valid;      // the mouse projected onto the ground plane
     b32 hover_can_place;
 } Game_State;
 

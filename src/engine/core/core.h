@@ -12,13 +12,11 @@
 #include "../base/base.h"
 #include "../os.h"
 #include "../ui.h"
-#include "../render/gpu.h"
-#include "../render/draw.h"
+#include "../render/render2d.h"
 
 typedef struct {
     UI_Context   ui;
-    Gpu_Device   gpu;    // Layer 1: device, frame, passes, draw primitives
-    Draw         draw;   // Layer 2: built-in pipelines, font, overlay batch
+    Renderer     r2d;    // 2D renderer (SDL_Renderer + bitmap font)
     i32          running;
 
     // (npt): Frame timing. These were locals in the old engine-owned loop; now
@@ -41,7 +39,7 @@ b32  engine_running(Engine *e);
 //   f32 dt = engine_frame_begin(e);          // compute + return delta time
 //   while (engine_poll_event(e, &ev)) {...}  // drain game-relevant events
 //   ... game update (dt) ...
-//   if (engine_render_begin(e)) {            // begin GPU frame (false => skip)
+//   if (engine_render_begin(e)) {            // clear the frame (false => skip)
 //       ... game render ...
 //       engine_render_end(e);                // engine overlay + present
 //   }

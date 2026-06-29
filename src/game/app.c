@@ -11,8 +11,8 @@
 #define CAMERA_PAN_SPEED 300.0f  // pixels per second
 
 void app_init(App *a, Engine *e) {
+    (void)e;
     game_init(&a->game);
-    game_render_init(&a->render, e->gpu.device);
 }
 
 void app_handle_event(App *a, const SDL_Event *ev) {
@@ -52,8 +52,8 @@ void app_update(App *a, f32 dt) {
 }
 
 void app_render(App *a, Engine *e) {
-    Draw *dr = &e->draw;
-    game_render_draw(dr, &a->render, &a->game);
+    Renderer *r = &e->r2d;
+    game_render_draw(r, &a->game);
 
     // Game HUD, drawn below the engine's FPS line.
     static const char *tool_names[] = {"None", "Miner", "Storage", "Delete"};
@@ -66,11 +66,11 @@ void app_render(App *a, Engine *e) {
     const Vec4 grey  = {0.70f, 0.70f, 0.75f, 1.0f};
     char line[64];
     snprintf(line, sizeof(line), "Tool: %s", tool);
-    draw_text(dr, 10.0f, 30.0f, 2.0f, line, green);
-    draw_text(dr, 10.0f, 50.0f, 2.0f, "1:Miner 2:Storage 3:Delete", grey);
+    r2d_text(r, 10.0f, 30.0f, 2.0f, line, green);
+    r2d_text(r, 10.0f, 50.0f, 2.0f, "1:Miner 2:Storage 3:Delete", grey);
 }
 
 void app_shutdown(App *a, Engine *e) {
-    game_render_shutdown(&a->render, e->gpu.device);
+    (void)e;
     game_shutdown(&a->game);
 }

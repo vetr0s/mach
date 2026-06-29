@@ -12,12 +12,12 @@
 #define TARGET_FRAME_MS 8     // ~120 FPS soft cap
 #define MAX_DT          0.1f  // clamp dt to prevent large simulation jumps
 
-// Background clear color (dark slate), normalized.
-#define CLEAR_R (0x1e / 255.0f)
-#define CLEAR_G (0x29 / 255.0f)
-#define CLEAR_B (0x3b / 255.0f)
+// Background clear color (dark slate), 8-bit.
+#define CLEAR_R 0x1e
+#define CLEAR_G 0x29
+#define CLEAR_B 0x3b
 
-// Initialize SDL, create the window, bring up the GPU renderer, and start the
+// Initialize SDL, create the window, bring up the 2D renderer, and start the
 // frame-timing clocks.
 b32 engine_init(Engine *e, const char *title, i32 w, i32 h) {
     LOG_INFO("mach v%d.%d.%d starting up",
@@ -35,16 +35,7 @@ b32 engine_init(Engine *e, const char *title, i32 w, i32 h) {
         return MACH_FALSE;
     }
 
-    if (!gpu_device_init(&e->gpu, e->ui.window)) {
-        SDL_DestroyWindow(e->ui.window);
-        e->ui.window = NULL;
-        SDL_Quit();
-        return MACH_FALSE;
-    }
-
-    if (!draw_init(&e->draw, &e->gpu)) {
-        draw_shutdown(&e->draw);
-        gpu_device_shutdown(&e->gpu);
+    if (!r2d_init(&e->r2d, e->ui.window)) {
         SDL_DestroyWindow(e->ui.window);
         e->ui.window = NULL;
         SDL_Quit();
@@ -61,10 +52,9 @@ b32 engine_init(Engine *e, const char *title, i32 w, i32 h) {
     return MACH_TRUE;
 }
 
-// Clean up GPU resources and close the window.
+// Clean up renderer resources and close the window.
 void engine_shutdown(Engine *e) {
-    draw_shutdown(&e->draw);
-    gpu_device_shutdown(&e->gpu);
+    r2d_shutdown(&e->r2d);
     if (e->ui.window) {
         SDL_DestroyWindow(e->ui.window);
         e->ui.window = NULL;
@@ -105,29 +95,20 @@ b32 engine_poll_event(Engine *e, SDL_Event *out) {
     return MACH_FALSE;
 }
 
-// Begin the GPU frame and open the scene pass (clear color + depth). Returns
-// false when there is no swapchain image (e.g. minimized); the game should skip
-// rendering and not call engine_render_end.
+// Begin the frame: clear to the background color. Always succeeds (SDL_Renderer
+// handles a minimized window gracefully), but keeps the bool shape of the loop.
 b32 engine_render_begin(Engine *e) {
-    if (!gpu_begin_frame(&e->gpu)) return MACH_FALSE;
-    gpu_begin_pass(&e->gpu, &(Gpu_PassDesc){
-        .clear = MACH_TRUE, .clear_r = CLEAR_R, .clear_g = CLEAR_G, .clear_b = CLEAR_B,
-        .use_depth = MACH_TRUE,
-    });
+    r2d_begin(&e->r2d, CLEAR_R, CLEAR_G, CLEAR_B);
     return MACH_TRUE;
 }
 
-// Finish the GPU frame: draw the engine's debug overlay (FPS, top-left) on top
-// of whatever the game rendered, end the scene pass, flush the 2D overlay in its
-// own pass, then present.
+// Finish the frame: draw the engine's debug overlay (FPS, top-left) on top of
+// whatever the game rendered, then present.
 void engine_render_end(Engine *e) {
     char line[32];
     snprintf(line, sizeof(line), "FPS: %d", e->fps);
-    draw_text(&e->draw, 10.0f, 10.0f, 2.0f, line, (Vec4){0.45f, 0.85f, 0.45f, 1.0f});
-
-    gpu_end_pass(&e->gpu);          // end the scene pass
-    draw_flush_overlay(&e->draw);   // overlay pass (loads the scene, draws HUD)
-    gpu_end_frame(&e->gpu);         // submit
+    r2d_text(&e->r2d, 10.0f, 10.0f, 2.0f, line, (Vec4){0.45f, 0.85f, 0.45f, 1.0f});
+    r2d_present(&e->r2d);
 }
 
 // End-of-frame bookkeeping: update the 1s FPS sample and sleep to honor the soft

@@ -2,6 +2,8 @@
 
 A game engine and game, co-developed as a single unit. Built in C with SDL3.
 
+![mach — isometric factory scene rendered by the engine](assets/mach-engine-screenshot.png)
+
 **Version:** v0.5.0
 
 A minimal **2D isometric** engine driving a factory/automation game. Rendering is

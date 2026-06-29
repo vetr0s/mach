@@ -9,7 +9,7 @@
 
 // Semantic versioning: MAJOR.MINOR.PATCH
 #define MACH_VERSION_MAJOR 0
-#define MACH_VERSION_MINOR 3
+#define MACH_VERSION_MINOR 4
 #define MACH_VERSION_PATCH 0
 
 // Sized integer aliases.

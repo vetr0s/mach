@@ -83,8 +83,11 @@
 
 ## Platform
 - [x] macOS: building and running
-- [ ] Linux: build and test
-- [ ] Windows: build and test
+- [ ] Linux: build and test (toolchain wired: build.sh + scripts/shaders.sh)
+- [ ] Windows: build and test (toolchain wired: setup.ps1 + build.bat +
+      scripts/shaders.ps1). Runs the Vulkan backend — gpu.c requests SPIR-V/MSL
+      so SDL_GPU skips D3D12 and selects Vulkan; the test box needs a
+      Vulkan-capable driver. Untested on real hardware; verify when available.
 
 > **Note: still want a Linux dev box, but it's no longer urgent.** The offline
 > shader toolchain *does* work on macOS (`brew install glslang spirv-cross`), so

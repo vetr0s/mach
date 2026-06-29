@@ -6,11 +6,28 @@ A game engine and game, co-developed as a single unit. Built in C with SDL3.
 
 ## Setup
 
+**macOS / Linux** (bash):
 ```bash
 ./scripts/setup.sh      # One-time: build SDL3
 ./build.sh              # Build the game
 ./build/mach_debug      # Run
 ```
+
+**Windows** — from an elevated *Visual Studio "x64 Native Tools"* prompt:
+```powershell
+.\scripts\setup.ps1     # One-time: build SDL3 (cmake + MSVC)
+.\build.bat             # Build the game
+.\build\mach_debug.exe  # Run
+```
+Windows runs on the **Vulkan** backend (we don't ship D3D12/DXIL yet), so the
+test machine needs a Vulkan-capable GPU driver — `gpu.c` requests only
+SPIR-V/MSL, which makes SDL_GPU skip D3D12 and select Vulkan automatically. The
+LunarG Vulkan SDK provides both the runtime and the shader tools below.
+
+Editing a shader (`src/engine/render/shaders/*.hlsl`) requires regenerating the
+baked header — `./scripts/shaders.sh` (bash) or `.\scripts\shaders.ps1`
+(Windows). The result is committed, so a plain build never needs the shader
+toolchain.
 
 ## Controls
 
@@ -80,8 +97,10 @@ src/
 
 build.sh                  # Compiler invocation (macOS/Linux)
 build.bat                 # Compiler invocation (Windows)
-scripts/setup.sh          # SDL3 build (run once)
-scripts/shaders.sh        # Cross-compile HLSL shaders (only when editing them)
+scripts/setup.sh          # SDL3 build, run once (macOS/Linux)
+scripts/setup.ps1         # SDL3 build, run once (Windows)
+scripts/shaders.sh        # Cross-compile HLSL shaders (macOS/Linux; only when editing them)
+scripts/shaders.ps1       # Cross-compile HLSL shaders (Windows; only when editing them)
 third_party/SDL/          # SDL3 submodule
 ```
 

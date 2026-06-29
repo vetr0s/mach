@@ -89,11 +89,10 @@ Inspired by Anton Mikhailov's approach on the *Wookash Podcast*.
 ```
 src/
   engine/                 # Reusable game engine
-    base/                 # Fundamental types (i32, f32, Vec2, etc.)
-    math/                 # Vec2/3/4, Mat4, transforms (Vec2 + iso used by 2D)
+    base/                 # Fundamental types (i32, f32, etc.)
+    math/                 # Vec2 + ops, Vec4 (color), scalar helpers
     core/                 # Frame loop steps, timing, window lifecycle
     render/               # 2D renderer: render2d (SDL_Renderer + iso), font, image
-    os.h                  # Platform detection
     ui.h                  # Window context + screen constants
     debug.h               # Assertions, leveled logging
 

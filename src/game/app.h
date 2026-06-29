@@ -1,9 +1,7 @@
-// Game application: its state plus render resources, and the entry points the
-// game's own loop calls each frame.
+// Game application: its state and the entry points the loop calls each frame.
 //
-// (npt): No engine-side callback vtable. The game owns the loop in main() and
-// invokes these directly. This header is the bridge layer, so it's the one place
-// allowed to know both the engine API and the game internals.
+// This is the bridge layer — the one place that knows both the engine API and
+// the game internals. The game owns the loop in main() and calls these directly.
 
 #ifndef GAME_APP_H
 #define GAME_APP_H
@@ -17,8 +15,11 @@ typedef struct {
     Game_State game;
 } App;
 
+// The window the game wants the engine to create.
+Window_Config game_window_config(void);
+
 void app_init(App *a, Engine *e);
-void app_handle_event(App *a, const SDL_Event *ev);
+void app_handle_event(App *a, Engine *e, const SDL_Event *ev);
 void app_update(App *a, f32 dt);
 void app_render(App *a, Engine *e);
 void app_shutdown(App *a, Engine *e);

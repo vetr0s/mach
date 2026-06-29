@@ -11,6 +11,17 @@ static SDL_FColor to_fcolor(Vec4 c) {
 
 // --- Lifecycle --------------------------------------------------------------
 
+// Cache the window size and set the logical presentation to match, so render and
+// mouse coordinates share one space (window points) while SDL scales to the
+// HiDPI framebuffer.
+static void r2d_apply_window_size(Renderer *r) {
+    int w, h;
+    SDL_GetWindowSize(r->window, &w, &h);
+    r->width = w;
+    r->height = h;
+    SDL_SetRenderLogicalPresentation(r->sdl, w, h, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+}
+
 b32 r2d_init(Renderer *r, SDL_Window *window) {
     r->window = window;
     r->sdl = SDL_CreateRenderer(window, NULL);
@@ -19,17 +30,11 @@ b32 r2d_init(Renderer *r, SDL_Window *window) {
         return MACH_FALSE;
     }
 
-    // (npt): Our loop has its own frame cap, so disable vsync to let it govern.
+    // Our loop has its own frame cap, so disable vsync and let it govern.
     SDL_SetRenderVSync(r->sdl, 0);
     SDL_SetRenderDrawBlendMode(r->sdl, SDL_BLENDMODE_BLEND);
 
-    // Render in window-point coordinates so mouse events (also points) line up;
-    // SDL scales to the HiDPI framebuffer for us.
-    int w, h;
-    SDL_GetWindowSize(window, &w, &h);
-    r->width = w;
-    r->height = h;
-    SDL_SetRenderLogicalPresentation(r->sdl, w, h, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    r2d_apply_window_size(r);
 
     r->font = font_create(r->sdl);
     if (!r->font) {
@@ -47,6 +52,11 @@ void r2d_shutdown(Renderer *r) {
     if (r->font) { font_destroy(r->font); r->font = NULL; }
     if (r->sdl) { SDL_DestroyRenderer(r->sdl); r->sdl = NULL; }
     LOG_INFO("2D renderer shut down");
+}
+
+void r2d_resized(Renderer *r) {
+    r2d_apply_window_size(r);
+    LOG_DEBUG("window resized to %dx%d", r->width, r->height);
 }
 
 // --- Frame ------------------------------------------------------------------

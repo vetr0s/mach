@@ -1,7 +1,5 @@
-// Game application glue (included into mach.c).
-//
-// (npt): Adapts the game state + render resources to the game-owned loop. This is
-// the only place that knows both the engine API and the game internals.
+// Game application glue (included into mach.c): wires the game state into the
+// loop's per-frame entry points.
 
 #include "app.h"
 #include "game.h"
@@ -10,19 +8,33 @@
 
 #define CAMERA_PAN_SPEED 300.0f  // pixels per second
 
+// The game defines its own window here.
+Window_Config game_window_config(void) {
+    return (Window_Config){
+        .title = "mach",
+        .width = 1280,
+        .height = 720,
+        .fullscreen = MACH_FALSE,
+        .resizable = MACH_TRUE,
+    };
+}
+
 void app_init(App *a, Engine *e) {
     (void)e;
     game_init(&a->game);
 }
 
-void app_handle_event(App *a, const SDL_Event *ev) {
+void app_handle_event(App *a, Engine *e, const SDL_Event *ev) {
+    // Hover and placement work in the renderer's current pixel space, which may
+    // differ from the requested size (fullscreen, or a resized window).
+    f32 sw = (f32)e->r2d.width, sh = (f32)e->r2d.height;
     switch (ev->type) {
     case SDL_EVENT_MOUSE_MOTION:
-        game_update_hover(&a->game, (i32)ev->motion.x, (i32)ev->motion.y);
+        game_update_hover(&a->game, sw, sh, (i32)ev->motion.x, (i32)ev->motion.y);
         break;
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
         if (ev->button.button == SDL_BUTTON_LEFT) {
-            game_handle_input(&a->game, (i32)ev->button.x, (i32)ev->button.y, 1);
+            game_handle_input(&a->game, sw, sh, (i32)ev->button.x, (i32)ev->button.y, 1);
         }
         break;
     case SDL_EVENT_MOUSE_WHEEL: {

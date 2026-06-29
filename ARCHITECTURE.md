@@ -22,8 +22,8 @@ mach is **engine-first, minimal, and 2D**.
   speculatively. Today it would be complexity we can't yet maintain.
 - **The game owns the loop; the engine is a toolbox** (raylib-style). The
   engine never names a game type.
-- **Quality means coherence and taste, not capability.** The engine is allowed —
-  required — to say no.
+- **Quality means coherence and taste, not capability.** The engine should say
+  no to features it doesn't need.
 
 ## Rendering
 
@@ -49,13 +49,13 @@ The game owns control flow; the engine is a library it calls into:
 
 ```c
 int main(void) {
-    Engine engine = {0}; engine_init(&engine, "mach", 1280, 720);
+    Engine engine = {0}; engine_init(&engine, game_window_config());  // game sizes the window
     App    app    = {0}; app_init(&app, &engine);
 
     while (engine_running(&engine)) {
         f32 dt = engine_frame_begin(&engine);
         SDL_Event ev;
-        while (engine_poll_event(&engine, &ev)) app_handle_event(&app, &ev);
+        while (engine_poll_event(&engine, &ev)) app_handle_event(&app, &engine, &ev);
         app_update(&app, dt);
         if (engine_render_begin(&engine)) {        // clear
             app_render(&app, &engine);             // game draws via r2d
@@ -76,7 +76,7 @@ The separation is enforced by the dependency rule, not the loop shape:
 
 ```
 engine/
-  base, math, debug, os, ui         # types, vec/mat, logging, platform, window consts
+  base, math, debug, ui             # types, Vec2/scalar math, logging, window consts
   core                              # loop lifecycle + per-frame steps, frame timing
   render/
     render2d.{h,c}                  # SDL_Renderer wrapper + iso camera/transforms

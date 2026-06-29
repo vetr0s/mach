@@ -4,16 +4,16 @@
 #include <SDL3/SDL.h>
 #include "base/base.h"
 
-// UI layer: window management and rendering context.
+// UI layer: window configuration and the window handle.
 
-// Window dimensions. Single source of truth for screen size; the window is not
-// resizable yet, so these double as compile-time constants for projection math.
-#define SCREEN_WIDTH  1280
-#define SCREEN_HEIGHT 720
-
-// Screen-space center, where the world origin is anchored during projection.
-#define SCREEN_CENTER_X (SCREEN_WIDTH / 2)
-#define SCREEN_CENTER_Y (SCREEN_HEIGHT / 2)
+// How the game wants its window created. The game fills this; the engine creates
+// the window from it (see engine_init).
+typedef struct {
+    const char *title;
+    i32  width, height;
+    b32  fullscreen;
+    b32  resizable;
+} Window_Config;
 
 typedef struct {
     SDL_Window *window;

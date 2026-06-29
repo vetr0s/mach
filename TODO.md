@@ -27,14 +27,13 @@
 - [ ] Real sprite art (loader is wired; drop PNGs into assets/sprites)
 - [ ] Tile/block edge outlines for crisper separation
 - [ ] Sprite batching / atlas for many entities
-- [ ] Window resize handling (track logical size)
+- [x] Window resize handling (renderer re-tracks size + logical presentation)
 - [ ] (later) Real 3D — only when there's a concrete need and the GPU grasp to own it
 
 ## Math
-- [x] Vector2/3/4 types and operations
-- [x] Matrix4x4: transforms (largely unused under 2D; kept for later)
-- [ ] Quaternions
-- [x] Common math utilities (lerp, clamp, radians, etc.)
+- [x] Vec2 type + ops; Vec4 (color)
+- [x] Scalar helpers (min, max, clamp, lerp)
+- [ ] 3D vector/matrix math — returns with 3D, if it does
 
 ## Gameplay
 - [x] Entity system (fat structs + direct arrays)

@@ -1,8 +1,7 @@
 // Core implementation (included into mach.c).
 //
-// (npt): The engine exposes the frame loop as discrete steps; the game owns the
-// loop in main() and calls them. The engine keeps window lifecycle (quit/escape)
-// and frame timing/cap, but no longer drives the application.
+// The engine exposes the frame loop as discrete steps; the game owns the loop in
+// main() and calls them. The engine keeps window lifecycle and frame timing.
 
 #include "core.h"
 #include "../debug.h"
@@ -17,9 +16,9 @@
 #define CLEAR_G 0x29
 #define CLEAR_B 0x3b
 
-// Initialize SDL, create the window, bring up the 2D renderer, and start the
-// frame-timing clocks.
-b32 engine_init(Engine *e, const char *title, i32 w, i32 h) {
+// Initialize SDL, create the window from the game's config, bring up the 2D
+// renderer, and start the frame-timing clocks.
+b32 engine_init(Engine *e, Window_Config cfg) {
     LOG_INFO("mach v%d.%d.%d starting up",
              MACH_VERSION_MAJOR, MACH_VERSION_MINOR, MACH_VERSION_PATCH);
 
@@ -28,7 +27,10 @@ b32 engine_init(Engine *e, const char *title, i32 w, i32 h) {
         return MACH_FALSE;
     }
 
-    e->ui.window = SDL_CreateWindow(title, w, h, 0);
+    SDL_WindowFlags flags = 0;
+    if (cfg.fullscreen) flags |= SDL_WINDOW_FULLSCREEN;
+    if (cfg.resizable)  flags |= SDL_WINDOW_RESIZABLE;
+    e->ui.window = SDL_CreateWindow(cfg.title, cfg.width, cfg.height, flags);
     if (!e->ui.window) {
         LOG_ERROR("SDL_CreateWindow failed: %s", SDL_GetError());
         SDL_Quit();
@@ -76,9 +78,9 @@ f32 engine_frame_begin(Engine *e) {
     return dt;
 }
 
-// Drain the next game-relevant event into `out`. Window lifecycle events
-// (quit / Escape) are consumed here and clear `running` instead of reaching the
-// game. Returns false when the queue is empty.
+// Drain the next game-relevant event into `out`. Window lifecycle events (quit,
+// Escape, resize) are consumed here instead of reaching the game. Returns false
+// when the queue is empty.
 b32 engine_poll_event(Engine *e, SDL_Event *out) {
     while (SDL_PollEvent(out)) {
         if (out->type == SDL_EVENT_QUIT) {
@@ -88,6 +90,8 @@ b32 engine_poll_event(Engine *e, SDL_Event *out) {
                    out->key.scancode == SDL_SCANCODE_ESCAPE) {
             LOG_INFO("escape pressed, exiting");
             e->running = 0;
+        } else if (out->type == SDL_EVENT_WINDOW_RESIZED) {
+            r2d_resized(&e->r2d);
         } else {
             return MACH_TRUE;
         }

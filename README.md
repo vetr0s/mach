@@ -13,12 +13,14 @@ A game engine and game, co-developed as a single unit. Built in C with SDL3.
 ./build/mach_debug      # Run
 ```
 
-**Windows** — from an elevated *Visual Studio "x64 Native Tools"* prompt:
-```powershell
-.\scripts\setup.ps1     # One-time: build SDL3 (cmake + MSVC)
-.\build.bat             # Build the game
-.\build\mach_debug.exe  # Run
+**Windows** — from an elevated *Visual Studio "x64 Native Tools"* `cmd` prompt:
+```bat
+scripts\setup.bat       :: One-time: build SDL3 (cmake + MSVC), fetch stb
+build.bat               :: Build the game
+build\mach_debug.exe    :: Run
 ```
+The `.bat` files are thin wrappers around the PowerShell scripts, so you don't
+need to type `powershell -ExecutionPolicy Bypass -File ...` yourself.
 Windows runs on the **Vulkan** backend (we don't ship D3D12/DXIL yet), so the
 machine needs a Vulkan-capable GPU driver — `gpu.c` requests only SPIR-V/MSL,
 which makes SDL_GPU skip D3D12 and select Vulkan automatically. Any current GPU
@@ -33,7 +35,7 @@ C header (`src/engine/render/shaders_generated.h`). That keeps a clean split:
   the SDL3 you build in `setup` (plus, on Linux/Windows, the GPU driver's Vulkan
   runtime, which is already there). The baked shaders ship in the repo.
 - **To recompile the shaders** — only needed if you *edit* a `.hlsl`. Re-run
-  `./scripts/shaders.sh` (bash) or `.\scripts\shaders.ps1` (Windows), which need
+  `./scripts/shaders.sh` (bash) or `scripts\shaders.bat` (Windows), which need
   `glslangValidator` + `spirv-cross` on PATH. The LunarG Vulkan SDK is the
   easiest one-stop install for both. Commit the regenerated header.
 
@@ -126,9 +128,9 @@ src/
 build.sh                  # Compiler invocation (macOS/Linux)
 build.bat                 # Compiler invocation (Windows)
 scripts/setup.sh          # SDL3 build, run once (macOS/Linux)
-scripts/setup.ps1         # SDL3 build, run once (Windows)
+scripts/setup.ps1         # SDL3 build, run once (Windows)  [setup.bat wraps this]
 scripts/shaders.sh        # Cross-compile HLSL shaders (macOS/Linux; only when editing them)
-scripts/shaders.ps1       # Cross-compile HLSL shaders (Windows; only when editing them)
+scripts/shaders.ps1       # Cross-compile HLSL shaders (Windows; only when editing them) [shaders.bat wraps this]
 third_party/SDL/          # SDL3 submodule
 ```
 

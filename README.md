@@ -20,14 +20,27 @@ A game engine and game, co-developed as a single unit. Built in C with SDL3.
 .\build\mach_debug.exe  # Run
 ```
 Windows runs on the **Vulkan** backend (we don't ship D3D12/DXIL yet), so the
-test machine needs a Vulkan-capable GPU driver — `gpu.c` requests only
-SPIR-V/MSL, which makes SDL_GPU skip D3D12 and select Vulkan automatically. The
-LunarG Vulkan SDK provides both the runtime and the shader tools below.
+machine needs a Vulkan-capable GPU driver — `gpu.c` requests only SPIR-V/MSL,
+which makes SDL_GPU skip D3D12 and select Vulkan automatically. Any current GPU
+driver already includes the Vulkan runtime; **no SDK or extra install needed**.
 
-Editing a shader (`src/engine/render/shaders/*.hlsl`) requires regenerating the
-baked header — `./scripts/shaders.sh` (bash) or `.\scripts\shaders.ps1`
-(Windows). The result is committed, so a plain build never needs the shader
-toolchain.
+### Dependencies
+
+Shaders are authored once in HLSL and cross-compiled offline into a *committed*
+C header (`src/engine/render/shaders_generated.h`). That keeps a clean split:
+
+- **To clone, build, and run** — no shader tooling at all. Just a C compiler and
+  the SDL3 you build in `setup` (plus, on Linux/Windows, the GPU driver's Vulkan
+  runtime, which is already there). The baked shaders ship in the repo.
+- **To recompile the shaders** — only needed if you *edit* a `.hlsl`. Re-run
+  `./scripts/shaders.sh` (bash) or `.\scripts\shaders.ps1` (Windows), which need
+  `glslangValidator` + `spirv-cross` on PATH. The LunarG Vulkan SDK is the
+  easiest one-stop install for both. Commit the regenerated header.
+
+> Optional: the Vulkan SDK also bundles the **validation layers**. They aren't
+> required to run — the debug build just logs "Validation layers not found,
+> continuing without validation" and proceeds — but they're a useful diagnostic
+> when bringing the Vulkan path up on a new machine for the first time.
 
 ## Controls
 

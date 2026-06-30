@@ -8,6 +8,12 @@
 #include "world/world.h"
 #include <SDL3/SDL.h>
 
+// Fixed simulation rate. The world advances in discrete ticks at this rate,
+// decoupled from the render framerate. The renderer reads SIM_TICK_DT to turn the
+// leftover accumulator into an interpolation fraction.
+#define SIM_TICKS_PER_SEC 10
+#define SIM_TICK_DT       (1.0f / (f32)SIM_TICKS_PER_SEC)
+
 typedef struct {
     Arena arena;          // backs the world; freed whole at shutdown
     World *world;

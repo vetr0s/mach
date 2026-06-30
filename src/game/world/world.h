@@ -67,6 +67,7 @@ typedef struct {
 typedef struct {
     b32 alive;
     i32 grid_x, grid_y;
+    i32 prev_x, prev_y;   // cell at the start of this tick, for render interpolation
     i64 value;
     u64 upgraded_mask;    // bit u set once upgrader u has touched this item
 } Item;

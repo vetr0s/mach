@@ -8,10 +8,7 @@
 #define ZOOM_MIN 0.5f
 #define ZOOM_MAX 5.0f
 
-// Fixed simulation rate. The world advances in discrete ticks at this rate,
-// decoupled from the render framerate (see game_tick).
-#define SIM_TICKS_PER_SEC 10
-#define SIM_TICK_DT       (1.0f / (f32)SIM_TICKS_PER_SEC)
+// SIM_TICKS_PER_SEC / SIM_TICK_DT live in game.h so the renderer can read them.
 
 // Center the 2D iso camera on grid cell (cx, cy) at a default zoom.
 static void setup_camera(Camera2D *c, f32 cx, f32 cy) {

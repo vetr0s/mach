@@ -55,7 +55,7 @@
 
 ## Feel & polish (backlog)
 Things to make it play and look right, batched for later sessions. Not urgent.
-- [ ] Smooth item travel: items slide between cells along the belt instead of
+- [x] Smooth item travel: items slide between cells along the belt instead of
       snapping cell to cell, so they read as real objects being carried
 - [ ] Belt surface animation: the conveyor top scrolls in its facing direction
 - [ ] Sprites for pieces and items, replacing the flat shaded blocks/diamonds

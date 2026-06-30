@@ -123,10 +123,13 @@ static Vec4 item_color(const Item *it) {
                   fresh.z + (hot.z - fresh.z) * t, 1.0f};
 }
 
-// A small diamond floating just above the belt at the item's cell.
-static void draw_item(Renderer *r, const Camera2D *cam, const Item *it) {
+// A small diamond floating just above the belt at the item's cell. `alpha` is the
+// fraction into the current sim tick, so the item slides from its previous cell to
+// its current one instead of snapping.
+static void draw_item(Renderer *r, const Camera2D *cam, const Item *it, f32 alpha) {
     f32 sw = (f32)r->width, sh = (f32)r->height;
-    f32 gx = (f32)it->grid_x, gy = (f32)it->grid_y;
+    f32 gx = (f32)it->prev_x + ((f32)it->grid_x - (f32)it->prev_x) * alpha;
+    f32 gy = (f32)it->prev_y + ((f32)it->grid_y - (f32)it->prev_y) * alpha;
     f32 e = 0.34f, s = 0.18f;
     Vec2 n  = iso_to_screen(cam, sw, sh, gx,     gy - s, e);
     Vec2 ee = iso_to_screen(cam, sw, sh, gx + s, gy,     e);
@@ -229,7 +232,13 @@ void game_render_draw(Renderer *r, const Game_State *game) {
     qsort(g_entities, (size_t)ne, sizeof(DrawItem), cmp_draw);
     for (i32 i = 0; i < ne; i++) draw_entity(r, cam, (const Entity *)g_entities[i].ptr);
 
-    // Items ride on top of the belts, also depth-sorted among themselves.
+    // Items ride on top of the belts, also depth-sorted among themselves. The
+    // leftover sim accumulator gives the fraction into the current tick, which
+    // slides each item smoothly from its previous cell to its current one.
+    f32 alpha = game->sim_accumulator / SIM_TICK_DT;
+    if (alpha < 0.0f) alpha = 0.0f;
+    if (alpha > 1.0f) alpha = 1.0f;
+
     i32 ni = 0;
     for (i32 i = 0; i < MAX_ITEMS; i++) {
         const Item *it = &w->items[i];
@@ -239,5 +248,5 @@ void game_render_draw(Renderer *r, const Game_State *game) {
         ni++;
     }
     qsort(g_items, (size_t)ni, sizeof(DrawItem), cmp_draw);
-    for (i32 i = 0; i < ni; i++) draw_item(r, cam, (const Item *)g_items[i].ptr);
+    for (i32 i = 0; i < ni; i++) draw_item(r, cam, (const Item *)g_items[i].ptr, alpha);
 }

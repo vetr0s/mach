@@ -312,6 +312,8 @@ static void world_run_droppers(World *w) {
         it->alive = MACH_TRUE;
         it->grid_x = nx;
         it->grid_y = ny;
+        it->prev_x = nx;     // a fresh item starts still, not sliding in from nowhere
+        it->prev_y = ny;
         it->value = ITEM_BASE_VALUE;
         it->upgraded_mask = 0;
         w->item_grid[nx][ny] = idx + 1;
@@ -320,9 +322,21 @@ static void world_run_droppers(World *w) {
     }
 }
 
+// Snapshot each item's cell so the renderer can interpolate from where it was at
+// the start of the tick to where it ends up, sliding it smoothly along the belt.
+static void world_snapshot_items(World *w) {
+    for (i32 i = 0; i < MAX_ITEMS; i++) {
+        Item *it = &w->items[i];
+        if (!it->alive) continue;
+        it->prev_x = it->grid_x;
+        it->prev_y = it->grid_y;
+    }
+}
+
 void world_tick(World *w) {
     if (!w) return;
     w->tick++;
+    world_snapshot_items(w);
     world_move_items(w);
     world_run_droppers(w);
 }

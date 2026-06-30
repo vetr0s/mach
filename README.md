@@ -93,6 +93,7 @@ src/
   engine/                 # Reusable game engine
     base/                 # Fundamental types (i32, f32, etc.)
     math/                 # Vec2 + ops, Vec4 (color), scalar helpers
+    mem/                  # Arena allocator (region list, whole-arena free/reset)
     core/                 # Frame loop steps, timing, window lifecycle
     render/               # 2D renderer: render2d (SDL_Renderer + iso), font, image
     ui.h                  # Window context + screen constants

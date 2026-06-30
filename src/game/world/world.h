@@ -4,6 +4,7 @@
 #define WORLD_H
 
 #include "../../engine/base/base.h"
+#include "../../engine/mem/arena.h"
 
 typedef enum {
     ENTITY_INVALID = 0,
@@ -58,8 +59,9 @@ typedef struct {
 } World;
 
 // API
-World* world_create(void);
-void world_destroy(World *w);
+// The world is a single arena allocation; its lifetime is the arena's, so there
+// is no world_destroy — free (or reset) the owning arena instead.
+World* world_create(Arena *arena);
 
 void world_tick(World *w);
 

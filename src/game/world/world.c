@@ -2,7 +2,6 @@
 
 #include "world.h"
 #include "../../engine/debug.h"
-#include <stdlib.h>
 
 // Entity ID <-> array index conversion. IDs are 1-based so that 0 can mean
 // "empty" in the grid.
@@ -39,27 +38,22 @@ static b32 in_bounds(i32 x, i32 y) {
     return x >= 0 && x < WORLD_GRID_SIZE && y >= 0 && y < WORLD_GRID_SIZE;
 }
 
-// Initialize a new world with an empty entity list and cleared grid.
-World* world_create(void) {
-    World *w = (World *)malloc(sizeof(World));
+// Initialize a new world with an empty entity list and cleared grid. The world
+// is one block from `arena`; the caller owns the arena and its teardown.
+World* world_create(Arena *arena) {
+    World *w = (World *)arena_alloc(arena, sizeof(World));
     if (!w) {
-        LOG_ERROR("world_create: allocation failed (%zu bytes)", sizeof(World));
+        LOG_ERROR("world_create: arena allocation failed (%zu bytes)", sizeof(World));
         return NULL;
     }
 
-    w->entity_count = 0;
-    w->tick = 0;
-    memset(w->grid, 0, sizeof(w->grid));
+    // (npt): arena_alloc doesn't zero, so clear the whole struct — the grid must
+    // start empty and entity_count at zero.
+    memset(w, 0, sizeof(*w));
 
     LOG_INFO("world created (capacity %d entities, %dx%d grid)",
              MAX_ENTITIES, WORLD_GRID_SIZE, WORLD_GRID_SIZE);
     return w;
-}
-
-void world_destroy(World *w) {
-    if (!w) return;
-    LOG_INFO("world destroyed (%d entities, tick %d)", w->entity_count, w->tick);
-    free(w);
 }
 
 // Shared spawn path: validate, claim the cell, return the fresh entity slot.

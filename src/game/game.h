@@ -9,6 +9,7 @@
 #include <SDL3/SDL.h>
 
 typedef struct {
+    Arena arena;          // backs the world; freed whole at shutdown
     World *world;
     i32 selected_tool;
 

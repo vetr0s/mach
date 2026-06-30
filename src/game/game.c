@@ -22,7 +22,8 @@ static void setup_camera(Camera2D *c, f32 cx, f32 cy) {
 
 // Initialize game state with an empty world and spawn test entities for development.
 void game_init(Game_State *g) {
-    g->world = world_create();
+    g->arena = (Arena){0};
+    g->world = world_create(&g->arena);
     g->selected_tool = TOOL_NONE;
     g->hover_grid_x = 0;
     g->hover_grid_y = 0;
@@ -70,10 +71,12 @@ void game_tick(Game_State *g, f32 dt) {
 
 // Clean up game state and free resources.
 void game_shutdown(Game_State *g) {
-    if (g && g->world) {
-        world_destroy(g->world);
+    if (!g) return;
+    if (g->world) {
+        LOG_INFO("world torn down (%d entities, tick %d)", g->world->entity_count, g->world->tick);
         g->world = NULL;
     }
+    arena_free(&g->arena);
     LOG_INFO("game shut down");
 }
 

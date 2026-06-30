@@ -77,6 +77,7 @@ The separation is enforced by the dependency rule, not the loop shape:
 ```
 engine/
   base, math, debug, ui             # types, Vec2/scalar math, logging, window consts
+  mem                               # arena allocator (region list, whole-arena free/reset)
   core                              # loop lifecycle + per-frame steps, frame timing
   render/
     render2d.{h,c}                  # SDL_Renderer wrapper + iso camera/transforms
@@ -91,11 +92,14 @@ game/
 
 ## Memory
 
-Arena allocation is the intended idiom — introduced to **set the pattern before
-it's needed** (assets, levels, strings, undo), not to fix a present leak
-(there isn't one). Latent issue for later: `world_despawn` swap-removes and
-reassigns entity ids, so an id held across a despawn goes stale → generational
-handles when entities are tracked over time.
+Arena allocation is the idiom (`engine/mem/arena`, modeled on Tsoding's arena.h):
+a linked list of malloc'd regions, bump allocation, freed or reset whole rather
+than per-allocation. The world is one arena block owned by the game; shutdown
+frees the arena. It was set up to **establish the pattern before it's needed**
+(assets, levels, strings, per-frame scratch), not to fix a present leak (there
+wasn't one). Latent issue for later: `world_despawn` swap-removes and reassigns
+entity ids, so an id held across a despawn goes stale → generational handles when
+entities are tracked over time.
 
 ## Non-goals (to stay opinionated)
 

@@ -53,6 +53,18 @@
 - [ ] Special upgraders (caps, value gates, multipliers with conditions)
 - [ ] Save/load a layout
 
+## Feel & polish (backlog)
+Things to make it play and look right, batched for later sessions. Not urgent.
+- [ ] Smooth item travel: items slide between cells along the belt instead of
+      snapping cell to cell, so they read as real objects being carried
+- [ ] Belt surface animation: the conveyor top scrolls in its facing direction
+- [ ] Sprites for pieces and items, replacing the flat shaded blocks/diamonds
+- [ ] Item despawn handling: drop items off a dead-end or a deleted belt instead of
+      jamming forever, with a small despawn effect
+- [ ] Verify/fix the facing arrows so they read clearly in the iso projection
+- [ ] Tune speed and feel: drop rate, belt speed, upgrader strength, item value
+      curve (all one-constant knobs in world.c right now)
+
 ## Content
 - [ ] Asset loading pipeline
 - [ ] Level/tilemap format and loader

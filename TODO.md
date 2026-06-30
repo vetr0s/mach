@@ -39,12 +39,19 @@
 - [x] Scalar helpers (min, max, clamp, lerp)
 - [ ] 3D vector/matrix math — returns with 3D, if it does
 
-## Gameplay
+## Gameplay (value-loop belt builder)
 - [x] Entity system (fat structs + direct arrays)
-- [ ] Transform component
-- [ ] Collision detection (AABB, circle)
-- [ ] Physics: velocity, gravity, basic rigidbody
-- [ ] Animation: sprite animation, tweening
+- [x] Core loop: droppers emit items, conveyors route them, upgraders raise value,
+      collectors bank it. world_tick runs the belt sim.
+- [x] Belt movement: one item per cell, gap-aware advance (a settle pass so a belt
+      with a gap fully advances in one tick; a packed loop correctly jams)
+- [x] Upgraders bound by "once per upgrader, per item" (u64 touched-mask, 64 cap),
+      so the puzzle is routing through many *distinct* upgraders
+- [x] Directional placement with rotation (R), money HUD, item/arrow rendering
+- [ ] Machine tiers: better droppers/conveyors/upgraders (a `tier` field scaling
+      one stat)
+- [ ] Special upgraders (caps, value gates, multipliers with conditions)
+- [ ] Save/load a layout
 
 ## Content
 - [ ] Asset loading pipeline

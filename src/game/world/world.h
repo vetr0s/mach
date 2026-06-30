@@ -1,4 +1,8 @@
-// Entity system and world state management.
+// Entity system and world state for the value-loop sim.
+//
+// The game is a belt builder: droppers emit items onto conveyors, which route
+// them through upgraders (each raises an item's value once) into collectors that
+// bank the value. world_tick runs that simulation.
 
 #ifndef WORLD_H
 #define WORLD_H
@@ -8,69 +12,104 @@
 
 typedef enum {
     ENTITY_INVALID = 0,
-    ENTITY_MINER,
-    ENTITY_STORAGE,
+    ENTITY_DROPPER,    // emits items onto the tile it faces
+    ENTITY_CONVEYOR,   // carries one item per cell in its facing direction
+    ENTITY_UPGRADER,   // a conveyor that also multiplies a passing item's value
+    ENTITY_COLLECTOR,  // banks the value of any item that reaches it
 } Entity_Type;
 
-// Entity state
+// Facing direction in grid space. DIR_DX/DIR_DY in world.c map these to deltas.
 typedef enum {
-    ENTITY_STATE_IDLE,
-    ENTITY_STATE_WORKING,
-} Entity_State;
+    DIR_N = 0,
+    DIR_E,
+    DIR_S,
+    DIR_W,
+    DIR_COUNT,
+} Direction;
 
-// Miner: extracts ore from deposits
+// Grid deltas for each Direction, indexed by the enum.
+extern const i32 DIR_DX[DIR_COUNT];
+extern const i32 DIR_DY[DIR_COUNT];
+
 typedef struct {
-    i32 grid_x, grid_y;      // Position on grid
-    i32 ore_produced;        // Ore produced this tick
-    i32 ore_stored;          // Ore buffered in this machine
-    Entity_State state;
-} Entity_Miner;
+    i32 grid_x, grid_y;
+    Direction dir;        // tile it drops onto
+    i32 drop_cooldown;    // ticks until the next drop
+} Entity_Dropper;
 
-// Storage: holds resources
 typedef struct {
-    i32 grid_x, grid_y;      // Position on grid
-    i32 ore_capacity;        // Max ore
-    i32 ore_stored;          // Current ore
-} Entity_Storage;
+    i32 grid_x, grid_y;
+    Direction dir;        // tile items move toward
+} Entity_Conveyor;
 
-// Union: all entity data
+typedef struct {
+    i32 grid_x, grid_y;
+    Direction dir;        // upgraders move items too
+    i32 upgrader_id;      // 0..MAX_UPGRADERS-1; the bit it sets in an item's mask
+} Entity_Upgrader;
+
+typedef struct {
+    i32 grid_x, grid_y;
+    i64 banked;           // value banked here over its lifetime
+} Entity_Collector;
+
 typedef struct {
     Entity_Type type;
     union {
-        Entity_Miner miner;
-        Entity_Storage storage;
+        Entity_Dropper   dropper;
+        Entity_Conveyor  conveyor;
+        Entity_Upgrader  upgrader;
+        Entity_Collector collector;
     } data;
 } Entity;
 
-// World state: all entities and game state
+// An item riding the belts. One item occupies one cell at a time.
+typedef struct {
+    b32 alive;
+    i32 grid_x, grid_y;
+    i64 value;
+    u64 upgraded_mask;    // bit u set once upgrader u has touched this item
+} Item;
+
 #define MAX_ENTITIES    10000
+#define MAX_ITEMS       1024
+#define MAX_UPGRADERS   64        // bounded by the bits in Item.upgraded_mask
 #define WORLD_GRID_SIZE 256
 
 typedef struct {
     Entity entities[MAX_ENTITIES];
     i32 entity_count;
 
-    // Grid state: what's at each position.
-    // 0 = empty, >0 = entity ID (entity index + 1).
+    // What sits on each cell: 0 = empty, >0 = entity id (index + 1).
     i32 grid[WORLD_GRID_SIZE][WORLD_GRID_SIZE];
 
-    // Time tracking
+    Item items[MAX_ITEMS];
+    i32 item_count;
+    i32 item_cursor;      // where the next free-slot search starts
+    // Which item sits on each cell: 0 = none, >0 = item index + 1.
+    i32 item_grid[WORLD_GRID_SIZE][WORLD_GRID_SIZE];
+
+    u64 upgrader_ids_used;  // allocation bitmap for upgrader ids
+    i64 money;              // total value banked across all collectors
+
     i32 tick;
 } World;
 
-// API
 // The world is a single arena allocation; its lifetime is the arena's, so there
-// is no world_destroy — free (or reset) the owning arena instead.
+// is no world_destroy. Free (or reset) the owning arena instead.
 World* world_create(Arena *arena);
 
 void world_tick(World *w);
 
-// Entity management
-i32 world_spawn_miner(World *w, i32 x, i32 y);
-i32 world_spawn_storage(World *w, i32 x, i32 y);
+// Placement. Directional pieces take a facing; collectors don't. Each returns the
+// new entity id, or 0 if the cell was occupied / out of bounds / a limit was hit.
+i32 world_spawn_dropper(World *w, i32 x, i32 y, Direction dir);
+i32 world_spawn_conveyor(World *w, i32 x, i32 y, Direction dir);
+i32 world_spawn_upgrader(World *w, i32 x, i32 y, Direction dir);
+i32 world_spawn_collector(World *w, i32 x, i32 y);
 void world_despawn(World *w, i32 entity_id);
 
-// Query
+// Queries.
 i32 world_get_entity_at(World *w, i32 x, i32 y);
 Entity* world_get_entity(World *w, i32 entity_id);
 b32 world_can_place_at(World *w, i32 x, i32 y);

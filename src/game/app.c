@@ -68,18 +68,29 @@ void app_render(App *a, Engine *e) {
     game_render_draw(r, &a->game);
 
     // Game HUD, drawn below the engine's FPS line.
-    static const char *tool_names[] = {"None", "Miner", "Storage", "Delete"};
+    static const char *tool_names[] = {"None", "Dropper", "Conveyor", "Upgrader",
+                                       "Collector", "Delete"};
+    static const char *dir_names[]  = {"N", "E", "S", "W"};
     const char *tool =
         (a->game.selected_tool >= 0 && a->game.selected_tool < (i32)ARRAY_COUNT(tool_names))
             ? tool_names[a->game.selected_tool]
             : "?";
+    const char *facing =
+        (a->game.place_dir >= 0 && a->game.place_dir < (i32)ARRAY_COUNT(dir_names))
+            ? dir_names[a->game.place_dir]
+            : "?";
 
+    const Vec4 gold  = {0.90f, 0.78f, 0.35f, 1.0f};
     const Vec4 green = {0.45f, 0.85f, 0.45f, 1.0f};
     const Vec4 grey  = {0.70f, 0.70f, 0.75f, 1.0f};
-    char line[64];
-    snprintf(line, sizeof(line), "Tool: %s", tool);
-    r2d_text(r, 10.0f, 30.0f, 2.0f, line, green);
-    r2d_text(r, 10.0f, 50.0f, 2.0f, "1:Miner 2:Storage 3:Delete", grey);
+    char line[80];
+
+    i64 money = a->game.world ? a->game.world->money : 0;
+    snprintf(line, sizeof(line), "Money: %lld", (long long)money);
+    r2d_text(r, 10.0f, 30.0f, 2.0f, line, gold);
+    snprintf(line, sizeof(line), "Tool: %s  Facing: %s", tool, facing);
+    r2d_text(r, 10.0f, 50.0f, 2.0f, line, green);
+    r2d_text(r, 10.0f, 70.0f, 2.0f, "1:Drop 2:Belt 3:Upgr 4:Collect 5:Del  R:rotate", grey);
 }
 
 void app_shutdown(App *a, Engine *e) {

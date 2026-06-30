@@ -44,6 +44,7 @@ void r2d_present(Renderer *r);
 // Screen-space primitives. Colors are Vec4 RGBA in [0,1].
 void r2d_fill_rect(Renderer *r, f32 x, f32 y, f32 w, f32 h, Vec4 color);
 void r2d_fill_poly(Renderer *r, const Vec2 *pts, i32 n, Vec4 color);  // convex, <=16 pts
+void r2d_poly_outline(Renderer *r, const Vec2 *pts, i32 n, Vec4 color);  // closed loop, <=16 pts
 void r2d_text(Renderer *r, f32 x, f32 y, f32 scale, const char *text, Vec4 color);
 
 // Sprites (for real art later). Tint multiplies the texture; pass white for none.

@@ -11,6 +11,9 @@
 #define GROUND_A ((Vec4){0.16f, 0.20f, 0.24f, 1.0f})
 #define GROUND_B ((Vec4){0.20f, 0.25f, 0.30f, 1.0f})
 
+// Grid line: a touch darker than the tiles so the diamonds separate cleanly.
+#define GROUND_LINE ((Vec4){0.10f, 0.13f, 0.16f, 1.0f})
+
 // Multiply a color's RGB by f (keeps alpha) — cheap directional shading.
 static Vec4 shade(Vec4 c, f32 f) { return (Vec4){c.x * f, c.y * f, c.z * f, c.w}; }
 
@@ -39,6 +42,19 @@ static void draw_tile(Renderer *r, const Camera2D *cam, f32 gx, f32 gy, Vec4 col
     r2d_fill_poly(r, pts, 4, color);
 }
 
+// Stroke the outline of a ground-level diamond (grid line, hover highlight).
+static void draw_tile_edges(Renderer *r, const Camera2D *cam, f32 gx, f32 gy, Vec4 color) {
+    Vec2 n, e, s, w;
+    tile_corners(r, cam, gx, gy, 0.0f, &n, &e, &s, &w);
+    Vec2 pts[4] = {n, e, s, w};
+    r2d_poly_outline(r, pts, 4, color);
+}
+
+// Lighten a color toward white by t in [0,1] — used to pop edges off their fill.
+static Vec4 lighten(Vec4 c, f32 t) {
+    return (Vec4){c.x + (1.0f - c.x) * t, c.y + (1.0f - c.y) * t, c.z + (1.0f - c.z) * t, c.w};
+}
+
 // A shaded box: two visible front faces (the S-W and S-E sides) plus a top
 // diamond. Top is brightest, sides progressively darker — fakes directional 3D.
 static void draw_block(Renderer *r, const Camera2D *cam, f32 gx, f32 gy, f32 h, Vec4 base) {
@@ -54,6 +70,13 @@ static void draw_block(Renderer *r, const Camera2D *cam, f32 gx, f32 gy, f32 h, 
     r2d_fill_poly(r, left,  4, shade(base, 0.62f));
     r2d_fill_poly(r, right, 4, shade(base, 0.46f));
     r2d_fill_poly(r, top,   4, base);
+
+    // Outline the three faces in a darkened base. Shared edges get stroked twice,
+    // which is harmless and keeps every visible seam crisp.
+    Vec4 line = shade(base, 0.30f);
+    r2d_poly_outline(r, top,   4, line);
+    r2d_poly_outline(r, left,  4, line);
+    r2d_poly_outline(r, right, 4, line);
 }
 
 // Depth-sorted draw list for machines (painter's algorithm: far cells first).
@@ -105,6 +128,7 @@ void game_render_draw(Renderer *r, const Game_State *game) {
     for (i32 gy = gy0; gy <= gy1; gy++) {
         for (i32 gx = gx0; gx <= gx1; gx++) {
             draw_tile(r, cam, (f32)gx, (f32)gy, ((gx + gy) & 1) ? GROUND_A : GROUND_B);
+            draw_tile_edges(r, cam, (f32)gx, (f32)gy, GROUND_LINE);
         }
     }
 
@@ -115,6 +139,8 @@ void game_render_draw(Renderer *r, const Game_State *game) {
         else if (game->selected_tool == TOOL_STORAGE) color = (Vec4){0.5f, 0.6f, 0.9f, 1.0f};
         else                                          color = (Vec4){0.4f, 0.85f, 0.4f, 1.0f};
         draw_tile(r, cam, (f32)game->hover_grid_x, (f32)game->hover_grid_y, color);
+        draw_tile_edges(r, cam, (f32)game->hover_grid_x, (f32)game->hover_grid_y,
+                        lighten(color, 0.5f));
     }
 
     // Machines, sorted back-to-front by (gx+gy) so nearer blocks overdraw.

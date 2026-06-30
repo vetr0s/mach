@@ -28,7 +28,8 @@
 - [x] Bitmap font as an SDL_Texture atlas (tinted via color mod)
 - [x] Placement validation: red/green hover preview
 - [ ] Real sprite art (loader is wired; drop PNGs into assets/sprites)
-- [ ] Tile/block edge outlines for crisper separation
+- [x] Tile/block edge outlines for crisper separation (grid lines on the ground,
+      darkened seams on blocks, a bright edge on the hover tile)
 - [ ] Sprite batching / atlas for many entities
 - [x] Window resize handling (renderer re-tracks size + logical presentation)
 - [ ] (later) Real 3D — only when there's a concrete need and the GPU grasp to own it

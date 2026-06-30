@@ -96,6 +96,17 @@ void r2d_fill_poly(Renderer *r, const Vec2 *pts, i32 n, Vec4 color) {
     SDL_RenderGeometry(r->sdl, NULL, v, n, idx, m);
 }
 
+// Stroke a closed polygon edge-to-edge with 1px lines. Repeats the first point
+// so the last edge closes the loop.
+void r2d_poly_outline(Renderer *r, const Vec2 *pts, i32 n, Vec4 color) {
+    if (n < 2 || n > 16) return;
+    SDL_SetRenderDrawColorFloat(r->sdl, color.x, color.y, color.z, color.w);
+    SDL_FPoint p[17];
+    for (i32 i = 0; i < n; i++) p[i] = (SDL_FPoint){pts[i].x, pts[i].y};
+    p[n] = p[0];
+    SDL_RenderLines(r->sdl, p, n + 1);
+}
+
 void r2d_text(Renderer *r, f32 x, f32 y, f32 scale, const char *text, Vec4 color) {
     if (!text) return;
     Font *font = r->font;

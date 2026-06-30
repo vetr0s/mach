@@ -130,6 +130,9 @@ are actually tracked over time.
    independent of framerate.
 5. **Arena allocator** — done; the world is one arena block.
 6. **Edge outlines** — done; tiles and blocks get stroked edges.
+7. **Value-loop sim** — done; droppers, conveyors, upgraders, and collectors with
+   a belt simulation in world_tick. Upgraders are bounded "once per item" so the
+   game is about routing, not depletion.
 
-Next up: gameplay depth in the world sim, and real sprite art dropped onto the
+Next up: machine tiers and special upgraders, and real sprite art dropped onto the
 loader that's already sitting there wired and waiting.

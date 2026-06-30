@@ -45,10 +45,16 @@ duplicate logic in them.
 
 ## Playing with it
 
+The game is a value loop: droppers spit out items, conveyors carry them through
+upgraders that raise their worth, and collectors bank it. Build a route that runs
+items past as many upgraders as you can before they get collected. Each upgrader
+only counts once per item, so the puzzle is reaching lots of different ones.
+
 - **WASD / Arrows** — pan the camera
 - **Scroll wheel** — zoom
-- **1 / 2 / 3** — pick the Miner / Storage / Delete tool (hit it again to drop it)
-- **Left click** — apply the current tool to the tile you're hovering
+- **1 / 2 / 3 / 4 / 5** — pick Dropper / Conveyor / Upgrader / Collector / Delete (hit it again to drop it)
+- **R** — rotate the facing of the next piece you place
+- **Left click** — place the current tool on the tile you're hovering
 - **Esc** — quit
 
 ## Hacking on it
@@ -134,23 +140,27 @@ Entities are **fat structs**, not generic bags of components:
 ```c
 typedef struct {
     i32 grid_x, grid_y;
-    i32 ore_stored;
-    i32 ore_capacity;
-} Entity_Storage;
+    Direction dir;        // upgraders move items too
+    i32 upgrader_id;      // the bit it sets in an item's "already upgraded" mask
+} Entity_Upgrader;
 ```
 
-The `World` keeps them in flat arrays with a grid index for "what's standing on
-this cell":
+The `World` keeps entities and items in flat arrays, with grid indices for "what's
+on this cell":
 ```c
 typedef struct {
     Entity entities[MAX_ENTITIES];
     i32 entity_count;
-    i32 grid[256][256];  // entity id at each cell, or 0 for empty
+    i32 grid[256][256];       // entity id at each cell, or 0 for empty
+
+    Item items[MAX_ITEMS];
+    i32 item_grid[256][256];  // item id at each cell, or 0 for empty
+    i64 money;
     i32 tick;
 } World;
 ```
 
-Game code just loops over the array and updates things. No indirection to chase,
+Game code just loops over the arrays and updates things. No indirection to chase,
 no query system to fight, and the performance is whatever you can read off the
 page. The whole `World` is a single allocation out of an arena.
 

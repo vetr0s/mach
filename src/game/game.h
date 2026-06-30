@@ -12,6 +12,7 @@ typedef struct {
     Arena arena;          // backs the world; freed whole at shutdown
     World *world;
     i32 selected_tool;
+    Direction place_dir;  // facing applied to directional pieces on placement
 
     Camera2D camera;
 
@@ -27,8 +28,10 @@ typedef struct {
 // Tool IDs for Game_State.selected_tool.
 typedef enum {
     TOOL_NONE = 0,
-    TOOL_MINER,
-    TOOL_STORAGE,
+    TOOL_DROPPER,
+    TOOL_CONVEYOR,
+    TOOL_UPGRADER,
+    TOOL_COLLECTOR,
     TOOL_DELETE,
     TOOL_COUNT,
 } Tool;

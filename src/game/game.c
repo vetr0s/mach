@@ -20,25 +20,31 @@ static void setup_camera(Camera2D *c, f32 cx, f32 cy) {
     c->zoom = 2.0f;
 }
 
-// Initialize game state with an empty world and spawn test entities for development.
+// Initialize game state with a world and a short starter chain so there's a value
+// loop running on first launch: dropper -> conveyor -> upgrader -> conveyor ->
+// collector, all facing east.
 void game_init(Game_State *g) {
     g->arena = (Arena){0};
     g->world = world_create(&g->arena);
     g->selected_tool = TOOL_NONE;
+    g->place_dir = DIR_E;
     g->hover_grid_x = 0;
     g->hover_grid_y = 0;
     g->hover_valid = MACH_FALSE;
     g->hover_can_place = MACH_FALSE;
     g->sim_accumulator = 0.0f;
 
-    setup_camera(&g->camera, 5.0f, 5.0f);
+    setup_camera(&g->camera, 7.0f, 5.0f);
 
     if (g->world) {
-        world_spawn_miner(g->world, 5, 5);
-        world_spawn_storage(g->world, 6, 5);
+        world_spawn_dropper(g->world, 5, 5, DIR_E);
+        world_spawn_conveyor(g->world, 6, 5, DIR_E);
+        world_spawn_upgrader(g->world, 7, 5, DIR_E);
+        world_spawn_conveyor(g->world, 8, 5, DIR_E);
+        world_spawn_collector(g->world, 9, 5);
     }
 
-    LOG_INFO("game initialized (2D iso camera)");
+    LOG_INFO("game initialized (value-loop sim)");
 }
 
 // Update the hovered grid cell by inverse-projecting the mouse onto the ground
@@ -87,18 +93,15 @@ void game_handle_input(Game_State *g, f32 screen_w, f32 screen_h, i32 mouse_x, i
     game_update_hover(g, screen_w, screen_h, mouse_x, mouse_y);
     if (button != 1 || !g->hover_valid) return;
 
+    i32 hx = g->hover_grid_x, hy = g->hover_grid_y;
     switch (g->selected_tool) {
-    case TOOL_MINER:
-        world_spawn_miner(g->world, g->hover_grid_x, g->hover_grid_y);
-        break;
-    case TOOL_STORAGE:
-        world_spawn_storage(g->world, g->hover_grid_x, g->hover_grid_y);
-        break;
+    case TOOL_DROPPER:   world_spawn_dropper(g->world, hx, hy, g->place_dir);   break;
+    case TOOL_CONVEYOR:  world_spawn_conveyor(g->world, hx, hy, g->place_dir);  break;
+    case TOOL_UPGRADER:  world_spawn_upgrader(g->world, hx, hy, g->place_dir);  break;
+    case TOOL_COLLECTOR: world_spawn_collector(g->world, hx, hy);               break;
     case TOOL_DELETE: {
-        i32 entity_id = world_get_entity_at(g->world, g->hover_grid_x, g->hover_grid_y);
-        if (entity_id != 0) {
-            world_despawn(g->world, entity_id);
-        }
+        i32 entity_id = world_get_entity_at(g->world, hx, hy);
+        if (entity_id != 0) world_despawn(g->world, entity_id);
         break;
     }
     default:
@@ -112,14 +115,20 @@ static void toggle_tool(Game_State *g, Tool tool) {
     LOG_DEBUG("selected tool: %d", g->selected_tool);
 }
 
-// Handle keyboard input for tool selection and actions.
+// Handle keyboard input for tool selection, rotation, and actions.
 void game_handle_key(Game_State *g, SDL_Scancode scancode) {
     if (!g) return;
 
     switch (scancode) {
-    case SDL_SCANCODE_1: toggle_tool(g, TOOL_MINER);   break;
-    case SDL_SCANCODE_2: toggle_tool(g, TOOL_STORAGE); break;
-    case SDL_SCANCODE_3: toggle_tool(g, TOOL_DELETE);  break;
+    case SDL_SCANCODE_1: toggle_tool(g, TOOL_DROPPER);   break;
+    case SDL_SCANCODE_2: toggle_tool(g, TOOL_CONVEYOR);  break;
+    case SDL_SCANCODE_3: toggle_tool(g, TOOL_UPGRADER);  break;
+    case SDL_SCANCODE_4: toggle_tool(g, TOOL_COLLECTOR); break;
+    case SDL_SCANCODE_5: toggle_tool(g, TOOL_DELETE);    break;
+    case SDL_SCANCODE_R:
+        g->place_dir = (Direction)((g->place_dir + 1) % DIR_COUNT);
+        LOG_DEBUG("place direction: %d", g->place_dir);
+        break;
     default: break;
     }
 }

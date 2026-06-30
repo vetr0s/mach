@@ -10,7 +10,8 @@
       from the render framerate, so the sim plays identically on any monitor
 - [x] Input system: keyboard, mouse
 - [ ] Event system: input, collision, game events
-- [ ] Memory: custom allocators, arena allocation
+- [x] Memory: arena allocator (Tsoding-style region list); the world is one
+      arena block, freed whole at shutdown. `arena_reset` for reuse is in place.
 
 ## Rendering (2D on SDL_Renderer)
 - [x] **[v0.5.0] Pivot to a minimal 2D engine.** Dropped SDL_GPU + the offline

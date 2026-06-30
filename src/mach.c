@@ -9,6 +9,7 @@
 #include "engine/base/base.h"
 #include "engine/ui.h"
 #include "engine/debug.h"
+#include "engine/mem/arena.c"
 #include "engine/math/math.c"
 #include "engine/render/image.c"
 #include "engine/render/font.c"

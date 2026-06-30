@@ -6,6 +6,8 @@
 
 ## Core engine
 - [x] Game loop: update/render separation, variable timestep with soft cap
+- [x] Fixed simulation timestep: world steps at a constant rate (10/s) decoupled
+      from the render framerate, so the sim plays identically on any monitor
 - [x] Input system: keyboard, mouse
 - [ ] Event system: input, collision, game events
 - [ ] Memory: custom allocators, arena allocation

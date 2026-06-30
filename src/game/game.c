@@ -8,6 +8,11 @@
 #define ZOOM_MIN 0.5f
 #define ZOOM_MAX 5.0f
 
+// Fixed simulation rate. The world advances in discrete ticks at this rate,
+// decoupled from the render framerate (see game_tick).
+#define SIM_TICKS_PER_SEC 10
+#define SIM_TICK_DT       (1.0f / (f32)SIM_TICKS_PER_SEC)
+
 // Center the 2D iso camera on grid cell (cx, cy) at a default zoom.
 static void setup_camera(Camera2D *c, f32 cx, f32 cy) {
     c->pan.x = (cx - cy) * (ISO_TILE_W * 0.5f);
@@ -23,6 +28,7 @@ void game_init(Game_State *g) {
     g->hover_grid_y = 0;
     g->hover_valid = MACH_FALSE;
     g->hover_can_place = MACH_FALSE;
+    g->sim_accumulator = 0.0f;
 
     setup_camera(&g->camera, 5.0f, 5.0f);
 
@@ -48,11 +54,18 @@ void game_update_hover(Game_State *g, f32 screen_w, f32 screen_h, i32 mouse_x, i
                          world_can_place_at(g->world, g->hover_grid_x, g->hover_grid_y);
 }
 
-// Advance game simulation. dt is delta time in seconds since last frame.
+// Advance the simulation. Rendering runs every frame, but the world steps at a
+// fixed rate: we bank real elapsed time and run world_tick in fixed slices, so a
+// miner produces the same ore per second regardless of framerate. dt is already
+// clamped engine-side, so the accumulator can't run away after a long stall.
 void game_tick(Game_State *g, f32 dt) {
     if (!g || !g->world) return;
-    (void)dt;
-    world_tick(g->world);
+
+    g->sim_accumulator += dt;
+    while (g->sim_accumulator >= SIM_TICK_DT) {
+        world_tick(g->world);
+        g->sim_accumulator -= SIM_TICK_DT;
+    }
 }
 
 // Clean up game state and free resources.

@@ -14,6 +14,8 @@ typedef struct {
 
     Camera2D camera;
 
+    f32 sim_accumulator;  // real seconds carried toward the next fixed sim tick
+
     // Hover: the grid cell currently under the mouse.
     i32 hover_grid_x;
     i32 hover_grid_y;

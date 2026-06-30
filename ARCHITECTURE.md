@@ -1,51 +1,55 @@
-# mach — Engine Architecture
+# mach — architecture
 
-> Companion: `docs/engine-redesign-2026-06-28.md` records the earlier design
-> exploration. **Note:** that doc argued for owning an SDL_GPU renderer with an
-> offline HLSL shader pipeline. That direction was deliberately **reversed** in
-> favor of the minimal 2D engine described here — the exploration clarified the
-> call. Where the two disagree, this document wins.
+> There's a companion doc, `docs/engine-redesign-2026-06-28.md`, that records an
+> earlier design exploration. Heads up: it argued for owning an SDL_GPU renderer
+> with an offline HLSL shader pipeline, and that whole direction got **reversed**
+> in favor of the minimal 2D engine described here. The exploration was useful — it
+> made the call obvious — but where the two docs disagree, believe this one.
 
-## Thesis
+## The thesis
 
-mach is **engine-first, minimal, and 2D**.
+mach is **engine-first, minimal, and 2D**. In practice that means a few things,
+and they're load-bearing, so here they are spelled out.
 
-- **A small 2D engine on SDL_Renderer that drives the game.** No shaders, no
-  GPU-pipeline ownership, no offline shader tooling. SDL_Renderer gives
-  hardware-accelerated 2D on the native backend (Metal/Vulkan/D3D) with zero
-  extra dependencies — it's already in the SDL3 we build.
-- **The game is a 2D isometric builder and does not need real 3D.** The genre
-  (Factorio, RimWorld, classic SimCity) is 2D sprites in an iso projection. The
-  "3D look" is faked with shaded blocks and draw order, not a depth buffer.
-- **Real 3D is deferred, not refused forever.** It gets added when there's a
-  concrete need *and* a solid grasp of modern GPU APIs — never carried
-  speculatively. Today it would be complexity we can't yet maintain.
-- **The game owns the loop; the engine is a toolbox** (raylib-style). The
-  engine never names a game type.
-- **Quality means coherence and taste, not capability.** The engine should say
-  no to features it doesn't need.
+- **A small 2D engine on SDL_Renderer drives the game.** No shaders, no
+  GPU-pipeline ownership, no offline shader tooling. SDL_Renderer already gives you
+  hardware-accelerated 2D on the native backend — Metal, Vulkan, D3D — for zero
+  extra dependencies, because it's part of the SDL3 you're already building.
+- **The game is a 2D isometric builder, and it does not need real 3D.** Look at the
+  genre — Factorio, RimWorld, old SimCity. That's 2D sprites in an iso projection.
+  The "3D look" is faked with shaded blocks and draw order, not a depth buffer.
+- **Real 3D is deferred, not sworn off.** It comes back when there's a concrete need
+  *and* a real grasp of modern GPU APIs to back it up. Carrying it speculatively
+  today would just be complexity nobody here can maintain yet.
+- **The game owns the loop; the engine is a toolbox.** raylib-style. The engine
+  never names a game type, and it never drives anything on its own.
+- **Quality is coherence and taste, not a feature count.** The engine is allowed —
+  encouraged, even — to say no to things it doesn't need.
 
 ## Rendering
 
-`render2d.{h,c}` is the whole render layer, over **SDL_Renderer**:
+`render2d.{h,c}` is the entire render layer, sitting on **SDL_Renderer**:
 
-- **Primitives:** `r2d_begin`/`r2d_present`, `r2d_fill_rect`, `r2d_fill_poly`
-  (convex polys via `SDL_RenderGeometry`), `r2d_text`, and sprite
-  load/draw (`r2d_load_texture`/`r2d_sprite`) for real art later.
-- **Camera2D:** a pan + zoom over the isometric plane.
-- **Isometric is a pure coordinate transform**, not a 3D projection:
-  `iso_to_screen` / `screen_to_iso` map grid↔pixels (2:1 diamond tiles).
-  Swapping in a top-down or free 2D camera is just a different transform.
+- **Primitives:** `r2d_begin` / `r2d_present`, `r2d_fill_rect`, `r2d_fill_poly`
+  (convex polys through `SDL_RenderGeometry`), `r2d_poly_outline` (closed loops
+  through `SDL_RenderLines`), `r2d_text`, and sprite load/draw
+  (`r2d_load_texture` / `r2d_sprite`) for real art when it shows up.
+- **Camera2D:** pan and zoom over the isometric plane.
+- **Isometric is a pure coordinate transform**, not a 3D projection. `iso_to_screen`
+  and `screen_to_iso` map grid to pixels and back (2:1 diamond tiles). Want a
+  top-down or free 2D camera instead? Swap the transform. Nothing downstream cares.
 
-The look comes from the **game** layer (`render_game.c`) composing primitives:
-ground is a viewport-culled checker of iso diamonds; machines are **shaded
-blocks** (bright top + two darker side faces) drawn back-to-front by `gx+gy`.
-That's the classic 2D-iso trick for faux-3D depth. Font is an `SDL_Texture`
-atlas tinted via color mod.
+The actual *look* lives in the **game** layer, where `render_game.c` composes those
+primitives: the ground is a viewport-culled checker of iso diamonds with grid lines
+stroked on; machines are **shaded blocks** — bright top, two darker side faces,
+outlined edges — drawn back-to-front by `gx+gy`. That's the oldest trick in the
+2D-iso book for faking depth, and it holds up. The font is an `SDL_Texture` atlas,
+tinted per draw with color mod.
 
-## Engine ÷ Game boundary
+## The engine ÷ game boundary
 
-The game owns control flow; the engine is a library it calls into:
+The game owns control flow. The engine is a library it calls into. Here's the whole
+loop:
 
 ```c
 int main(void) {
@@ -68,15 +72,16 @@ int main(void) {
 }
 ```
 
-The separation is enforced by the dependency rule, not the loop shape:
-**`src/engine/` never names a type from `src/game/`.** The game still drains raw
-`SDL_Event`s; an input-query layer can replace that later.
+What actually enforces the separation isn't the shape of that loop — it's one rule:
+**`src/engine/` never names a type from `src/game/`.** That's it. (The game still
+drains raw `SDL_Event`s for now; a tidier input-query layer can slot in later if it
+earns its keep.)
 
-## Modules
+## The modules
 
 ```
 engine/
-  base, math, debug, ui             # types, Vec2/scalar math, logging, window consts
+  base, math, debug, ui             # types, Vec2/scalar math, logging, window context
   mem                               # arena allocator (region list, whole-arena free/reset)
   core                              # loop lifecycle + per-frame steps, frame timing
   render/
@@ -92,30 +97,39 @@ game/
 
 ## Memory
 
-Arena allocation is the idiom (`engine/mem/arena`, modeled on Tsoding's arena.h):
-a linked list of malloc'd regions, bump allocation, freed or reset whole rather
-than per-allocation. The world is one arena block owned by the game; shutdown
-frees the arena. It was set up to **establish the pattern before it's needed**
-(assets, levels, strings, per-frame scratch), not to fix a present leak (there
-wasn't one). Latent issue for later: `world_despawn` swap-removes and reassigns
-entity ids, so an id held across a despawn goes stale → generational handles when
-entities are tracked over time.
+Arenas are the idiom — `engine/mem/arena`, modeled on Tsoding's arena.h. It's a
+linked list of malloc'd regions with bump allocation, freed or reset as a whole
+rather than one allocation at a time. The entire `World` is a single arena block
+owned by the game, and shutdown just frees the arena.
 
-## Non-goals (to stay opinionated)
+To be clear about the motivation: this was set up to **establish the pattern before
+anything needs it** — assets, levels, strings, per-frame scratch — not to plug a
+leak, because there wasn't one. One thing to keep in the back of your mind:
+`world_despawn` swap-removes and reassigns entity ids, so an id you hold across a
+despawn goes stale. The fix is generational handles, and it can wait until entities
+are actually tracked over time.
+
+## Non-goals (this is how you stay opinionated)
 
 - **Real-time 3D — for now.** Deferred until there's a real need and the GPU
-  understanding to own it. The renderer is 2D on purpose.
-- **Shaders / custom GPU pipelines / offline shader tooling.** Gone. SDL_Renderer
-  handles the GPU.
-- A generic component-system ECS. Entities are fat structs.
-- Being a do-everything engine. Breadth only when a concrete need pulls it in.
+  understanding to own it. The renderer is 2D on purpose, not by accident.
+- **Shaders, custom GPU pipelines, offline shader tooling.** Gone, and good
+  riddance. SDL_Renderer talks to the GPU so you don't have to.
+- **A generic component-system ECS.** Entities are fat structs. You loop over an
+  array.
+- **Being a do-everything engine.** Breadth shows up only when a concrete need drags
+  it in.
 
 ## Migration log
 
-1. **Game-owned loop** (raylib-style) — **done**, retained.
-2. *SDL_GPU generic core + batteries split* — done, then **removed** when the 2D
-   pivot superseded the GPU-stack thesis.
-3. **2D SDL_Renderer engine** (this document) — **done.**
+1. **Game-owned loop** (raylib-style) — done, kept.
+2. *SDL_GPU generic core + batteries split* — done, then **ripped out** when the 2D
+   pivot made the whole GPU-stack thesis moot.
+3. **2D SDL_Renderer engine** (this document) — done.
+4. **Fixed simulation timestep** — done; the world steps at a constant rate,
+   independent of framerate.
+5. **Arena allocator** — done; the world is one arena block.
+6. **Edge outlines** — done; tiles and blocks get stroked edges.
 
-Next: gameplay depth (world sim), real sprite art on the loader that's already
-wired, and arenas to set the allocation idiom.
+Next up: gameplay depth in the world sim, and real sprite art dropped onto the
+loader that's already sitting there wired and waiting.

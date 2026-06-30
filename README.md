@@ -1,122 +1,136 @@
 # mach
 
-A game engine and game, co-developed as a single unit. Built in C with SDL3.
+A game engine and the game it exists to run, built together as one thing. Pure C,
+SDL3, and not much else.
 
 ![mach — isometric factory scene rendered by the engine](assets/mach-engine-screenshot.png)
 
 **Version:** v0.5.0
 
-A minimal **2D isometric** engine driving a factory/automation game. Rendering is
-pure 2D over SDL_Renderer — no shaders, no GPU pipeline code, no offline shader
-tooling. (Real 3D is deferred until it's actually needed; see `ARCHITECTURE.md`.)
+It's a small **2D isometric** engine driving a factory/automation game. The
+rendering is plain 2D on top of SDL_Renderer — no shaders, no GPU pipeline, no
+offline shader tooling. There used to be all of that; it got cut. (Real 3D comes
+back when there's an actual reason for it and not a day sooner — see
+`ARCHITECTURE.md` for why.)
 
-## Setup
+## Building it
+
+You need a C compiler and SDL3. That's the whole list. SDL3 comes in as a git
+submodule and gets built once by the setup script.
 
 **macOS / Linux** (bash):
 ```bash
-./scripts/setup.sh      # One-time: build SDL3, fetch stb
-./build.sh              # Build the game
-./build/mach_debug      # Run
+./scripts/setup.sh      # once: build SDL3, fetch stb
+./build.sh              # build the game
+./build/mach_debug      # run it
 ```
 
 **Windows** — from an elevated *Visual Studio "x64 Native Tools"* `cmd` prompt:
 ```bat
-scripts\setup.bat       :: One-time: build SDL3 (cmake + MSVC), fetch stb
-build.bat               :: Build the game
-build\mach_debug.exe    :: Run
+scripts\setup.bat       :: once: build SDL3 (cmake + MSVC), fetch stb
+build.bat               :: build the game
+build\mach_debug.exe    :: run it
 ```
-The `.bat` files are thin wrappers around the PowerShell scripts.
+The `.bat` files just call the PowerShell scripts, so don't go looking for
+duplicate logic in them.
 
-### Dependencies
+### What you actually need
 
-- **A C compiler + SDL3** is all you need to clone, build, and run. SDL3 is a
-  git submodule built once by `setup`. SDL_Renderer (part of SDL3) provides
-  hardware-accelerated 2D on the native backend (Metal/Vulkan/D3D) — **no shader
-  toolchain, no GPU SDK, nothing extra to install.**
-- **stb** single-header libraries are fetched by `setup`: `stb_image.h` for
-  loading sprite/texture art. Public domain.
+- **A C compiler and SDL3.** SDL_Renderer ships inside SDL3 and gives you
+  hardware-accelerated 2D on whatever's native — Metal, Vulkan, D3D. There's no
+  shader toolchain to install, no GPU SDK, nothing extra. That's the entire point
+  of staying on SDL_Renderer.
+- **stb**, fetched by setup: `stb_image.h` for loading sprite art. Public domain,
+  single header, nothing to build.
 
-## Controls
+## Playing with it
 
-- **WASD / Arrows** — pan the camera across the grid
-- **Scroll wheel** — zoom in/out
-- **1 / 2 / 3** — select Miner / Storage / Delete tool (press again to deselect)
-- **Left click** — apply the current tool to the hovered tile
+- **WASD / Arrows** — pan the camera
+- **Scroll wheel** — zoom
+- **1 / 2 / 3** — pick the Miner / Storage / Delete tool (hit it again to drop it)
+- **Left click** — apply the current tool to the tile you're hovering
 - **Esc** — quit
 
-## Development
+## Hacking on it
 
-Generate tags for Emacs:
+If you use Emacs, generate tags:
 ```bash
 ./scripts/tags.sh
 ```
-Then in your Emacs init:
+and point your init at them:
 ```elisp
 (setq tags-file-name "/path/to/mach/TAGS")
 (define-key global-map "\C-]" 'find-tag)
 (define-key global-map "\C-\M-]" 'pop-tag-mark)
 ```
-`C-]` jumps to a definition, `C-M-]` goes back.
+`C-]` jumps to a definition, `C-M-]` jumps back.
 
-## Philosophy
+## Why it's built this way
 
-**Pure C, no frameworks.** SDL3 for windowing/input/rendering only.
+**Pure C, no frameworks.** SDL3 handles the window, input, and rendering. Past
+that it's just C.
 
-**Unity build.** All code compiles in a single `clang` invocation. No separate
-build system — just `build.sh` calling the compiler directly. Inspired by
-**RADDBG** and **Handmade Hero**.
+**Unity build.** The whole thing compiles in one `clang` call — `mach.c` includes
+every other `.c` file and the compiler sees it all at once. There's no build
+system to speak of; `build.sh` is the compiler invocation. If that sounds strange,
+go watch some Handmade Hero and look at how RAD Debugger builds. It's freeing.
 
-**Engine ÷ Game separation.** The engine (rendering, input, window management)
-lives in `src/engine/`. The game (entity types, rules, content) lives in
-`src/game/`. The dependency points one way: **`src/engine/` never names a game
-type.** The game owns the loop in `main()` and calls into the engine (raylib-style);
-the engine drives nothing. A future game reuses `src/engine/` untouched.
+**Engine and game, kept apart.** The engine — rendering, input, windowing — lives
+in `src/engine/`. The game — entities, rules, content — lives in `src/game/`. The
+dependency only ever points one way: **`src/engine/` never names a game type.** The
+game owns the loop in `main()` and calls into the engine, raylib-style; the engine
+drives nothing on its own. Swap in a different game and `src/engine/` doesn't have
+to notice.
 
-**Minimal & 2D.** SDL_Renderer for 2D; isometric is a coordinate transform, not a
-3D projection. The "3D look" is faked with shaded blocks. The engine stays small
-and opinionated; capability is added only when a concrete need pulls it in.
+**Minimal, and 2D on purpose.** Isometric is a coordinate transform, not a 3D
+projection — the "3D look" is faked with shaded, outlined blocks. The engine stays
+small and gets new capability only when something concrete actually pulls it in.
 
-**Fat struct ECS.** No generic component system. Each entity type is a full struct
-(e.g., `Entity_Miner`, `Entity_Storage`). Game logic accesses entity data directly.
-Inspired by Anton Mikhailov's approach on the *Wookash Podcast*.
+**Fat-struct ECS.** No generic component system, no query engine. Each entity type
+is a full struct (`Entity_Miner`, `Entity_Storage`) and the game logic touches the
+data directly. The idea is lifted from Anton Mikhailov on the *Wookash Podcast*.
 
-## Platforms
+## Where it runs
 
-- macOS (primary development)
-- Linux (scaffolding in place)
-- Windows (scaffolding in place)
+- macOS — primary, this is where it's developed and tested
+- Linux — toolchain's wired, needs a real run on real hardware
+- Windows — same story
 
-## Architecture
+Dropping SDL_GPU made the cross-platform story boring in the best way: no shader
+toolchain, no per-backend bytecode. SDL_Renderer picks the native 2D backend on
+each platform by itself. Build SDL3, bring a C compiler, go.
+
+## How the code is laid out
 
 ```
 src/
-  engine/                 # Reusable game engine
-    base/                 # Fundamental types (i32, f32, etc.)
-    math/                 # Vec2 + ops, Vec4 (color), scalar helpers
-    mem/                  # Arena allocator (region list, whole-arena free/reset)
-    core/                 # Frame loop steps, timing, window lifecycle
+  engine/                 # the reusable part
+    base/                 # fundamental types (i32, f32, b32, ...)
+    math/                 # Vec2 + ops, Vec4 for color, scalar helpers
+    mem/                  # arena allocator (region list, free/reset whole)
+    core/                 # frame-loop steps, timing, window lifecycle
     render/               # 2D renderer: render2d (SDL_Renderer + iso), font, image
-    ui.h                  # Window context + screen constants
-    debug.h               # Assertions, leveled logging
+    ui.h                  # window context
+    debug.h               # assertions, leveled logging
 
-  game/                   # Game-specific code (factory automation sim)
-    app.c                 # Glue: bridges the engine API and the game internals
-    game.h/.c             # Game state, input, 2D iso camera, hover-pick
-    render_game.h/.c      # Draws the world as iso tiles + shaded blocks
-    world/                # Entity management, grid simulation
+  game/                   # the factory sim
+    app.c                 # glue: the one file that knows both the engine and the game
+    game.h/.c             # game state, input, the 2D iso camera, hover-picking
+    render_game.h/.c      # draws the world as iso tiles and shaded blocks
+    world/                # entities and the grid simulation
 
-  mach.c                  # Unity root: includes engine + game, defines main()
+  mach.c                  # unity root: includes everything, defines main()
 
-build.sh / build.bat      # Compiler invocation (macOS-Linux / Windows)
-scripts/setup.sh / .ps1   # SDL3 build + stb fetch, run once
+build.sh / build.bat      # the compiler invocation (macOS-Linux / Windows)
+scripts/setup.sh / .ps1   # build SDL3, fetch stb — run once
 third_party/SDL/          # SDL3 submodule
 ```
 
-See **`ARCHITECTURE.md`** for the engine thesis and design rationale.
+`ARCHITECTURE.md` has the longer version of why any of this is the way it is.
 
-## Entity System
+## The entity system
 
-Entities are **fat structs**, not generic components:
+Entities are **fat structs**, not generic bags of components:
 ```c
 typedef struct {
     i32 grid_x, grid_y;
@@ -125,49 +139,55 @@ typedef struct {
 } Entity_Storage;
 ```
 
-The `World` tracks all entities in direct arrays plus a grid spatial index:
+The `World` keeps them in flat arrays with a grid index for "what's standing on
+this cell":
 ```c
 typedef struct {
     Entity entities[MAX_ENTITIES];
     i32 entity_count;
-    i32 grid[256][256];  // what's at each grid cell (entity id, or 0)
+    i32 grid[256][256];  // entity id at each cell, or 0 for empty
     i32 tick;
 } World;
 ```
 
-Game code directly iterates and updates entities. No indirection, no query
-systems — readable logic and predictable performance.
+Game code just loops over the array and updates things. No indirection to chase,
+no query system to fight, and the performance is whatever you can read off the
+page. The whole `World` is a single allocation out of an arena.
 
-## Rendering
+## The rendering
 
-Pure **2D over SDL_Renderer** (`src/engine/render/`):
+It's all **2D on SDL_Renderer**, living in `src/engine/render/`:
 
-- **`render2d.{h,c}`** — the render layer: clear/present, filled rects and convex
-  polygons (`SDL_RenderGeometry`), text, sprite loading/drawing, and a 2D pan+zoom
-  `Camera2D`. Plus isometric transforms (`iso_to_screen` / `screen_to_iso`).
+- **`render2d.{h,c}`** — the actual render layer: clear and present, filled rects,
+  convex polygons (`SDL_RenderGeometry`), outlines (`SDL_RenderLines`), text, sprite
+  loading and drawing, and a 2D pan/zoom `Camera2D`. Plus the isometric transforms,
+  `iso_to_screen` and `screen_to_iso`.
 - **`font.{h,c}`** — an 8×8 bitmap font baked into an `SDL_Texture` atlas, tinted
-  per-draw with color mod.
-- **`image.{h,c}`** — `stb_image` loader for sprite/texture art.
+  per draw with color mod.
+- **`image.{h,c}`** — the `stb_image` loader for sprite art.
 
 **Isometric is a coordinate transform, not a projection.** The grid maps to 2:1
-diamond tiles; machines are drawn as **shaded blocks** (bright top + two darker
-side faces) sorted back-to-front, which reads as 3D depth without any 3D. Swapping
-to a top-down or free 2D camera is just a different transform — the renderer isn't
-isometric-only.
+diamond tiles. Machines are **shaded blocks** — a bright top, two darker side faces,
+outlined edges — sorted back-to-front. That reads as depth without a single line of
+3D code. Want a top-down or free 2D camera instead? That's just a different
+transform; nothing here is wired to be isometric-only.
 
-## References
+## Standing on other people's shoulders
 
-**Inspirations and design philosophy:**
-- **RAD Debugger (raddbg)** — Minimal build system, unity compilation. https://github.com/EpicGames/raddebugger
-- **Handmade Hero** — Pure C, simple architecture, avoid over-abstraction. https://handmadehero.org
-- **Wookash Podcast** — Anton Mikhailov on engine design, fat struct ECS. https://www.youtube.com/channel/UC9J9u3apteD0EuFjzRpt71w
+The ideas:
+- **RAD Debugger (raddbg)** — the minimal build system and unity compilation.
+  https://github.com/EpicGames/raddebugger
+- **Handmade Hero** — pure C, simple architecture, suspicion of abstraction.
+  https://handmadehero.org
+- **Wookash Podcast** — Anton Mikhailov on engine design and the fat-struct ECS.
+  https://www.youtube.com/channel/UC9J9u3apteD0EuFjzRpt71w
 
-**External libraries:**
+The libraries:
 - **SDL3** — https://github.com/libsdl-org/SDL
 - **stb** (Sean Barrett) — https://github.com/nothings/stb
 
 ## Licensing
 
-- **mach engine & game** — MIT license
-- **SDL3** — Zlib license (see `third_party/SDL/LICENSE.txt`)
-- **stb** — Public domain (see header comments in each .h file)
+- **mach engine and game** — MIT
+- **SDL3** — Zlib (see `third_party/SDL/LICENSE.txt`)
+- **stb** — public domain (see each header)

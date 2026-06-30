@@ -5,8 +5,8 @@ version is below, but none of it is surprising.
 
 ## Comments
 
-Assume whoever's reading knows C. So comments are for the *why*, never the *what* —
-if a line explains what the syntax already says, delete it.
+Assume whoever's reading knows C. So comments are for the *why*, never the *what*.
+If a line just explains what the syntax already says, delete it.
 
 ### What you have to comment
 
@@ -28,7 +28,7 @@ if a line explains what the syntax already says, delete it.
 the thing is.
 
 **Justification and decision comments** get a `(npt):` prefix when they're written in
-your own voice — your reasoning, a design call, something non-obvious you want the
+your own voice: your reasoning, a design call, something non-obvious you want the
 next person to understand.
 
 ```c

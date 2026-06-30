@@ -8,9 +8,9 @@ SDL3, and not much else.
 **Version:** v0.5.0
 
 It's a small **2D isometric** engine driving a factory/automation game. The
-rendering is plain 2D on top of SDL_Renderer — no shaders, no GPU pipeline, no
+rendering is plain 2D on top of SDL_Renderer. No shaders, no GPU pipeline, no
 offline shader tooling. There used to be all of that; it got cut. (Real 3D comes
-back when there's an actual reason for it and not a day sooner — see
+back when there's an actual reason for it and not a day sooner; see
 `ARCHITECTURE.md` for why.)
 
 ## Building it
@@ -37,7 +37,7 @@ duplicate logic in them.
 ### What you actually need
 
 - **A C compiler and SDL3.** SDL_Renderer ships inside SDL3 and gives you
-  hardware-accelerated 2D on whatever's native — Metal, Vulkan, D3D. There's no
+  hardware-accelerated 2D on whatever's native: Metal, Vulkan, D3D. There's no
   shader toolchain to install, no GPU SDK, nothing extra. That's the entire point
   of staying on SDL_Renderer.
 - **stb**, fetched by setup: `stb_image.h` for loading sprite art. Public domain,
@@ -70,20 +70,20 @@ and point your init at them:
 **Pure C, no frameworks.** SDL3 handles the window, input, and rendering. Past
 that it's just C.
 
-**Unity build.** The whole thing compiles in one `clang` call — `mach.c` includes
+**Unity build.** The whole thing compiles in one `clang` call. `mach.c` includes
 every other `.c` file and the compiler sees it all at once. There's no build
 system to speak of; `build.sh` is the compiler invocation. If that sounds strange,
 go watch some Handmade Hero and look at how RAD Debugger builds. It's freeing.
 
-**Engine and game, kept apart.** The engine — rendering, input, windowing — lives
-in `src/engine/`. The game — entities, rules, content — lives in `src/game/`. The
+**Engine and game, kept apart.** The engine (rendering, input, windowing) lives
+in `src/engine/`. The game (entities, rules, content) lives in `src/game/`. The
 dependency only ever points one way: **`src/engine/` never names a game type.** The
 game owns the loop in `main()` and calls into the engine, raylib-style; the engine
 drives nothing on its own. Swap in a different game and `src/engine/` doesn't have
 to notice.
 
 **Minimal, and 2D on purpose.** Isometric is a coordinate transform, not a 3D
-projection — the "3D look" is faked with shaded, outlined blocks. The engine stays
+projection. The "3D look" is faked with shaded, outlined blocks. The engine stays
 small and gets new capability only when something concrete actually pulls it in.
 
 **Fat-struct ECS.** No generic component system, no query engine. Each entity type
@@ -122,7 +122,7 @@ src/
   mach.c                  # unity root: includes everything, defines main()
 
 build.sh / build.bat      # the compiler invocation (macOS-Linux / Windows)
-scripts/setup.sh / .ps1   # build SDL3, fetch stb — run once
+scripts/setup.sh / .ps1   # build SDL3, fetch stb, run once
 third_party/SDL/          # SDL3 submodule
 ```
 
@@ -167,8 +167,8 @@ It's all **2D on SDL_Renderer**, living in `src/engine/render/`:
 - **`image.{h,c}`** — the `stb_image` loader for sprite art.
 
 **Isometric is a coordinate transform, not a projection.** The grid maps to 2:1
-diamond tiles. Machines are **shaded blocks** — a bright top, two darker side faces,
-outlined edges — sorted back-to-front. That reads as depth without a single line of
+diamond tiles. Machines are **shaded blocks** (a bright top, two darker side faces,
+outlined edges) sorted back-to-front. That reads as depth without a single line of
 3D code. Want a top-down or free 2D camera instead? That's just a different
 transform; nothing here is wired to be isometric-only.
 

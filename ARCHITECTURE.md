@@ -3,8 +3,8 @@
 > There's a companion doc, `docs/engine-redesign-2026-06-28.md`, that records an
 > earlier design exploration. Heads up: it argued for owning an SDL_GPU renderer
 > with an offline HLSL shader pipeline, and that whole direction got **reversed**
-> in favor of the minimal 2D engine described here. The exploration was useful — it
-> made the call obvious — but where the two docs disagree, believe this one.
+> in favor of the minimal 2D engine described here. The exploration was useful (it
+> made the call obvious), but where the two docs disagree, believe this one.
 
 ## The thesis
 
@@ -13,18 +13,18 @@ and they're load-bearing, so here they are spelled out.
 
 - **A small 2D engine on SDL_Renderer drives the game.** No shaders, no
   GPU-pipeline ownership, no offline shader tooling. SDL_Renderer already gives you
-  hardware-accelerated 2D on the native backend — Metal, Vulkan, D3D — for zero
+  hardware-accelerated 2D on the native backend (Metal, Vulkan, D3D) for zero
   extra dependencies, because it's part of the SDL3 you're already building.
 - **The game is a 2D isometric builder, and it does not need real 3D.** Look at the
-  genre — Factorio, RimWorld, old SimCity. That's 2D sprites in an iso projection.
+  genre: Factorio, RimWorld, old SimCity. That's 2D sprites in an iso projection.
   The "3D look" is faked with shaded blocks and draw order, not a depth buffer.
 - **Real 3D is deferred, not sworn off.** It comes back when there's a concrete need
   *and* a real grasp of modern GPU APIs to back it up. Carrying it speculatively
   today would just be complexity nobody here can maintain yet.
 - **The game owns the loop; the engine is a toolbox.** raylib-style. The engine
   never names a game type, and it never drives anything on its own.
-- **Quality is coherence and taste, not a feature count.** The engine is allowed —
-  encouraged, even — to say no to things it doesn't need.
+- **Quality is coherence and taste, not a feature count.** The engine is allowed,
+  encouraged even, to say no to things it doesn't need.
 
 ## Rendering
 
@@ -41,8 +41,8 @@ and they're load-bearing, so here they are spelled out.
 
 The actual *look* lives in the **game** layer, where `render_game.c` composes those
 primitives: the ground is a viewport-culled checker of iso diamonds with grid lines
-stroked on; machines are **shaded blocks** — bright top, two darker side faces,
-outlined edges — drawn back-to-front by `gx+gy`. That's the oldest trick in the
+stroked on; machines are **shaded blocks** (bright top, two darker side faces,
+outlined edges) drawn back-to-front by `gx+gy`. That's the oldest trick in the
 2D-iso book for faking depth, and it holds up. The font is an `SDL_Texture` atlas,
 tinted per draw with color mod.
 
@@ -72,7 +72,7 @@ int main(void) {
 }
 ```
 
-What actually enforces the separation isn't the shape of that loop — it's one rule:
+What actually enforces the separation isn't the shape of that loop. It's one rule:
 **`src/engine/` never names a type from `src/game/`.** That's it. (The game still
 drains raw `SDL_Event`s for now; a tidier input-query layer can slot in later if it
 earns its keep.)
@@ -97,13 +97,13 @@ game/
 
 ## Memory
 
-Arenas are the idiom — `engine/mem/arena`, modeled on Tsoding's arena.h. It's a
+Arenas are the idiom: `engine/mem/arena`, modeled on Tsoding's arena.h. It's a
 linked list of malloc'd regions with bump allocation, freed or reset as a whole
 rather than one allocation at a time. The entire `World` is a single arena block
 owned by the game, and shutdown just frees the arena.
 
 To be clear about the motivation: this was set up to **establish the pattern before
-anything needs it** — assets, levels, strings, per-frame scratch — not to plug a
+anything needs it** (assets, levels, strings, per-frame scratch), not to plug a
 leak, because there wasn't one. One thing to keep in the back of your mind:
 `world_despawn` swap-removes and reassigns entity ids, so an id you hold across a
 despawn goes stale. The fix is generational handles, and it can wait until entities
@@ -111,7 +111,7 @@ are actually tracked over time.
 
 ## Non-goals (this is how you stay opinionated)
 
-- **Real-time 3D — for now.** Deferred until there's a real need and the GPU
+- **Real-time 3D, for now.** Deferred until there's a real need and the GPU
   understanding to own it. The renderer is 2D on purpose, not by accident.
 - **Shaders, custom GPU pipelines, offline shader tooling.** Gone, and good
   riddance. SDL_Renderer talks to the GPU so you don't have to.

@@ -93,23 +93,24 @@ static void draw_block(Renderer *r, const Camera2D *cam, f32 gx, f32 gy, f32 h, 
     r2d_poly_outline(r, right, 4, line);
 }
 
-// A flat triangle on a piece's top face, pointing the way it moves items.
+// A flat triangle on a piece's top face, pointing the way it moves items. Built
+// entirely in grid space (perpendicular in grid, not screen) so it lies flat on the
+// tile and reads the same in every facing under the iso projection.
 static void draw_arrow(Renderer *r, const Camera2D *cam, f32 gx, f32 gy, f32 elev,
                        Direction dir, Vec4 color) {
     f32 sw = (f32)r->width, sh = (f32)r->height;
     f32 dx = (f32)DIR_DX[dir], dy = (f32)DIR_DY[dir];
-    Vec2 tip  = iso_to_screen(cam, sw, sh, gx + 0.32f * dx, gy + 0.32f * dy, elev);
-    Vec2 back = iso_to_screen(cam, sw, sh, gx - 0.16f * dx, gy - 0.16f * dy, elev);
+    f32 px = -dy, py = dx;                  // perpendicular in grid space
+    f32 fwd = 0.34f, back = 0.18f, halfw = 0.22f;
 
-    f32 vx = tip.x - back.x, vy = tip.y - back.y;
-    f32 len = sqrtf(vx * vx + vy * vy);
-    if (len < 0.001f) return;
-    f32 px = -vy / len, py = vx / len;       // unit perpendicular in screen space
-    f32 wd = len * 0.6f;
-    Vec2 b1 = {back.x + px * wd, back.y + py * wd};
-    Vec2 b2 = {back.x - px * wd, back.y - py * wd};
+    Vec2 tip = iso_to_screen(cam, sw, sh, gx + dx * fwd, gy + dy * fwd, elev);
+    Vec2 b1  = iso_to_screen(cam, sw, sh, gx - dx * back + px * halfw,
+                                          gy - dy * back + py * halfw, elev);
+    Vec2 b2  = iso_to_screen(cam, sw, sh, gx - dx * back - px * halfw,
+                                          gy - dy * back - py * halfw, elev);
     Vec2 pts[3] = {tip, b1, b2};
     r2d_fill_poly(r, pts, 3, color);
+    r2d_poly_outline(r, pts, 3, shade(color, 0.45f));
 }
 
 // A thick line between two grid-space points, drawn as a filled quad on the belt's

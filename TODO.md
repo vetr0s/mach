@@ -25,6 +25,9 @@
 - [x] Shaded iso blocks (top + two side faces) for faux-3D depth
 - [x] Ground as a viewport-culled checker of iso tiles
 - [x] Depth-sorted machine draw (painter's, back-to-front by gx+gy)
+- [ ] Viewport-cull entities in render (only ground is culled today; game_render_draw
+      draws every entity regardless of the visible grid bbox we already compute).
+      The scaling win once belt counts get large, well before the animation math costs.
 - [x] Bitmap font as an SDL_Texture atlas (tinted via color mod)
 - [x] Placement validation: red/green hover preview
 - [ ] Real sprite art (loader is wired; drop PNGs into assets/sprites)

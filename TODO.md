@@ -68,7 +68,7 @@ Things to make it play and look right, batched for later sessions. Not urgent.
 - [ ] Sprites for pieces and items, replacing the flat shaded blocks/diamonds
 - [ ] Item despawn handling: drop items off a dead-end or a deleted belt instead of
       jamming forever, with a small despawn effect
-- [ ] Verify/fix the facing arrows so they read clearly in the iso projection
+- [x] Verify/fix the facing arrows so they read clearly in the iso projection
 - [x] Tune speed and feel: chunky tier-1 baseline — belts 3 cells/s (SIM_TICKS_PER_SEC),
       an item every 2 cells (DROP_PERIOD), chevron scroll matched to belt speed.
       Value curve (ITEM_BASE_VALUE, UPGRADER_MULT) left as-is; revisit with the economy.

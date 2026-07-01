@@ -10,7 +10,7 @@
 // Semantic versioning: MAJOR.MINOR.PATCH
 #define MACH_VERSION_MAJOR 0
 #define MACH_VERSION_MINOR 5
-#define MACH_VERSION_PATCH 0
+#define MACH_VERSION_PATCH 1
 
 // Sized integer aliases.
 typedef uint8_t  u8;

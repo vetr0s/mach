@@ -5,7 +5,7 @@ SDL3, and not much else.
 
 ![mach — isometric factory scene rendered by the engine](assets/mach-engine-screenshot.png)
 
-**Version:** v0.5.0
+**Version:** v0.5.1
 
 It's a small **2D isometric** engine driving a factory/automation game. The
 rendering is plain 2D on top of SDL_Renderer. No shaders, no GPU pipeline, no

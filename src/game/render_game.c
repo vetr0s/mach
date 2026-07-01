@@ -19,12 +19,13 @@
 #define COLLECTOR_H  0.85f
 
 #define DROPPER_COL   ((Vec4){0.30f, 0.62f, 0.36f, 1.0f})
-#define CONVEYOR_COL  ((Vec4){0.30f, 0.32f, 0.37f, 1.0f})
+#define CONVEYOR_COL  ((Vec4){0.05f, 0.05f, 0.06f, 1.0f})
 #define UPGRADER_COL  ((Vec4){0.55f, 0.36f, 0.78f, 1.0f})
 #define COLLECTOR_COL ((Vec4){0.85f, 0.68f, 0.25f, 1.0f})
 
-// Belt surface: chevrons that scroll toward the flow direction so the belt reads
-// as running even when it's empty.
+// Belt surface: dark-gray chevrons that scroll toward the flow direction so the
+// black belt reads as running even when it's empty.
+#define BELT_CHEVRON_COL  ((Vec4){0.30f, 0.30f, 0.33f, 1.0f})
 #define BELT_CHEVRONS     3
 #define BELT_SCROLL_SPEED 1.5f   // full chevron cycles per second
 
@@ -210,7 +211,7 @@ static void draw_entity(Renderer *r, const Camera2D *cam, const Entity *e, f32 b
         const Entity_Conveyor *c = &e->data.conveyor;
         draw_block(r, cam, (f32)c->grid_x, (f32)c->grid_y, CONVEYOR_H, CONVEYOR_COL);
         draw_belt_surface(r, cam, (f32)c->grid_x, (f32)c->grid_y, c->dir, belt_phase,
-                          lighten(CONVEYOR_COL, 0.22f));
+                          BELT_CHEVRON_COL);
     } break;
     case ENTITY_UPGRADER: {
         const Entity_Upgrader *u = &e->data.upgrader;

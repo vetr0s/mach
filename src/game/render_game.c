@@ -119,7 +119,7 @@ static void draw_belt_surface(Renderer *r, const Camera2D *cam, f32 gx, f32 gy,
     f32 dx = (f32)DIR_DX[dir], dy = (f32)DIR_DY[dir];
     f32 px = -dy, py = dx;         // perpendicular in grid space
     f32 halfw = 0.26f;             // chevron arm spread across the belt
-    f32 travel = 0.40f;            // how far along the cell the chevrons scroll
+    f32 travel = 0.50f;            // chevrons run the full cell so they line up belt to belt
     f32 depth = 0.12f;             // apex-to-tail offset along the flow
 
     for (i32 k = 0; k < BELT_CHEVRONS; k++) {
@@ -128,6 +128,11 @@ static void draw_belt_surface(Renderer *r, const Camera2D *cam, f32 gx, f32 gy,
         f32 s = (u - 0.5f) * 2.0f * travel;   // chevron center along the flow axis
         f32 cx = gx + dx * s, cy = gy + dy * s;
 
+        // (npt): Fade each chevron in as it enters the back of the cell and out as
+        // it leaves the front, so the wrap is invisible instead of popping.
+        Vec4 c = color;
+        c.w *= sinf(3.14159265f * u);
+
         Vec2 apex = iso_to_screen(cam, sw, sh, cx + dx * depth, cy + dy * depth, CONVEYOR_H);
         Vec2 tl = iso_to_screen(cam, sw, sh, cx - dx * depth + px * halfw,
                                 cy - dy * depth + py * halfw, CONVEYOR_H);
@@ -135,8 +140,8 @@ static void draw_belt_surface(Renderer *r, const Camera2D *cam, f32 gx, f32 gy,
                                 cy - dy * depth - py * halfw, CONVEYOR_H);
         Vec2 arm1[2] = {apex, tl};
         Vec2 arm2[2] = {apex, tr};
-        r2d_poly_outline(r, arm1, 2, color);
-        r2d_poly_outline(r, arm2, 2, color);
+        r2d_poly_outline(r, arm1, 2, c);
+        r2d_poly_outline(r, arm2, 2, c);
     }
 }
 

@@ -25,7 +25,7 @@
 
 // Belt surface: dark-gray chevrons that scroll toward the flow direction so the
 // black belt reads as running even when it's empty.
-#define BELT_CHEVRON_COL  ((Vec4){0.95f, 0.85f, 0.20f, 1.0f})
+#define BELT_CHEVRON_COL  ((Vec4){0.30f, 0.30f, 0.33f, 1.0f})
 #define BELT_CHEVRONS     3
 #define BELT_SCROLL_SPEED 1.5f   // chevron cycles/sec; kept below belt speed so 3 packed
                                  // chevrons read as a calm crawl, not a fast flicker

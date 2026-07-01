@@ -23,6 +23,11 @@
 #define UPGRADER_COL  ((Vec4){0.55f, 0.36f, 0.78f, 1.0f})
 #define COLLECTOR_COL ((Vec4){0.85f, 0.68f, 0.25f, 1.0f})
 
+// Belt surface: chevrons that scroll toward the flow direction so the belt reads
+// as running even when it's empty.
+#define BELT_CHEVRONS     3
+#define BELT_SCROLL_SPEED 1.5f   // full chevron cycles per second
+
 // Multiply a color's RGB by f (keeps alpha) for cheap directional shading.
 static Vec4 shade(Vec4 c, f32 f) { return (Vec4){c.x * f, c.y * f, c.z * f, c.w}; }
 
@@ -105,6 +110,36 @@ static void draw_arrow(Renderer *r, const Camera2D *cam, f32 gx, f32 gy, f32 ele
     r2d_fill_poly(r, pts, 3, color);
 }
 
+// Scrolling chevrons on a conveyor's top face. `phase` in [0,1) advances over real
+// time, sliding each chevron toward the flow direction, so the belt looks like it's
+// running. Also doubles as the conveyor's direction cue.
+static void draw_belt_surface(Renderer *r, const Camera2D *cam, f32 gx, f32 gy,
+                              Direction dir, f32 phase, Vec4 color) {
+    f32 sw = (f32)r->width, sh = (f32)r->height;
+    f32 dx = (f32)DIR_DX[dir], dy = (f32)DIR_DY[dir];
+    f32 px = -dy, py = dx;         // perpendicular in grid space
+    f32 halfw = 0.26f;             // chevron arm spread across the belt
+    f32 travel = 0.40f;            // how far along the cell the chevrons scroll
+    f32 depth = 0.12f;             // apex-to-tail offset along the flow
+
+    for (i32 k = 0; k < BELT_CHEVRONS; k++) {
+        f32 u = (f32)k / (f32)BELT_CHEVRONS + phase;
+        u -= floorf(u);
+        f32 s = (u - 0.5f) * 2.0f * travel;   // chevron center along the flow axis
+        f32 cx = gx + dx * s, cy = gy + dy * s;
+
+        Vec2 apex = iso_to_screen(cam, sw, sh, cx + dx * depth, cy + dy * depth, CONVEYOR_H);
+        Vec2 tl = iso_to_screen(cam, sw, sh, cx - dx * depth + px * halfw,
+                                cy - dy * depth + py * halfw, CONVEYOR_H);
+        Vec2 tr = iso_to_screen(cam, sw, sh, cx - dx * depth - px * halfw,
+                                cy - dy * depth - py * halfw, CONVEYOR_H);
+        Vec2 arm1[2] = {apex, tl};
+        Vec2 arm2[2] = {apex, tr};
+        r2d_poly_outline(r, arm1, 2, color);
+        r2d_poly_outline(r, arm2, 2, color);
+    }
+}
+
 static i32 popcount_u64(u64 x) {
     i32 c = 0;
     while (x) { c += (i32)(x & 1u); x >>= 1; }
@@ -141,7 +176,7 @@ static void draw_item(Renderer *r, const Camera2D *cam, const Item *it, f32 alph
     r2d_poly_outline(r, pts, 4, shade(col, 0.45f));
 }
 
-static void draw_entity(Renderer *r, const Camera2D *cam, const Entity *e) {
+static void draw_entity(Renderer *r, const Camera2D *cam, const Entity *e, f32 belt_phase) {
     switch (e->type) {
     case ENTITY_DROPPER: {
         const Entity_Dropper *d = &e->data.dropper;
@@ -152,8 +187,8 @@ static void draw_entity(Renderer *r, const Camera2D *cam, const Entity *e) {
     case ENTITY_CONVEYOR: {
         const Entity_Conveyor *c = &e->data.conveyor;
         draw_block(r, cam, (f32)c->grid_x, (f32)c->grid_y, CONVEYOR_H, CONVEYOR_COL);
-        draw_arrow(r, cam, (f32)c->grid_x, (f32)c->grid_y, CONVEYOR_H, c->dir,
-                   lighten(CONVEYOR_COL, 0.55f));
+        draw_belt_surface(r, cam, (f32)c->grid_x, (f32)c->grid_y, c->dir, belt_phase,
+                          lighten(CONVEYOR_COL, 0.55f));
     } break;
     case ENTITY_UPGRADER: {
         const Entity_Upgrader *u = &e->data.upgrader;
@@ -229,8 +264,10 @@ void game_render_draw(Renderer *r, const Game_State *game) {
         g_entities[ne].ptr = e;
         ne++;
     }
+    f32 belt_phase = game->anim_time * BELT_SCROLL_SPEED;
+    belt_phase -= floorf(belt_phase);
     qsort(g_entities, (size_t)ne, sizeof(DrawItem), cmp_draw);
-    for (i32 i = 0; i < ne; i++) draw_entity(r, cam, (const Entity *)g_entities[i].ptr);
+    for (i32 i = 0; i < ne; i++) draw_entity(r, cam, (const Entity *)g_entities[i].ptr, belt_phase);
 
     // Items ride on top of the belts, also depth-sorted among themselves. The
     // leftover sim accumulator gives the fraction into the current tick, which

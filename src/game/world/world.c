@@ -3,8 +3,11 @@
 #include "world.h"
 #include "../../engine/debug.h"
 
-// Sim tuning. At the fixed 10 ticks/sec, DROP_PERIOD 10 is one item per second.
-#define DROP_PERIOD      10
+// Sim tuning. DROP_PERIOD is in ticks, so an item lands every DROP_PERIOD cells on a
+// straight belt regardless of the tick rate. At 3 ticks/sec, DROP_PERIOD 2 drops one
+// item every ~0.67s, spaced two cells apart, so belts read as a dense heavy stream.
+// (This lives per-dropper as drop_cooldown, so dropper tiers are already a value bump.)
+#define DROP_PERIOD      2
 #define ITEM_BASE_VALUE  10
 #define UPGRADER_MULT    2
 
@@ -312,8 +315,8 @@ static void world_run_droppers(World *w) {
         it->alive = MACH_TRUE;
         it->grid_x = nx;
         it->grid_y = ny;
-        it->prev_x = nx;     // a fresh item starts still, not sliding in from nowhere
-        it->prev_y = ny;
+        it->prev_x = nx;     // spawns on the belt cell (outside the dropper); the
+        it->prev_y = ny;     // same-tick move below carries it forward, so no idle beat
         it->value = ITEM_BASE_VALUE;
         it->upgraded_mask = 0;
         w->item_grid[nx][ny] = idx + 1;
@@ -337,6 +340,9 @@ void world_tick(World *w) {
     if (!w) return;
     w->tick++;
     world_snapshot_items(w);
-    world_move_items(w);
+    // Droppers before move so a freshly dropped item is picked up by the same-tick
+    // move pass: it spawns on the belt cell and slides forward immediately instead of
+    // sitting idle for a whole tick (very visible at the slow sim rate).
     world_run_droppers(w);
+    world_move_items(w);
 }

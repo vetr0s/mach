@@ -11,7 +11,13 @@
 // Fixed simulation rate. The world advances in discrete ticks at this rate,
 // decoupled from the render framerate. The renderer reads SIM_TICK_DT to turn the
 // leftover accumulator into an interpolation fraction.
-#define SIM_TICKS_PER_SEC 10
+//
+// This doubles as the global belt speed today: an item advances one cell per tick,
+// so belts run at SIM_TICKS_PER_SEC cells/sec. That's deliberately slow (chunky
+// tier-1 feel) with headroom to speed up later. When placeable belt tiers land,
+// belt speed moves off this clock onto a per-entity ticks-per-cell cadence (and the
+// item interpolation has to span that window), leaving this as just the sim heartbeat.
+#define SIM_TICKS_PER_SEC 3
 #define SIM_TICK_DT       (1.0f / (f32)SIM_TICKS_PER_SEC)
 
 typedef struct {

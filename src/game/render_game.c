@@ -27,7 +27,8 @@
 // black belt reads as running even when it's empty.
 #define BELT_CHEVRON_COL  ((Vec4){0.30f, 0.30f, 0.33f, 1.0f})
 #define BELT_CHEVRONS     3
-#define BELT_SCROLL_SPEED 1.5f   // full chevron cycles per second
+#define BELT_SCROLL_SPEED 1.5f   // chevron cycles/sec; kept below belt speed so 3 packed
+                                 // chevrons read as a calm crawl, not a fast flicker
 
 // Multiply a color's RGB by f (keeps alpha) for cheap directional shading.
 static Vec4 shade(Vec4 c, f32 f) { return (Vec4){c.x * f, c.y * f, c.z * f, c.w}; }

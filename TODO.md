@@ -6,7 +6,7 @@
 
 ## Core engine
 - [x] Game loop: update/render separation, variable timestep with soft cap
-- [x] Fixed simulation timestep: world steps at a constant rate (10/s) decoupled
+- [x] Fixed simulation timestep: world steps at a constant rate (3/s) decoupled
       from the render framerate, so the sim plays identically on any monitor
 - [x] Input system: keyboard, mouse
 - [ ] Event system: input, collision, game events
@@ -52,7 +52,10 @@
       so the puzzle is routing through many *distinct* upgraders
 - [x] Directional placement with rotation (R), money HUD, item/arrow rendering
 - [ ] Machine tiers: better droppers/conveyors/upgraders (a `tier` field scaling
-      one stat)
+      one stat). Dropper/upgrader tiers are a value bump today (drop_cooldown,
+      UPGRADER_MULT). Belt-speed tiers need belt speed moved off the global sim
+      clock onto a per-entity ticks-per-cell cadence, with item interpolation
+      spanning that multi-tick window instead of the current one-move-per-tick.
 - [ ] Special upgraders (caps, value gates, multipliers with conditions)
 - [ ] Save/load a layout
 
@@ -66,8 +69,9 @@ Things to make it play and look right, batched for later sessions. Not urgent.
 - [ ] Item despawn handling: drop items off a dead-end or a deleted belt instead of
       jamming forever, with a small despawn effect
 - [ ] Verify/fix the facing arrows so they read clearly in the iso projection
-- [ ] Tune speed and feel: drop rate, belt speed, upgrader strength, item value
-      curve (all one-constant knobs in world.c right now)
+- [x] Tune speed and feel: chunky tier-1 baseline — belts 3 cells/s (SIM_TICKS_PER_SEC),
+      an item every 2 cells (DROP_PERIOD), chevron scroll matched to belt speed.
+      Value curve (ITEM_BASE_VALUE, UPGRADER_MULT) left as-is; revisit with the economy.
 
 ## Content
 - [ ] Asset loading pipeline

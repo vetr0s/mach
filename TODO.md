@@ -12,6 +12,11 @@
 - [ ] Event system: input, collision, game events
 - [x] Memory: arena allocator (Tsoding-style region list); the world is one
       arena block, freed whole at shutdown. `arena_reset` for reuse is in place.
+- [x] Hot reload (dev): game logic compiles to a shared lib the host (src/host.c)
+      dlopen's and swaps on rebuild, keeping App state across reloads. Run
+      `./build.sh hot`, then `./build.sh game` in another terminal to reload.
+      Release stays the src/mach.c monolith. See ARCHITECTURE.md. Limit: code, not
+      struct-layout, changes reload live.
 
 ## Rendering (2D on SDL_Renderer)
 - [x] **[v0.5.0] Pivot to a minimal 2D engine.** Dropped SDL_GPU + the offline

@@ -77,6 +77,38 @@ What actually enforces the separation isn't the shape of that loop. It's one rul
 drains raw `SDL_Event`s for now; a tidier input-query layer can slot in later if it
 earns its keep.)
 
+## Hot reload (dev builds)
+
+That six-function boundary (`game_window_config` + the five `app_*` calls) doubles
+as a reload seam. `./build.sh hot` splits the same code into two artifacts instead
+of the monolith:
+
+- **`build/mach_hot`** (`src/host.c`) — the host. Owns the window, the engine, and
+  the `App` memory, and runs the loop by calling the six functions through pointers
+  resolved from a shared library. Never reloaded.
+- **`build/libmach_game.{dylib,so}`** (`src/game_lib.c`) — the game logic, plus its
+  own copy of the engine. The host watches this file; when it changes, it reloads it
+  and keeps running against the same `App` memory.
+
+Iterate by leaving `mach_hot` running and rebuilding just the library in another
+terminal: `./build.sh game`. Edit sim rules, tuning, or render code and it swaps in
+live — no restart, no lost state.
+
+Two facts make this work with zero linker tricks:
+
+- **The engine has no mutable global state.** Everything lives in `Engine` /
+  `Renderer` / `Arena` / `App`, all owned by the host and passed in by pointer. So
+  the host and the library can each carry their own copy of the engine *code* and
+  still operate on the same *data*. (Keep it that way: no mutable file-scope state.)
+- **State is host-owned.** `App` sits in host memory the reload never touches, and
+  the arena's regions are plain `malloc` (process-global), so every pointer survives
+  a code swap.
+
+The one limit: reload swaps **code, not layout**. Change a field in `App`,
+`Game_State`, or `World` and you need a normal restart — the persistent memory would
+be reinterpreted wrong otherwise. `src/mach.c` stays the release monolith (no
+`dlopen`), so shipping is unaffected.
+
 ## The modules
 
 ```

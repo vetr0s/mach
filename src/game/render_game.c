@@ -136,9 +136,12 @@ static void draw_belt_surface(Renderer *r, const Camera2D *cam, f32 gx, f32 gy,
     f32 dx = (f32)DIR_DX[dir], dy = (f32)DIR_DY[dir];
     f32 px = -dy, py = dx;         // perpendicular in grid space
     f32 halfw = 0.26f;             // chevron arm spread across the belt
-    f32 travel = 0.50f;            // chevrons run the full cell so they line up belt to belt
     f32 depth = 0.14f;             // apex-to-tail offset along the flow
     f32 thick = 0.05f;             // half the tread width, in grid units
+    // (npt): Cap travel so the tail never crosses the cell's back edge onto the
+    // tile behind. The chevron spans [center - depth, center + depth] along flow,
+    // so keeping the center within +-(0.5 - depth) keeps the whole thing inside.
+    f32 travel = 0.5f - depth;
 
     for (i32 k = 0; k < BELT_CHEVRONS; k++) {
         f32 u = (f32)k / (f32)BELT_CHEVRONS + phase;

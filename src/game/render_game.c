@@ -19,9 +19,15 @@
 #define COLLECTOR_H  0.85f
 
 #define DROPPER_COL   ((Vec4){0.30f, 0.62f, 0.36f, 1.0f})
-#define CONVEYOR_COL  ((Vec4){0.30f, 0.32f, 0.37f, 1.0f})
+#define CONVEYOR_COL  ((Vec4){0.05f, 0.05f, 0.06f, 1.0f})
 #define UPGRADER_COL  ((Vec4){0.55f, 0.36f, 0.78f, 1.0f})
 #define COLLECTOR_COL ((Vec4){0.85f, 0.68f, 0.25f, 1.0f})
+
+// Belt surface: dark-gray chevrons that scroll toward the flow direction so the
+// black belt reads as running even when it's empty.
+#define BELT_CHEVRON_COL  ((Vec4){0.30f, 0.30f, 0.33f, 1.0f})
+#define BELT_CHEVRONS     3
+#define BELT_SCROLL_SPEED 1.5f   // full chevron cycles per second
 
 // Multiply a color's RGB by f (keeps alpha) for cheap directional shading.
 static Vec4 shade(Vec4 c, f32 f) { return (Vec4){c.x * f, c.y * f, c.z * f, c.w}; }
@@ -105,6 +111,58 @@ static void draw_arrow(Renderer *r, const Camera2D *cam, f32 gx, f32 gy, f32 ele
     r2d_fill_poly(r, pts, 3, color);
 }
 
+// A thick line between two grid-space points, drawn as a filled quad on the belt's
+// top face so its width scales with zoom instead of being a hairline.
+static void draw_belt_tread(Renderer *r, const Camera2D *cam, f32 ax, f32 ay,
+                            f32 bx, f32 by, f32 half_thick, Vec4 color) {
+    f32 sw = (f32)r->width, sh = (f32)r->height;
+    f32 vx = bx - ax, vy = by - ay;
+    f32 len = sqrtf(vx * vx + vy * vy);
+    if (len < 1e-5f) return;
+    f32 nx = -vy / len * half_thick;   // perpendicular offset in grid units
+    f32 ny =  vx / len * half_thick;
+    Vec2 p0 = iso_to_screen(cam, sw, sh, ax + nx, ay + ny, CONVEYOR_H);
+    Vec2 p1 = iso_to_screen(cam, sw, sh, bx + nx, by + ny, CONVEYOR_H);
+    Vec2 p2 = iso_to_screen(cam, sw, sh, bx - nx, by - ny, CONVEYOR_H);
+    Vec2 p3 = iso_to_screen(cam, sw, sh, ax - nx, ay - ny, CONVEYOR_H);
+    Vec2 pts[4] = {p0, p1, p2, p3};
+    r2d_fill_poly(r, pts, 4, color);
+}
+
+// Scrolling chevrons on a conveyor's top face. `phase` in [0,1) advances over real
+// time, sliding each chevron toward the flow direction, so the belt looks like it's
+// running. Also doubles as the conveyor's direction cue.
+static void draw_belt_surface(Renderer *r, const Camera2D *cam, f32 gx, f32 gy,
+                              Direction dir, f32 phase, Vec4 color) {
+    f32 dx = (f32)DIR_DX[dir], dy = (f32)DIR_DY[dir];
+    f32 px = -dy, py = dx;         // perpendicular in grid space
+    f32 halfw = 0.26f;             // chevron arm spread across the belt
+    f32 depth = 0.14f;             // apex-to-tail offset along the flow
+    f32 thick = 0.05f;             // half the tread width, in grid units
+    // (npt): Cap travel so the tail never crosses the cell's back edge onto the
+    // tile behind. The chevron spans [center - depth, center + depth] along flow,
+    // so keeping the center within +-(0.5 - depth) keeps the whole thing inside.
+    f32 travel = 0.5f - depth;
+
+    for (i32 k = 0; k < BELT_CHEVRONS; k++) {
+        f32 u = (f32)k / (f32)BELT_CHEVRONS + phase;
+        u -= floorf(u);
+        f32 s = (u - 0.5f) * 2.0f * travel;   // chevron center along the flow axis
+        f32 cx = gx + dx * s, cy = gy + dy * s;
+
+        // (npt): Fade each chevron in as it enters the back of the cell and out as
+        // it leaves the front, so it rises out of the belt instead of popping on top.
+        Vec4 c = color;
+        c.w *= sinf(3.14159265f * u);
+
+        f32 apx = cx + dx * depth,             apy = cy + dy * depth;
+        f32 tlx = cx - dx * depth + px * halfw, tly = cy - dy * depth + py * halfw;
+        f32 trx = cx - dx * depth - px * halfw, trgy = cy - dy * depth - py * halfw;
+        draw_belt_tread(r, cam, apx, apy, tlx, tly, thick, c);
+        draw_belt_tread(r, cam, apx, apy, trx, trgy, thick, c);
+    }
+}
+
 static i32 popcount_u64(u64 x) {
     i32 c = 0;
     while (x) { c += (i32)(x & 1u); x >>= 1; }
@@ -141,7 +199,7 @@ static void draw_item(Renderer *r, const Camera2D *cam, const Item *it, f32 alph
     r2d_poly_outline(r, pts, 4, shade(col, 0.45f));
 }
 
-static void draw_entity(Renderer *r, const Camera2D *cam, const Entity *e) {
+static void draw_entity(Renderer *r, const Camera2D *cam, const Entity *e, f32 belt_phase) {
     switch (e->type) {
     case ENTITY_DROPPER: {
         const Entity_Dropper *d = &e->data.dropper;
@@ -152,8 +210,8 @@ static void draw_entity(Renderer *r, const Camera2D *cam, const Entity *e) {
     case ENTITY_CONVEYOR: {
         const Entity_Conveyor *c = &e->data.conveyor;
         draw_block(r, cam, (f32)c->grid_x, (f32)c->grid_y, CONVEYOR_H, CONVEYOR_COL);
-        draw_arrow(r, cam, (f32)c->grid_x, (f32)c->grid_y, CONVEYOR_H, c->dir,
-                   lighten(CONVEYOR_COL, 0.55f));
+        draw_belt_surface(r, cam, (f32)c->grid_x, (f32)c->grid_y, c->dir, belt_phase,
+                          BELT_CHEVRON_COL);
     } break;
     case ENTITY_UPGRADER: {
         const Entity_Upgrader *u = &e->data.upgrader;
@@ -229,8 +287,10 @@ void game_render_draw(Renderer *r, const Game_State *game) {
         g_entities[ne].ptr = e;
         ne++;
     }
+    f32 belt_phase = game->anim_time * BELT_SCROLL_SPEED;
+    belt_phase -= floorf(belt_phase);
     qsort(g_entities, (size_t)ne, sizeof(DrawItem), cmp_draw);
-    for (i32 i = 0; i < ne; i++) draw_entity(r, cam, (const Entity *)g_entities[i].ptr);
+    for (i32 i = 0; i < ne; i++) draw_entity(r, cam, (const Entity *)g_entities[i].ptr, belt_phase);
 
     // Items ride on top of the belts, also depth-sorted among themselves. The
     // leftover sim accumulator gives the fraction into the current tick, which

@@ -30,6 +30,7 @@ void game_init(Game_State *g) {
     g->hover_valid = MACH_FALSE;
     g->hover_can_place = MACH_FALSE;
     g->sim_accumulator = 0.0f;
+    g->anim_time = 0.0f;
 
     setup_camera(&g->camera, 7.0f, 5.0f);
 
@@ -65,6 +66,7 @@ void game_update_hover(Game_State *g, f32 screen_w, f32 screen_h, i32 mouse_x, i
 void game_tick(Game_State *g, f32 dt) {
     if (!g || !g->world) return;
 
+    g->anim_time += dt;
     g->sim_accumulator += dt;
     while (g->sim_accumulator >= SIM_TICK_DT) {
         world_tick(g->world);

@@ -110,17 +110,35 @@ static void draw_arrow(Renderer *r, const Camera2D *cam, f32 gx, f32 gy, f32 ele
     r2d_fill_poly(r, pts, 3, color);
 }
 
+// A thick line between two grid-space points, drawn as a filled quad on the belt's
+// top face so its width scales with zoom instead of being a hairline.
+static void draw_belt_tread(Renderer *r, const Camera2D *cam, f32 ax, f32 ay,
+                            f32 bx, f32 by, f32 half_thick, Vec4 color) {
+    f32 sw = (f32)r->width, sh = (f32)r->height;
+    f32 vx = bx - ax, vy = by - ay;
+    f32 len = sqrtf(vx * vx + vy * vy);
+    if (len < 1e-5f) return;
+    f32 nx = -vy / len * half_thick;   // perpendicular offset in grid units
+    f32 ny =  vx / len * half_thick;
+    Vec2 p0 = iso_to_screen(cam, sw, sh, ax + nx, ay + ny, CONVEYOR_H);
+    Vec2 p1 = iso_to_screen(cam, sw, sh, bx + nx, by + ny, CONVEYOR_H);
+    Vec2 p2 = iso_to_screen(cam, sw, sh, bx - nx, by - ny, CONVEYOR_H);
+    Vec2 p3 = iso_to_screen(cam, sw, sh, ax - nx, ay - ny, CONVEYOR_H);
+    Vec2 pts[4] = {p0, p1, p2, p3};
+    r2d_fill_poly(r, pts, 4, color);
+}
+
 // Scrolling chevrons on a conveyor's top face. `phase` in [0,1) advances over real
 // time, sliding each chevron toward the flow direction, so the belt looks like it's
 // running. Also doubles as the conveyor's direction cue.
 static void draw_belt_surface(Renderer *r, const Camera2D *cam, f32 gx, f32 gy,
                               Direction dir, f32 phase, Vec4 color) {
-    f32 sw = (f32)r->width, sh = (f32)r->height;
     f32 dx = (f32)DIR_DX[dir], dy = (f32)DIR_DY[dir];
     f32 px = -dy, py = dx;         // perpendicular in grid space
     f32 halfw = 0.26f;             // chevron arm spread across the belt
     f32 travel = 0.50f;            // chevrons run the full cell so they line up belt to belt
-    f32 depth = 0.12f;             // apex-to-tail offset along the flow
+    f32 depth = 0.14f;             // apex-to-tail offset along the flow
+    f32 thick = 0.05f;             // half the tread width, in grid units
 
     for (i32 k = 0; k < BELT_CHEVRONS; k++) {
         f32 u = (f32)k / (f32)BELT_CHEVRONS + phase;
@@ -129,19 +147,15 @@ static void draw_belt_surface(Renderer *r, const Camera2D *cam, f32 gx, f32 gy,
         f32 cx = gx + dx * s, cy = gy + dy * s;
 
         // (npt): Fade each chevron in as it enters the back of the cell and out as
-        // it leaves the front, so the wrap is invisible instead of popping.
+        // it leaves the front, so it rises out of the belt instead of popping on top.
         Vec4 c = color;
         c.w *= sinf(3.14159265f * u);
 
-        Vec2 apex = iso_to_screen(cam, sw, sh, cx + dx * depth, cy + dy * depth, CONVEYOR_H);
-        Vec2 tl = iso_to_screen(cam, sw, sh, cx - dx * depth + px * halfw,
-                                cy - dy * depth + py * halfw, CONVEYOR_H);
-        Vec2 tr = iso_to_screen(cam, sw, sh, cx - dx * depth - px * halfw,
-                                cy - dy * depth - py * halfw, CONVEYOR_H);
-        Vec2 arm1[2] = {apex, tl};
-        Vec2 arm2[2] = {apex, tr};
-        r2d_poly_outline(r, arm1, 2, c);
-        r2d_poly_outline(r, arm2, 2, c);
+        f32 apx = cx + dx * depth,             apy = cy + dy * depth;
+        f32 tlx = cx - dx * depth + px * halfw, tly = cy - dy * depth + py * halfw;
+        f32 trx = cx - dx * depth - px * halfw, trgy = cy - dy * depth - py * halfw;
+        draw_belt_tread(r, cam, apx, apy, tlx, tly, thick, c);
+        draw_belt_tread(r, cam, apx, apy, trx, trgy, thick, c);
     }
 }
 
@@ -193,7 +207,7 @@ static void draw_entity(Renderer *r, const Camera2D *cam, const Entity *e, f32 b
         const Entity_Conveyor *c = &e->data.conveyor;
         draw_block(r, cam, (f32)c->grid_x, (f32)c->grid_y, CONVEYOR_H, CONVEYOR_COL);
         draw_belt_surface(r, cam, (f32)c->grid_x, (f32)c->grid_y, c->dir, belt_phase,
-                          lighten(CONVEYOR_COL, 0.55f));
+                          lighten(CONVEYOR_COL, 0.22f));
     } break;
     case ENTITY_UPGRADER: {
         const Entity_Upgrader *u = &e->data.upgrader;

@@ -124,10 +124,17 @@ void game_handle_key(Game_State *g, SDL_Scancode scancode) {
     case SDL_SCANCODE_3: toggle_tool(g, TOOL_UPGRADER);  break;
     case SDL_SCANCODE_4: toggle_tool(g, TOOL_COLLECTOR); break;
     case SDL_SCANCODE_5: toggle_tool(g, TOOL_DELETE);    break;
-    case SDL_SCANCODE_R:
-        g->place_dir = (Direction)((g->place_dir + 1) % DIR_COUNT);
-        LOG_DEBUG("place direction: %d", g->place_dir);
-        break;
+    case SDL_SCANCODE_R: {
+        // Rotate the piece under the cursor in place; with no piece there (or a
+        // collector, which has no facing), rotate the facing for the next placement.
+        i32 id = g->hover_valid ? world_get_entity_at(g->world, g->hover_grid_x, g->hover_grid_y) : 0;
+        if (id != 0 && world_rotate_entity(g->world, id)) {
+            LOG_DEBUG("rotated entity %d at (%d,%d)", id, g->hover_grid_x, g->hover_grid_y);
+        } else {
+            g->place_dir = (Direction)((g->place_dir + 1) % DIR_COUNT);
+            LOG_DEBUG("place direction: %d", g->place_dir);
+        }
+    } break;
     default: break;
     }
 }

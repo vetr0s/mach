@@ -177,6 +177,17 @@ void world_despawn(World *w, i32 entity_id) {
     LOG_DEBUG("despawned entity %d at (%d,%d), %d remaining", entity_id, ex, ey, w->entity_count);
 }
 
+b32 world_rotate_entity(World *w, i32 entity_id) {
+    Entity *e = world_get_entity(w, entity_id);
+    if (!e) return MACH_FALSE;
+    switch (e->type) {
+    case ENTITY_DROPPER:  e->data.dropper.dir  = (Direction)((e->data.dropper.dir  + 1) % DIR_COUNT); return MACH_TRUE;
+    case ENTITY_CONVEYOR: e->data.conveyor.dir = (Direction)((e->data.conveyor.dir + 1) % DIR_COUNT); return MACH_TRUE;
+    case ENTITY_UPGRADER: e->data.upgrader.dir = (Direction)((e->data.upgrader.dir + 1) % DIR_COUNT); return MACH_TRUE;
+    default:              return MACH_FALSE;   // collectors have no facing
+    }
+}
+
 i32 world_get_entity_at(World *w, i32 x, i32 y) {
     if (!w || !in_bounds(x, y)) return 0;
     return w->grid[x][y];

@@ -113,6 +113,10 @@ i32 world_spawn_upgrader(World *w, i32 x, i32 y, Direction dir);
 i32 world_spawn_collector(World *w, i32 x, i32 y);
 void world_despawn(World *w, i32 entity_id);
 
+// Rotate a placed entity's facing 90 degrees clockwise in place. Returns false for
+// entities with no facing (collectors) or an invalid id.
+b32 world_rotate_entity(World *w, i32 entity_id);
+
 // Queries.
 i32 world_get_entity_at(World *w, i32 x, i32 y);
 Entity* world_get_entity(World *w, i32 entity_id);

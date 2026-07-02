@@ -53,7 +53,7 @@ only counts once per item, so the puzzle is reaching lots of different ones.
 - **WASD / Arrows** — pan the camera
 - **Scroll wheel** — zoom
 - **1 / 2 / 3 / 4 / 5** — pick Dropper / Conveyor / Upgrader / Collector / Delete (hit it again to drop it)
-- **R** — rotate the facing of the next piece you place
+- **R** — rotate the piece you're hovering over in place; over an empty tile it rotates the facing of the next piece you place
 - **Left click** — place the current tool on the tile you're hovering
 - **Esc** — quit
 

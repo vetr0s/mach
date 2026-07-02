@@ -90,7 +90,12 @@ void app_render(App *a, Engine *e) {
     r2d_text(r, 10.0f, 30.0f, 2.0f, line, gold);
     snprintf(line, sizeof(line), "Tool: %s  Facing: %s", tool, facing);
     r2d_text(r, 10.0f, 50.0f, 2.0f, line, green);
-    r2d_text(r, 10.0f, 70.0f, 2.0f, "1:Drop 2:Belt 3:Upgr 4:Collect 5:Del  R:rotate", grey);
+    r2d_text(r, 10.0f, 70.0f, 2.0f, "1:Drop 2:Belt 3:Upgr 4:Collect 5:Del  R:rotate  Space:pause", grey);
+
+    if (a->game.paused) {
+        const Vec4 amber = {1.00f, 0.65f, 0.20f, 1.0f};
+        r2d_text(r, 10.0f, 95.0f, 2.0f, "-- PAUSED --", amber);
+    }
 }
 
 void app_shutdown(App *a, Engine *e) {

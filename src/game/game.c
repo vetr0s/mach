@@ -31,6 +31,7 @@ void game_init(Game_State *g) {
     g->hover_can_place = MACH_FALSE;
     g->sim_accumulator = 0.0f;
     g->anim_time = 0.0f;
+    g->paused = MACH_FALSE;
 
     setup_camera(&g->camera, 7.0f, 5.0f);
 
@@ -65,6 +66,7 @@ void game_update_hover(Game_State *g, f32 screen_w, f32 screen_h, i32 mouse_x, i
 // clamped engine-side, so the accumulator can't run away after a long stall.
 void game_tick(Game_State *g, f32 dt) {
     if (!g || !g->world) return;
+    if (g->paused) return;   // frozen: no sim ticks, no animation advance
 
     g->anim_time += dt;
     g->sim_accumulator += dt;
@@ -124,6 +126,10 @@ void game_handle_key(Game_State *g, SDL_Scancode scancode) {
     case SDL_SCANCODE_3: toggle_tool(g, TOOL_UPGRADER);  break;
     case SDL_SCANCODE_4: toggle_tool(g, TOOL_COLLECTOR); break;
     case SDL_SCANCODE_5: toggle_tool(g, TOOL_DELETE);    break;
+    case SDL_SCANCODE_SPACE:
+        g->paused = !g->paused;
+        LOG_DEBUG("simulation %s", g->paused ? "paused" : "resumed");
+        break;
     case SDL_SCANCODE_R: {
         // Rotate the piece under the cursor in place; with no piece there (or a
         // collector, which has no facing), rotate the facing for the next placement.

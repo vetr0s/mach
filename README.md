@@ -204,7 +204,7 @@ The libraries:
 
 ## Licensing
 
-- **mach engine and game** — MIT
+- **mach engine and game** — Zlib (see `LICENSE`)
 - **SDL3** — Zlib (see `third_party/SDL/LICENSE.txt`)
 - **stb** — public domain (see each header)
 - **Clay** — Zlib (see the header)

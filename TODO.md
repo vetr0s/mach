@@ -93,9 +93,10 @@ Things to make it play and look right, batched for later sessions. Not urgent.
 - [x] Belt surface animation: the conveyor top scrolls chevrons in its facing
       direction (real-time, so it runs even when the belt is empty)
 - [ ] Sprites for pieces and items, replacing the flat shaded blocks/diamonds
-- [~] Item despawn handling. Deleting an entity now despawns the ore on its cell
-      (world_despawn) instead of stranding it. Still TODO: drop items off a dead-end
-      belt instead of jamming forever, and a small despawn effect.
+- [x] Item despawn handling. Deleting an entity despawns the ore on its cell; ore that
+      hits a dead end (off-grid edge, bare ground, or a dropper's back) tips off and drops
+      out over FALL_TICKS with a sink-and-fade effect. See world_despawn, item_begin_fall,
+      world_update_falls.
 - [x] Verify/fix the facing arrows so they read clearly in the iso projection
 - [x] Tune speed and feel: chunky tier-1 baseline — belts 3 cells/s (SIM_TICKS_PER_SEC),
       an item every 2 cells (DROP_PERIOD), chevron scroll matched to belt speed.

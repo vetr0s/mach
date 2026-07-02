@@ -71,12 +71,14 @@ typedef struct {
     i64 value;
     i64 ceiling;          // value cap this ore climbs toward; each distinct upgrader raises it
     u64 upgraded_mask;    // bit u set once upgrader u has raised this ore's ceiling
+    i32 fall;             // 0 = riding belts; >0 = tipped off a dead end, ticks until it drops out
 } Item;
 
 #define MAX_ENTITIES    10000
 #define MAX_ITEMS       1024
 #define MAX_UPGRADERS   64        // bounded by the bits in Item.upgraded_mask
 #define WORLD_GRID_SIZE 256
+#define FALL_TICKS      3         // how long ore takes to drop out after tipping off a dead end
 
 typedef struct {
     Entity entities[MAX_ENTITIES];

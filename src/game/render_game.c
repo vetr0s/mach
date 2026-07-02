@@ -203,14 +203,28 @@ static void draw_item(Renderer *r, const Camera2D *cam, const Item *it, f32 alph
     f32 gx = (f32)it->prev_x + ((f32)it->grid_x - (f32)it->prev_x) * alpha;
     f32 gy = (f32)it->prev_y + ((f32)it->grid_y - (f32)it->prev_y) * alpha;
     f32 e = 0.34f, s = 0.18f;
+    Vec4 col = item_color(it);
+
+    // Ore that tipped off a dead end: sink it below the belt, shrink and fade it as it
+    // drops out. `fall` counts FALL_TICKS -> 0; alpha smooths the drop between ticks.
+    if (it->fall > 0) {
+        f32 p = ((f32)(FALL_TICKS - it->fall) + alpha) / (f32)FALL_TICKS;
+        if (p < 0.0f) p = 0.0f;
+        if (p > 1.0f) p = 1.0f;
+        e -= p * 0.9f;              // sink through the belt surface
+        s *= 1.0f - 0.45f * p;     // shrink a touch
+        col.w = 1.0f - p;          // fade to nothing
+    }
+
     Vec2 n  = iso_to_screen(cam, sw, sh, gx,     gy - s, e);
     Vec2 ee = iso_to_screen(cam, sw, sh, gx + s, gy,     e);
     Vec2 ss = iso_to_screen(cam, sw, sh, gx,     gy + s, e);
     Vec2 ww = iso_to_screen(cam, sw, sh, gx - s, gy,     e);
     Vec2 pts[4] = {n, ee, ss, ww};
-    Vec4 col = item_color(it);
     r2d_fill_poly(r, pts, 4, col);
     r2d_poly_outline(r, pts, 4, shade(col, 0.45f));
+
+    if (it->fall > 0) return;   // no value label on ore that's dropping out
 
     // Value label, centered over the diamond and sitting just above its top point.
     char buf[32];

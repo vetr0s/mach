@@ -219,6 +219,30 @@ static void item_kill(World *w, i32 idx) {
     w->item_count--;
 }
 
+// The ore leaves the belt and tips toward (nx,ny) -- the dead-end cell ahead, which may
+// be off the grid -- then drops out over FALL_TICKS ticks (see world_update_falls). It's
+// no longer on the item grid, so it neither blocks the belt nor gets moved again; the
+// renderer slides it to the target and fades it down. (nx,ny) is never used to index the
+// grids, so an out-of-bounds edge cell is fine.
+static void item_begin_fall(World *w, i32 idx, i32 nx, i32 ny) {
+    Item *it = &w->items[idx];
+    w->item_grid[it->grid_x][it->grid_y] = 0;   // vacate the belt cell it rode in on
+    it->grid_x = nx;
+    it->grid_y = ny;
+    it->fall = FALL_TICKS;
+}
+
+// Age out ore that tipped off a dead end: drop it for FALL_TICKS ticks, then remove it.
+// A falling item is already off the item grid (item_begin_fall cleared it) and may sit on
+// an out-of-bounds cell, so it's removed directly rather than through item_kill.
+static void world_update_falls(World *w) {
+    for (i32 i = 0; i < MAX_ITEMS; i++) {
+        Item *it = &w->items[i];
+        if (!it->alive || it->fall == 0) continue;
+        if (--it->fall == 0) { it->alive = MACH_FALSE; w->item_count--; }
+    }
+}
+
 // Apply the effect of the entity on (x,y) to an item that just arrived there.
 // Upgraders raise its value once each; collectors bank and consume it. Returns
 // false if the item was consumed.
@@ -261,7 +285,7 @@ static void world_move_items(World *w) {
         changed = MACH_FALSE;
         for (i32 i = 0; i < MAX_ITEMS; i++) {
             Item *it = &w->items[i];
-            if (!it->alive || moved[i]) continue;
+            if (!it->alive || moved[i] || it->fall) continue;  // falling ore is off the belt
 
             i32 cell_id = w->grid[it->grid_x][it->grid_y];
             if (!cell_id) { moved[i] = MACH_TRUE; continue; }  // on bare ground, stuck
@@ -271,15 +295,18 @@ static void world_move_items(World *w) {
 
             i32 nx = it->grid_x + DIR_DX[d];
             i32 ny = it->grid_y + DIR_DY[d];
-            if (!in_bounds(nx, ny)) { moved[i] = MACH_TRUE; continue; }
 
-            i32 dst_id = w->grid[nx][ny];
-            if (!dst_id || world_get_entity(w, dst_id)->type == ENTITY_DROPPER) {
-                moved[i] = MACH_TRUE;   // nothing to flow into ahead
+            // Dead end ahead -- off the grid, bare ground, or a dropper's back -- so the
+            // ore rides to the end and tips off. Begin a fall toward that cell.
+            i32 dst_id = in_bounds(nx, ny) ? w->grid[nx][ny] : 0;
+            Entity *dst = dst_id ? world_get_entity(w, dst_id) : NULL;
+            if (!dst || dst->type == ENTITY_DROPPER) {
+                item_begin_fall(w, i, nx, ny);
+                moved[i] = MACH_TRUE;
+                changed = MACH_TRUE;
                 continue;
             }
 
-            Entity *dst = world_get_entity(w, dst_id);
             if (dst->type == ENTITY_COLLECTOR) {
                 w->money += it->value;
                 dst->data.collector.banked += it->value;
@@ -340,6 +367,7 @@ static void world_run_droppers(World *w) {
         it->value = ITEM_BASE_VALUE;
         it->ceiling = ITEM_BASE_VALUE;
         it->upgraded_mask = 0;
+        it->fall = 0;
         w->item_grid[nx][ny] = idx + 1;
         dr->drop_cooldown = DROP_PERIOD;
         item_apply_cell(w, idx, nx, ny);           // upgrade if dropped onto an upgrader
@@ -361,6 +389,9 @@ void world_tick(World *w) {
     if (!w) return;
     w->tick++;
     world_snapshot_items(w);
+    // Age ore that tipped off a dead end on an earlier tick before doing anything else,
+    // so a fall started last tick advances and eventually clears this tick's pool.
+    world_update_falls(w);
     // Droppers before move so a freshly dropped item is picked up by the same-tick
     // move pass: it spawns on the belt cell and slides forward immediately instead of
     // sitting idle for a whole tick (very visible at the slow sim rate).

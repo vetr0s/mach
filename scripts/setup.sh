@@ -36,12 +36,6 @@ cmake --install "$SDL_BUILD_DIR" --config Release
 
 echo "SDL3 ready at $SDL_INSTALL_PREFIX"
 
-# Download stb single-header libraries
-echo "Downloading stb headers..."
-mkdir -p "third_party/stb"
-curl -s -o "third_party/stb/stb_image.h" "https://raw.githubusercontent.com/nothings/stb/master/stb_image.h"
-curl -s -o "third_party/stb/stb_truetype.h" "https://raw.githubusercontent.com/nothings/stb/master/stb_truetype.h"
-curl -s -o "third_party/stb/stb_rect_pack.h" "https://raw.githubusercontent.com/nothings/stb/master/stb_rect_pack.h"
-echo "stb headers ready at third_party/stb/"
+# stb headers are vendored in-repo (third_party/stb/), so there's nothing to fetch.
 
 echo "Next: ./build.sh"

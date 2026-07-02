@@ -86,6 +86,24 @@ mechanics the GDD calls for that the code hasn't caught up to yet, in priority o
 - [ ] Open (see GDD Open Questions): one furnace only (single sink, strong spatial
       constraint) vs many placeable; whether furnaces become a 4th upgrade axis
 
+## UI & controls
+- [x] Clay adopted for UI (third_party/clay, vendored zlib). Bound to render2d in
+      engine/ui/clay_ui.{h,c}: bitmap-font text-measure hook + render-command
+      translation (rects, text, borders, scissor). Hot-reload-safe: context lives in
+      host App memory, re-pointed each frame. Reach for Clay for all new UI.
+- [x] HUD as a Clay panel: money always on, selected tool/facing under it, pause marker.
+- [x] F3 debug/info overlay (fps, tick/entity/item counts, hover cell, camera, controls),
+      toggled and small so it stays out of the way.
+- [x] Engine exposes FPS via engine_fps(); the game owns all HUD drawing (engine no
+      longer draws its own overlay).
+- [x] Pause / resume the simulation (Space): freezes sim ticks and animation; build and
+      pan still work while frozen.
+- [x] Rotate the hovered piece in place (R); over an empty tile it rotates the facing the
+      next placed piece will use.
+- [ ] Interactive UI: feed real mouse position/button into clay_ui_begin (zeroed today),
+      then build clickable UI — a tool palette, and the economy's shop / grid-expansion
+      buttons.
+
 ## Feel & polish (backlog)
 Things to make it play and look right, batched for later sessions. Not urgent.
 - [x] Smooth item travel: items slide between cells along the belt instead of
@@ -111,7 +129,7 @@ Things to make it play and look right, batched for later sessions. Not urgent.
 - [x] Leveled logging (INFO / ERROR / DEBUG)
 - [ ] Debug draw: collision bounds, vectors
 - [ ] Performance profiler
-- [ ] Immediate-mode debug UI
+- [x] Immediate-mode debug UI (the F3 overlay, built on Clay)
 
 ## Audio (later)
 - [ ] Audio system

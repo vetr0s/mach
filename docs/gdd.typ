@@ -38,7 +38,7 @@
   #v(1em)
   #line(length: 60%)
   #v(1em)
-  #text(size: 12pt, style: "italic")[Build automated resource chains in an isometric factory. Watch simple rules create emergent complexity as you scale from a single workshop to an infinite empire.]
+  #text(size: 12pt, style: "italic")[Drop ore, route it through upgraders, cash it in. Build recirculating belt loops on a grid you pay to expand. The puzzle is squeezing the most value out of the least space.]
 ]
 
 #pagebreak()
@@ -57,42 +57,44 @@
 
 == Concept Summary
 
-Factory is an idle/active automation game in isometric 2D. The player builds machines and connects them to create resource-production chains. A single machine produces one item per tick; chains combine machines into increasingly complex pipelines. The player expands indefinitely, discovering new machine types and resource combinations as they grow.
+Factory is a value-loop belt builder in isometric 2D. A dropper emits ore. Belts carry it through upgraders that multiply its value. A furnace consumes the ore and banks that value as money. You spend the money on more grid and better equipment, and the loop tightens.
 
-The emotional fantasy: watching chaos resolve into order. Building one machine feels simple. Connecting five creates a small system. Twenty machines create emergent patterns — bottlenecks you didn't predict, clever routing solutions, the satisfaction of seeing a complex web run smoothly.
+Ore is infinite — there is nothing to mine out and no deposit to relocate to. The whole game is *layout*: given a small grid and a stream of cheap ore, build the arrangement of belts and upgraders that turns it into the most money. The signature move is the recirculating loop, running one piece of ore past the same upgraders over and over to pump its value up before you let it reach the furnace.
+
+The grid starts tiny and costs money to enlarge. So money pulls in two directions at once — spend it on space, or spend it on better machines — and space is always the thing you wish you had more of.
 
 == Target Experience
 
-*Clarity through scale.* Early, the player is in control — they see every piece move. As they grow, they stop micromanaging individual machines and start thinking in systems. They should feel the shift from "I built this" to "I designed this and it runs itself." There's no win condition; the game is a sandbox that rewards you for making interesting choices, not for reaching a number. A player who builds 50 elegant machines should feel just as successful as one who scales to 1000.
+The feel we're after: a calm, constrained spatial puzzle that keeps paying out. Early on you can barely fit a straight line from dropper to furnace, and the ore you cash in is nearly worthless. As money comes in you buy a bigger grid and better parts, and suddenly a loop is possible — and a loop is worth far more than a line. The interesting decisions are all about *fitting*: how tight a loop can you pack, how many upgraders can you thread it through, when do you stop looping and cash out.
+
+There is no win condition and no clock. A player who builds one gorgeous, dense loop is playing the game as intended just as much as one who tiles a huge grid with them. The satisfaction is watching value climb and knowing you earned it with the layout.
 
 == Influences & Reference Games
 
-- *Factorio*: Resource chains, production bottlenecks, the joy of optimization. We're borrowing the core loop but scaling it down and making it isometric/visual.
-- *Infinifactory*: Spatial puzzle solving, constraint-based design, the aesthetics of simple geometric machines.
-- *Islanders*: Relaxing progression without pressure or loss. Build at your own pace.
-- *Dwarf Fortress*: Complex systems emerging from simple rules. We're not going for simulation depth, but the philosophy that restriction breeds creativity.
-- *Wookash (Anton Waern)*: Code structure and entity design philosophy. Intrusive lists, fat structs, minimal abstraction overhead.
+- *Miner's Haven*: The drop → route → upgrade → collect loop, recirculating ore through upgraders, and numbers that climb into the absurd. We take the loop and the object vocabulary (dropper, upgrader, furnace) directly, and drop the tycoon/rebirth grind around it.
+- *Cities: Skylines*: The feel of a constrained isometric grid you expand deliberately, where space is the resource you actually manage.
+- *Factorio*: Belts as one-item-per-cell transport lines, the joy of routing and packing. We borrow the transport model, not the extraction/tech-tree game.
+- *Wookash (Anton Mikhailov)*: Code structure and entity design — fat structs, direct arrays, minimal abstraction.
 
 == Scope & Platform
 
-- *Platform:* PC (macOS, Linux, Windows via itch.io or self-hosted)
-- *Engine/Stack:* Custom C engine (mach) + SDL3
-- *Target dev time:* 3–6 months for a playable vertical slice, open-ended scaling after
-- *Solo:* Solo developer
-- *Art style constraint:* Isometric 2D, tile-based grid. No hand-drawn sprites. Visual vocabulary: axis-aligned rectangles and simple geometric shapes. Color encodes machine type and state. All machines fit the same isometric footprint for easy composition.
+- *Platform:* PC (macOS, Linux, Windows).
+- *Engine/Stack:* Custom C engine (mach) + SDL3, 2D on `SDL_Renderer`.
+- *Solo:* Solo developer.
+- *Art style constraint:* Isometric 2D, tile-based grid. Programmer art: shaded, outlined blocks and simple shapes. Color encodes object type and state. Every object fits the same isometric footprint so layouts compose cleanly.
 
 // ─────────────────────────────────────────────
 //  2. Core Design Pillars
 // ─────────────────────────────────────────────
 = Core Design Pillars
 
-+ *Complexity from simplicity.* Each machine has one job. Chains emerge from connecting simple rules. Interesting problems arise not from special cases but from putting basic pieces together.
++ *Complexity from simplicity.* Each object does one small thing. All the depth is in how you connect them on the grid. Interesting problems come from packing simple parts into tight space, not from special-case rules.
 
-+ *The player is always in control.* No randomness, no surprises, no blackbox AI. Every resource flow is visible. A mistake is always the player's choice, never the game's whim.
++ *The player is always in control.* No randomness, no hidden AI. Every ore's path and value is a consequence of the layout you built. A bad payout is a layout you can see and fix.
 
-+ *Progress is visible, not gated.* There's no tech tree gatekeeping. If a machine exists, the player can build it from the start (cost is the only gate). Growth comes from the player's ambition, not arbitrary unlock lists.
++ *Progress is visible, not gated.* No tech tree. Every object and upgrade is buyable from the start; cost is the only gate. You grow by earning money and choosing what to spend it on.
 
-+ *Scale is graceful.* Ten machines should play as smoothly as a hundred. The game doesn't become unmanageable, just richer. Camera zoom and smart rendering keep the interface clean even at large scales.
++ *Scale is graceful.* Ten loops should play as smoothly as a hundred. The game gets richer as it grows, not more unmanageable. Zoom and clean rendering keep a big factory readable.
 
 // ─────────────────────────────────────────────
 //  3. Gameplay
@@ -101,154 +103,104 @@ The emotional fantasy: watching chaos resolve into order. Building one machine f
 
 == The Core Loop
 
-The player places machines on a grid, connects them with belts/pipes, and watches resources flow. As production grows, they optimize bottlenecks. New machines unlock new possibilities, which invite new chains.
+Place a dropper, some belts, an upgrader or two, and a furnace. Watch ore ride the belts, gain value at each upgrader, and turn into money at the furnace. Spend the money on grid or gear. Repeat, tighter.
 
 === Micro Loop (seconds)
-Click to place a machine → see it appear on the grid → watch it begin to work. Place a connection (belt) → resources start flowing through it. These actions have immediate visual feedback and feel snappy.
+Place an object on a tile; see it appear and start working immediately. Rotate a belt to redirect the flow. Drop an upgrader into the path and watch the ore that crosses it jump in value. Every action has instant, legible feedback.
 
 === Mid Loop (minutes)
-The player is solving a production problem: "I need more iron to build my factories." They might extend a mining chain, reroute an existing line, or design a new production path. The feedback loop is tight — they see the impact immediately in the flow of resources.
+You're solving a layout problem: "I have room for one more upgrader — where does it buy the most?" or "can I bend this line into a loop without running out of cells?" You reroute belts, close a loop, decide how many laps the ore should take before it hits the furnace. The payout responds immediately, so you tune by watching.
 
 === Macro Loop (hours / sessions)
-The player expands their territory, discovers new machine types (either through gameplay or by exploring), and experiments with new chains. Early sessions focus on simple loops (mine → smelt → store). Later sessions add complexity (chains that feed each other, loops within loops). Sessions can be short (30 min) or long (hours of idle gameplay in the background).
+You bank enough to expand the grid or buy a better tier of dropper, upgrader, or belt, which opens layouts that weren't possible before. Early sessions are single lines and first loops. Later sessions are dense grids of tuned loops, and the question shifts from "can I make a loop" to "what's the most value-dense loop that fits."
 
 == Tension & Conflict
 
-*Space and scarcity.* The map is finite (initially). Machines take up space. Expansion costs resources. The player must choose: optimize existing chains to fit more, or spend resources to expand the map. As they scale, they encounter resource bottlenecks — not all resources are equally available, and some chains are longer than others. The tension is self-imposed: the player sets the goal ("I want 1000 iron per minute") and must solve the puzzle of how to achieve it with limited space and resources.
+*Space versus spend.* Money buys two competing things: more grid, or better machines. Grid gives you room to build bigger loops; better machines make a given loop worth more. You never have enough of either, so every payout is a small decision about which way to lean.
+
+*Loop versus cash out.* Ore gains less value on each additional pass through your upgraders (see the value model). Looping longer earns more but ties up belt and space that another ore could be using. Knowing when a loop has stopped paying and the ore should go to the furnace is the core skill.
 
 == Failure States
 
-There is no failure or loss condition. The game is a sandbox — you can't break it. "Doing poorly" means building an inefficient chain that doesn't accomplish what you wanted. The player cares because they want their factory to *feel good* — elegant, well-organized, satisfying to watch. A factory that works is a victory. A factory that's messy but still works is a problem waiting to be solved.
+None. It's a sandbox; you can't lose. "Doing poorly" means a layout that earns less than it could — a loop that's too loose, an upgrader wasted on ore that's already near its ceiling. Nothing breaks. You notice because the number climbs slower than you know it could, and you go fix the layout.
 
 == Player Agency
 
-- *Machine placement:* Where to put a machine shapes the whole factory. Optimize for compact clusters or separate concerns spatially? This affects throughput and readability.
+- *Placement.* Where each object goes shapes everything. Dense cluster or spread out? The grid is small, so every cell spent is a cell you don't have.
 
-- *Connection routing:* How to connect machines — direct path, shared corridors, redundant routes? Changes the visual complexity and resilience of the system.
+- *Routing and loops.* A straight line, a single loop, nested loops, shared corridors feeding one furnace — all valid, all different in value and in how much space they eat.
 
-- *Scaling strategy:* Expand the map early (expensive, opens space) or optimize existing space (cheap, harder). Both are valid.
+- *Spend priority.* Grid, droppers, upgraders, belts. Which one unlocks your next jump depends on what your current layout is starved for.
 
-- *Production targets:* The player sets their own goals. Build toward a specific rate, or focus on complexity and exploration? Different playstyles are equally valid.
+- *Loop length.* How many laps before the furnace. Sets the trade between value squeezed out and throughput / space tied up.
 
-- *Resource specialization:* Early, the player produces iron, copper, wood. Later, they decide which resources to focus on and which chains to build. Specialization creates dependency and interesting routing puzzles.
+- *Scaling style.* Perfect one small dense loop, or tile the grid with many. Both reach big numbers; the difference is taste.
 
 // ─────────────────────────────────────────────
 //  4. Systems
 // ─────────────────────────────────────────────
 = Systems
 
-== Resource Model
+== The Value Model
 
-Raw resources (ore, wood, stone) are mined from the environment. Machines transform them (ore → metal, wood → planks). Advanced machines combine resources into products (metal + wood → structure). The loop: mine → refine → combine → store (or use for upgrades).
+This is the heart of the game. An ore carries a value. Passing through an upgrader multiplies that value. A furnace banks it as money. Two rules make the loop interesting:
 
-=== Resource Types
+*Diminishing per pass.* Each ore has a value *ceiling* it climbs toward as it passes upgraders. Every pass adds less than the one before — a log-shaped climb. Early passes multiply the value a lot; once the ore nears its ceiling, another pass barely moves it. So a single loop *settles*: running ore around forever asymptotes and stops paying. This is the soft anti-runaway rule. It replaces an earlier hard rule (an upgrader could only touch a given ore once), which had the side effect of making loops pointless — exactly the thing we now want to be central.
 
-- *Ore* (iron, copper, tin): Mined from deposits. Converted to metal via smelter.
-- *Stone*: Mined, used for construction and structures.
-- *Wood*: Harvested from trees (renewable). Used for structures and fuel.
-- *Metal* (iron, copper, etc.): Refined ore. Building block for most machines.
-- *Fuel*: Wood or coal. Powers machines that need energy.
-- *Structures* (gears, circuits, etc.): Refined materials. Used to build advanced machines.
+*The ceiling is uncapped.* The ceiling itself is not a fixed number. Ore quality (set by the dropper) and upgrader quality *combine and multiply* into a higher ceiling — better ore plus better upgraders make ore that scales far higher before it settles. Because the ceiling rises without limit as you invest, the game's numbers are *meant* to run away into the quadrillions and beyond. That's a feature, not a problem to tame. The soft cap bounds a single loop; it never bounds the game.
 
-=== Production Chains
+Upgraders drive both sides of this. A stronger upgrader climbs toward the ceiling faster *and* lifts the ceiling higher, and it still gets more out of cheap, low-ceiling ore than a weak upgrader would.
 
-- *Simple*: Mine iron → smelt to metal → store.
-- *Medium*: Mine iron + copper → smelt each → combine into alloy → store.
-- *Complex*: Alloy + wood → craft gears; gears + metal → craft machines; machines + fuel → run production line.
+== Objects
 
-Depth: 3–5 tiers, enough to create interesting spatial puzzles without becoming overwhelming.
+Four object types. Depth comes from many *variants* of each (tiers), not from more types. Each occupies one isometric tile.
 
-=== Sinks
+- *Dropper.* Emits ore onto the tile it faces, on a fixed cadence. The dropper sets the ore's base quality, which feeds the ceiling. Ore is free and infinite.
 
-- *Construction*: Building new machines consumes resources.
-- *Map expansion*: Costs resources to unlock new territory.
-- *Machine upgrades*: Speed, capacity, efficiency improvements.
-- *Storage is not infinite*: Overflow loss or slowdown incentivizes building new chains.
+- *Belt.* Carries one ore per cell in its facing direction. One item per cell; a packed line backs up and jams, a line with a gap advances. Belts are how you route and how you build loops.
 
-== Machines & Structures
+- *Upgrader.* Its own object, but physically a belt surface — it moves ore *and* multiplies its value as the ore crosses it. Routing ore through (and around, and back through) upgraders is the whole layout puzzle.
 
-*Tier 1 (Early)*
-- Miner: Extracts ore/stone/wood from deposits. Output: 1 ore per tick.
-- Storage: Holds resources. Capacity is limited; overflows are lost.
-- Belt: Transports 1 item per tick.
+- *Furnace.* Consumes ore and banks its accumulated value as money. The end of every path. (This is what the code currently calls the "collector.")
 
-*Tier 2 (Mid)*
-- Smelter: Takes ore, outputs metal. 1 ore → 1 metal per tick.
-- Crafter: Takes 2 inputs, combines them. 1 ore + 1 wood → 1 structure per tick.
-- Splitter: Takes 1 input, sends to 2 outputs (round-robin).
+=== Object Rules
 
-*Tier 3 (Late)*
-- Advanced crafter: Takes 3 inputs, creates specialized products.
-- Furnace: High-capacity smelter, slower but higher throughput.
-- Distributor: Sends items to multiple outputs with priority control.
+- *Grid-based placement.* One object per tile.
+- *Directional.* Droppers, belts, and upgraders have a facing, set on placement and rotatable. Furnaces just consume whatever arrives.
+- *One item per cell.* Belts and upgraders hold one ore at a time; this is what makes packing and loop timing matter.
+- *Synchronized sim.* Everything ticks at one fixed rate. No per-object scheduling.
 
-=== Machine Design Rules
+== Upgrade Axes
 
-- *Grid-based placement.* Each machine occupies one isometric tile.
-- *Belts connect machines.* Items flow one per tick. Belts have implicit queues (one item per belt).
-- *Machines have input/output ports.* A belt connects to one input and one output port per machine.
-- *No machine capacity limits* — only storage has limits. Machines process whatever arrives.
-- *All machines tick at the same rate* — synchronized. No complex scheduling needed.
+Money buys better tiers along three axes today:
 
-=== Tiers & Progression
++ *Droppers* — better ore: a higher ceiling to climb toward.
++ *Upgraders* — stronger multiplier: faster climb per pass and a higher ceiling.
++ *Belts* — faster and tighter loops: more passes per second, and eventually loops that fit in less space.
 
-Machines are not locked by tech trees. All machines are available from the start. What gates them: cost and discovery. Early, the player has access to basic machines. As they build and explore, they discover (or unlock through expansion) advanced variants. A higher-tier machine is not "strictly better" — it's *different*. A furnace is slower than a smelter but holds more ore, enabling different strategies.
+A fourth axis, *furnace tiers*, is deferred. One furnace type is enough for now (see Open Questions).
 
-== Map & Space
+== The Grid & Space
 
-*Isometric grid.* The world is a grid of isometric tiles. The player starts with a small region (e.g., 16×16 tiles). Space is finite and valuable — a core constraint that shapes decisions.
+The world is an isometric grid. The *playable* region starts tiny and is enlarged with money.
 
-*Resource deposits.* Deposits of ore, stone, and wood are scattered across the map. Not uniformly distributed; some areas are resource-rich, others are sparse. This encourages exploration and strategic expansion.
+*Expansion cadence.* The unlocked square grows on a power-of-two side length: 2×2, then 4×4, 8×8, 16×16, and so on. Each step roughly quadruples the cells you have. Cost scales with the area unlocked, so expansion is a real decision, not a formality.
 
-*Ore scarcity.* Iron deposits run out after mining a certain amount (e.g., 1000 ore per deposit). This creates pressure to expand and find new deposits. Without scarcity, players could theoretically stay in one spot forever.
+*Space is the constraint.* At 2×2 you can't even form a loop — it's dropper, one upgrader, furnace, cashing in near-worthless ore in a straight line. Room to loop is something you *buy*. That's the pressure the whole economy hangs on: every expansion is the difference between a line and a loop, or between a loop and a denser one.
 
 === Progression Through Space
 
-*Early:* The player stays in one small area, mining and processing what's nearby.
-
-*Mid:* They expand the map boundary to access new deposits. Expansion costs resources (e.g., 100 wood to unlock a new 8×8 region).
-
-*Late:* The player has multiple regions, each specialized (one for iron, one for copper). Connections between regions create interesting routing puzzles.
-
-*Endgame:* The map is procedurally infinite. As the player reaches the edge, new territory is generated with new deposits (or previously exhausted ore is replaced). The game has no hard boundary.
-
-== Progression & Unlocks
-
-No tech tree. All machines are available, but knowledge is gated. Early machines are simple; advanced machines are discovered by exploring, building, and experimentation. Progression is about *enabling new strategies*, not unlocking power.
-
-=== Early Game (30 min – 2 hours)
-
-The player has: miner, storage, belt, basic smelter.
-
-Goal: Set up a simple iron-mining and smelting loop. Experience: learning how belts move items, how timing works, how storage fills up.
-
-Challenge: Limited space and ore. Forces the player to be intentional about placement.
-
-=== Mid Game (2 – 10 hours)
-
-The player has expanded the map and discovered crafter machines. They now combine resources into new products (metal + wood → structures). Multiple chains run in parallel.
-
-Goal: Build a more complex factory that feeds itself. Set production targets (e.g., "1000 structures per minute").
-
-Challenge: Space is still tight. Optimization becomes necessary. Routing becomes a puzzle.
-
-=== Late Game / Endgame (10+ hours)
-
-The map is large or procedurally infinite. The player experiments with massive scales (1000+ machines). They optimize for aesthetic or efficiency. They invent new designs.
-
-Endgame mechanics: Optional challenges ("achieve 10k ore/min"), or simply the satisfaction of a beautiful, functioning system. No prestige loop — the game doesn't reset. Players can keep building indefinitely.
+- *Early:* One small region. Straight lines only. Tiny payouts that bootstrap the first expansion.
+- *Mid:* Enough grid and belt to close a loop. A loop beats a line, so payouts jump. You start trading grid against gear.
+- *Late:* Room for many loops, or a few very dense ones. The puzzle is value-density: the most value squeezed from the fewest cells. Numbers climb hard.
 
 == Economy & Balance
 
-*Production speed:* Early, a single miner produces 1 ore/tick. A smelter processes 1 ore/tick. A belt moves 1 item/tick. This keeps early gameplay legible — the player can see individual items moving. No overwhelming throughput. As the player scales, they group items together (visual bundles) to avoid slowdown.
+*Two sinks, one currency.* Money is spent on grid expansion and on gear tiers (droppers, upgraders, belts). They compete: space enables bigger loops, gear makes any loop worth more. There is no dominant order — what to buy next depends on what your layout is starved for.
 
-*Resource costs:* Building a miner costs 50 wood. Building a smelter costs 50 metal. This creates a bootstrapping puzzle — you need some initial resources to build machines, which produce more resources. Cost scaling prevents players from trivializing the game by spamming cheap machines.
+*Numbers explode by design.* Because the ceiling is uncapped and better ore and upgraders multiply into it, values are meant to grow into the quadrillions and past. We do not temper this. The diminishing-per-pass curve only limits a *single loop*; the game's totals are unbounded and that's the point.
 
-*Ore depletion:* Each deposit holds ~1000 ore. At 1 ore/tick, a single miner depletes a deposit in ~17 minutes (real time). This incentivizes expansion before current deposits run out.
-
-*Map expansion:* Unlocking a new 8×8 region costs 100 wood or equivalent. Expensive enough to matter, cheap enough to feel achievable within a few minutes of active play.
-
-*No dominant strategy:* Different machine combinations are equally valid. A player can optimize for speed (lots of belts, high throughput) or space efficiency (compact clusters). Both reach the same production targets; the trade-off is in aesthetics and complexity management.
+*Legibility early.* Base ore is worth little and moves one cell at a time, so early play reads clearly — you can watch a single ore climb. Scale hides the individual pieces later, which is fine; by then you think in loops, not ores.
 
 // ─────────────────────────────────────────────
 //  5. UI & UX
@@ -257,44 +209,35 @@ Endgame mechanics: Optional challenges ("achieve 10k ore/min"), or simply the sa
 
 == Visual Language
 
-*Isometric perspective.* 45-degree angle view shows depth and spatial relationships. Machines are geometric shapes (rectangles, cylinders) rendered in isometric projection. No hand-drawn details; all shapes are procedurally rendered.
+*Isometric perspective.* A 45-degree view over the grid. Objects are shaded, outlined blocks in isometric projection — no hand-drawn art. The 3D look is faked with a bright top face, two darker sides, and stroked edges, drawn back-to-front.
 
-*Color encodes type and state.* Machine color indicates its function (miners are brown, smelters are orange, storage is gray). Belt color indicates the resource type (iron is red, copper is orange, wood is brown). Machine outline brightness indicates state (bright = active, dim = idle, red = blocked/overfull).
+*Color encodes type and state.* Object color signals function (dropper, belt, upgrader, furnace each read distinctly). Ore value can read through color or brightness as it climbs. Outline brightness signals state — active, idle, or blocked/jammed.
 
-*Size and hierarchy.* Important machines (miners, furnaces) are larger. Support infrastructure (belts) is thinner. Storage is visually distinct (cube-like). This lets the player scan a large factory and immediately understand the structure.
+*One footprint.* Every object fits the same tile, so a dense factory stays scannable and layouts compose without alignment fuss.
 
 == HUD & Overlays
 
-*Top-left:* Current resources (wood: 250, ore: 150, metal: 50). Simple text, minimal visual noise.
-
-*Top-right:* Tool palette. Selected tool is highlighted. Mouse hover shows cost.
-
-*Bottom:* Hotkeys. "Q" for belt mode, "E" for eraser, "1" for miner, etc. Only shown during early game; hidden after tutorial.
-
-*When placing:* Ghost preview of what you're about to build. Green if placeable, red if blocked.
-
-*Click on a machine:* Details popup showing input/output rates, current queue length, uptime. Dismissible.
+- *Top-left:* Money. Simple text.
+- *Top-right:* Tool palette — the object/tier to place, selected one highlighted, cost shown on hover.
+- *When placing:* A ghost preview of the object on the hovered tile. Green if placeable, red if blocked or out of the unlocked grid.
+- *Expansion:* The cost of the next grid step, and a clear boundary between unlocked and locked cells.
 
 == Feedback & Juice
 
-- *Machine placed:* Brief "pop" animation and sound. Satisfying but not distracting.
-- *Resource delivered:* Item visibly travels along belt, drops into destination. Clear cause-and-effect.
-- *Bottleneck cleared:* Visual change (color, brightness) indicates machine unblocked. No fanfare, just clarity.
-- *Map expanded:* New territory fades in. Satisfying reveal of new space and deposits.
-- *Storage full:* Visual alert (red outline) and gentle sound. Doesn't interrupt; just draws attention.
+- *Object placed:* A short pop and click. Satisfying, not distracting.
+- *Ore carried:* Ore slides smoothly cell to cell along belts; you can follow one piece around a loop.
+- *Value gained:* A small tick or flash when an upgrader bumps an ore's value.
+- *Cashed out:* A clear beat when the furnace banks an ore and money jumps.
+- *Grid expanded:* New territory fades in — a satisfying reveal of room to build.
 
 == Controls & Input
 
-*Mouse-driven primary.* Click to place machines, click to connect belts. Right-click or Escape to cancel. Scroll wheel to zoom. Pan with middle-click or arrow keys.
+*Mouse-driven.* Click to place, click to delete. Scroll to zoom. Pan with arrow keys / WASD. Escape to cancel or quit.
 
-*Keyboard shortcuts for power users:*
-- Q: Belt mode
-- E: Eraser
-- 1–9: Quick-select machines
-- Space: Pause/unpause simulation
-- R: Rotate (for machines with directional input/output)
-
-*First 60 seconds:* "Click to place a miner" tooltip. After first machine, the interface is self-explanatory through UI hints.
+*Keyboard shortcuts:*
+- 1–5: pick dropper / belt / upgrader / furnace / delete (current bindings).
+- R: rotate the facing of the next object placed.
+- (Planned) Space: pause / unpause the simulation.
 
 // ─────────────────────────────────────────────
 //  6. Art Direction
@@ -303,84 +246,61 @@ Endgame mechanics: Optional challenges ("achieve 10k ore/min"), or simply the sa
 
 == Style & Constraints
 
-*Isometric 2D, procedural rendering.* All machines and tiles are drawn as geometric shapes (rectangles, cylinders, etc.) in isometric projection. No pre-drawn sprites. Rendering is done in code via SDL3 primitives (filled quads, lines, circles).
+*Isometric 2D, procedural rendering.* Everything is drawn in code from `SDL_Renderer` primitives — filled polys, lines, text. No pre-drawn sprites (the sprite loader is wired and waiting, but the look is shaded blocks for now).
 
-*One tile size:* All machines fit a standard isometric footprint. Makes composition simple and grid-based. Avoids asset sprawl.
+*One tile size.* Every object fits a standard isometric footprint. Composition stays grid-clean; no asset sprawl.
 
-*Programmer art.* Simple color blocks with outlines. Clarity over realism. A factory should be readable at a glance.
+*Programmer art, clarity first.* Simple colored blocks with outlines. A factory should be readable at a glance, before it's pretty. Real art, when it comes, will be *guided by* how the game plays — not the other way around.
 
-*Out of scope:* Hand-drawn details, smooth curves, complex lighting/shadows, particle effects (initially). These can be added later; core gameplay works without them.
+*Out of scope for now:* hand-drawn detail, smooth curves, complex lighting, particles.
 
 == Color System
 
-*Resource type:* Iron (red), copper (orange), wood (brown), stone (gray), generic output (white).
+- *Object function:* Each of the four types gets a distinct base color so a dense grid is scannable.
+- *Ore value:* Read through color or brightness — higher-value ore looks visibly "hotter."
+- *State:* Outline brightness for active / idle / blocked. Jammed belts should be obvious.
 
-*Machine function:*
-- Miners: brown/tan
-- Smelters: orange
-- Crafters: purple
-- Storage: gray
-- Belts: color of resource
+This grammar lets you understand a big factory without clicking into anything.
 
-*State (outline/brightness):*
-- Active: bright, normal outline
-- Idle: dim, thin outline
-- Blocked: red outline, pulsing
-- Overfull: red tint, thick outline
+== Object Visual Design
 
-This grammar lets the player understand a complex factory without detailed inspection.
-
-== Machine Visual Design
-
-*All machines:* Simple isometric rectangle with a border. Internal elements (glyph or icon) indicate function.
-
-*Miners:* Pickaxe glyph in the center.
-
-*Smelters:* Flame or pot glyph.
-
-*Crafters:* Gear or hammer glyph.
-
-*Storage:* Larger cube, divided into grid sections to suggest capacity.
-
-*Belts:* Thin line with animated flow direction.
-
-Different glyphs are instantly recognizable even in dense factories.
+- *Dropper:* Distinct block that reads as a source.
+- *Belt:* Thinner surface with an animated flow direction (scrolling chevrons in its facing).
+- *Upgrader:* A belt surface marked to read as "this one boosts."
+- *Furnace:* Visually the endpoint — heavier, clearly a sink.
 
 == Animation & Motion
 
-- *Belts:* Items slide along belts smoothly. Arrow indicators show flow direction (animated dashes).
-- *Machine activation:* Glyph pulses or glows when active.
-- *Item arrival:* Brief scale-up/pop when item reaches destination.
-- *Map reveal:* New territory fades in over 0.5 seconds.
-- *UI interactions:* Button clicks have subtle scale feedback. Palette selection highlights.
+- *Belts:* Surface chevrons scroll in the flow direction, running even when empty.
+- *Ore:* Slides smoothly between cells; you can track one piece around a loop.
+- *Value gain:* A brief flash/pop when an upgrader fires.
+- *Grid reveal:* New territory fades in over about half a second.
 
-Minimal, clear, satisfying. No lag or unnecessary motion.
+Minimal, clear, satisfying. No motion for its own sake.
 
 // ─────────────────────────────────────────────
 //  7. Audio
 // ─────────────────────────────────────────────
 = Audio
 
-Audio is secondary but important for juice and feedback.
+Secondary, but it carries a lot of the feel. Deferred until the loop is solid.
 
 == Music
 
-Ambient, loop-able track. Calm, rhythmic, industrial-ish vibe. Think minimal synth or lo-fi ambient. The music should not compete with the sound design; it sits in the background and sets the mood. One track is enough for full playability; variations can be added later.
+One ambient, loopable track. Calm, rhythmic, lightly industrial. It sits under the sound design and sets mood; it should never compete. One track is enough to ship.
 
 == Sound Effects
 
 *Critical:*
-- Machine placed: Short percussive hit (0.1s). Satisfying but not jarring.
-- Belt activated: Soft mechanical whine (looping, very quiet). Indicates machines are running.
-- Item delivered: Small chime or click (0.05s). Feedback that the system is working.
-- Storage full: Alarm tone (0.2s, once). Draws attention to problem.
+- Object placed: short percussive hit.
+- Belt running: soft mechanical hum, looping, quiet — signals the factory is alive.
+- Ore cashed out: a small chime as the furnace banks it.
 
 *Nice-to-have:*
-- Smelter active: Low rumble or hum (looping, quiet).
-- Machine breaking: Grinding sound or thud (0.3s, once).
-- Map expansion: Satisfying "woosh" or reveal sound (0.5s).
+- Upgrader fires: a subtle tick as value jumps.
+- Grid expanded: a satisfying reveal sound.
 
-All SFX are subtle and loop-able. Nothing irritating on repeat. Can mute with toggle.
+All subtle and loopable, nothing grating on repeat, mutable.
 
 // ─────────────────────────────────────────────
 //  8. Technical Notes
@@ -389,93 +309,66 @@ All SFX are subtle and loop-able. Nothing irritating on repeat. Can mute with to
 
 == Simulation Model
 
-*Tick-based synchronous simulation.* Every machine ticks at the same rate (e.g., 60 ticks per second, or decoupled from render). Each tick, miners produce ore, belts move items, crafters process inputs. This keeps the game deterministic and predictable.
+*Fixed-timestep, synchronous sim.* The world steps at a constant rate (currently 3/s), decoupled from the render framerate. Every dropper, belt, upgrader, and furnace ticks together. Deterministic and predictable.
 
-*Decoupled sim and render.* Simulation ticks at a fixed rate (e.g., 60Hz). Rendering can run faster and interpolates between sim states. This allows smooth camera panning and belt animations even at high sim rates.
+*Discrete grid + render interpolation.* Belt movement is a discrete grid sim — one ore per cell, advanced a cell per tick. The renderer interpolates each ore from its previous cell to its current one so it slides smoothly. This is the Factorio transport-line model, deliberately *not* continuous physics; the discrete grid is what makes packing, jamming, and loop timing exact.
 
-*Target scale:* 1000+ machines should run smoothly on a modern CPU. Early optimization focuses on efficient entity iteration (fat structs, intrusive lists per entity type, minimal allocation).
+*Entities are fat structs in flat arrays.* No generic component system. Each object type is a full struct; the sim loops the arrays directly. Grid indices map cells to the object/ore on them. The whole `World` is one arena allocation.
+
+*Big numbers.* Values are `i64` today, which carries them a long way. Because the design wants numbers to run into the quadrillions and beyond, value storage and display will eventually need care (wider or arbitrary-precision integers, and human-readable large-number formatting).
 
 == Save & Load
 
-*Unit of save:* Full world state. All machines, belts, resource quantities, map expansion level, player position/zoom.
+*Unit of save:* full world state — every object and its tier, the ore in flight, money, the unlocked grid size, camera position/zoom.
 
-*Format:* Binary or simple text (JSON-ish). Must be human-editable for debugging/modding.
+*Format:* binary or simple text, human-editable for debugging.
 
-*Persistence:* Auto-save every 60 seconds. Manual save on demand. One slot, no branching save states (simple design, less code).
+*Persistence:* periodic auto-save plus manual save. One slot, no branching saves.
 
 == Mod / Data-Driven Support
 
-*Initial:* Machines and resources are hardcoded. Sim rules are fixed.
+*Initial:* objects, tiers, and sim rules are hardcoded in C.
 
-*Future:* JSON or Lua configuration for machine properties (speed, cost, input/output). This enables mods and easy rebalancing without recompiling.
-
-*No scripting initially.* Keep gameplay logic in C. Lua can be added later for machine behaviors if needed.
+*Future:* data-driven object/tier definitions (speed, cost, multiplier, ceiling contribution) so tiers can be added and rebalanced without recompiling. Scripting (e.g. Lua) only if a concrete need appears.
 
 // ─────────────────────────────────────────────
 //  9. Roadmap
 // ─────────────────────────────────────────────
 = Roadmap
 
-== Milestone 1 — Prototype (1–2 weeks)
+== Milestone 1 — Core Loop (done)
 
-*Deliverable:* Click to place miners and storage; watch ore appear in storage.
+Place dropper, belt, upgrader, furnace. Ore drops, rides belts, gains value at upgraders, banks at the furnace. Directional placement with rotation, one item per cell with correct jamming, smooth item interpolation, money HUD. This exists today.
 
-*What you can play:* Place a miner on ore deposit. It slowly fills storage. That's it. No belts, no crafters, no UI. Proves the core loop: place machine → watch it work.
+== Milestone 2 — Value Model & Loops
 
-*Engine features demonstrated:* Basic entity system, rendering isometric sprites, input handling, simple simulation loop.
+Replace the hard once-per-upgrader rule with the diminishing-per-pass climb toward an uncapped, ore-plus-upgrader ceiling. Make recirculating loops the strongest play. Tune the curve so a loop clearly settles and cashing out at the right time matters.
 
-*Questions answered:* Does isometric rendering work? Is the entity system fast enough? Does the core feedback loop feel good?
+== Milestone 3 — Economy & Space
 
-== Milestone 2 — Vertical Slice (2–3 weeks)
+Money sinks: grid expansion on the `2^n` cadence, and buyable tiers for droppers, upgraders, and belts. This is what turns the sandbox into a game with a progression — space versus spend, line versus loop.
 
-*Deliverable:* Place miners, belts, smelters. Create a simple production chain: mine ore → smelt metal → store.
+== Milestone 4 — Scale & Polish
 
-*What you can play:* A 10-minute session where you build and optimize a small factory. Early game in miniature.
-
-*Engine features demonstrated:* Entity routing (belts), multi-machine interaction, storage/queue mechanics, UI for machine selection.
-
-*Questions answered:* Does the belt/routing system feel good? Is the progression from simple to complex believable? Do players understand what to do intuitively?
-
-== Milestone 3 — Alpha (4–6 weeks)
-
-*Deliverable:* All core machines, resource types, basic map expansion. Early/mid game complete.
-
-*What you can play:* 2–5 hours of gameplay. Mine → smelt → craft. Expand the map. Optimize chains. First real challenge of scale and space.
-
-*Engine features demonstrated:* Full entity system with all machine types, map tiling and expansion, save/load, balanced economy.
-
-*Questions answered:* Does the game scale smoothly? Are there interesting decisions to make? Are bottlenecks fun to solve?
-
-== Milestone 4 — Beta / Release (2–4 weeks)
-
-*Deliverable:* Polished, balanced, ready to ship.
-
-*What's added:* Sound design, visual polish, performance optimization, balance tuning, edge-case handling.
-
-*Platform:* Windows/macOS/Linux via itch.io. Self-hosted or Open Source (undecided).
-
-*Release checklist:* Play through full progression, verify save/load, confirm no crashes, add help text, write minimal docs.
+Viewport-culled rendering and batching for large factories, save/load, sound, real art if it earns its place, balance passes. Ship-ready.
 
 // ─────────────────────────────────────────────
 //  10. Open Questions
 // ─────────────────────────────────────────────
 = Open Questions
 
-Decisions to make as development progresses:
+Decisions to make as development continues:
 
-- *Ore depletion mechanics:* Do deposits regenerate after time? How fast? Or is scarcity permanent, forcing constant expansion?
+- *How many furnaces?* One furnace total — everything must route to a single sink, a strong spatial constraint — or many placeable furnaces? Undecided, and it meaningfully changes the layout puzzle.
 
-- *Belts as queues:* Can a belt hold multiple items, or just one? One-item belts are simpler but may feel bottlenecked. Queuing adds complexity.
+- *Furnace tiers.* Whether and when the furnace becomes a fourth upgrade axis (better cash-out), or stays a single fixed object.
 
-- *Machine rotation:* Do miners/crafters have input/output ports on specific sides? Or are they omni-directional? Rotation adds puzzles; omni-directional is simpler.
+- *The exact curves.* The precise diminishing-per-pass shape, and exactly how dropper (ore) quality and upgrader quality combine into the ceiling. This is tuning, settled by playtest.
 
-- *Map boundaries:* Hard boundary (procedurally generated beyond edge) or truly infinite (generated on-demand)? Affects streaming/memory.
+- *Grid-expansion cost curve.* How steeply each `2^n` step should cost, so expansion always feels earned but never stalls.
 
-- *Resource overflow:* What happens when storage is full? Drop resources, pause belts, or burst release? Different feels and strategies.
+- *Big-number representation.* When `i64` stops being enough, and what to move to.
 
-- *Pause mechanic:* Can the player pause the simulation? Good for planning but removes time pressure. Include it?
+- *Dead-end / deleted-belt ore.* What happens to ore with nowhere to go — despawn with a small effect, rather than jam forever.
 
-- *Undo/redo:* Too powerful? Or necessary for a non-punishing sandbox? Defer to post-release.
-
-- *Multiplayer:* Not in scope initially. Could be added via async co-op or shared world later.
-
+- *Pause.* A pause-the-sim mode for planning. Helpful, but removes any time pressure; include it or not.

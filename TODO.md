@@ -2,7 +2,10 @@
 
 ## NOTES
 
-- RE: gdd, think city skylines mixed with miners haven and a pinch of factorio
+- RE: gdd, think city skylines mixed with miners haven and a pinch of factorio.
+  The design doc (docs/gdd.typ, v0.2.0) is authoritative and now describes the
+  value-loop builder in full; the Gameplay section below tracks catching the code
+  up to it.
 
 ## Core engine
 - [x] Game loop: update/render separation, variable timestep with soft cap
@@ -48,21 +51,40 @@
 - [ ] 3D vector/matrix math — returns with 3D, if it does
 
 ## Gameplay (value-loop belt builder)
+Design target: docs/gdd.typ (v0.2.0). Items below the "value model rework" are
+mechanics the GDD calls for that the code hasn't caught up to yet, in priority order.
+
 - [x] Entity system (fat structs + direct arrays)
 - [x] Core loop: droppers emit items, conveyors route them, upgraders raise value,
       collectors bank it. world_tick runs the belt sim.
 - [x] Belt movement: one item per cell, gap-aware advance (a settle pass so a belt
       with a gap fully advances in one tick; a packed loop correctly jams)
-- [x] Upgraders bound by "once per upgrader, per item" (u64 touched-mask, 64 cap),
-      so the puzzle is routing through many *distinct* upgraders
 - [x] Directional placement with rotation (R), money HUD, item/arrow rendering
-- [ ] Machine tiers: better droppers/conveyors/upgraders (a `tier` field scaling
-      one stat). Dropper/upgrader tiers are a value bump today (drop_cooldown,
-      UPGRADER_MULT). Belt-speed tiers need belt speed moved off the global sim
-      clock onto a per-entity ticks-per-cell cadence, with item interpolation
-      spanning that multi-tick window instead of the current one-move-per-tick.
+- [x] Upgraders bound "once per upgrader, per item" (u64 touched-mask, 64 cap).
+      SUPERSEDED — the design now makes recirculating loops central, which the
+      once-per rule made pointless. Replaced by the value model rework below.
+- [ ] **Value model rework (GDD Milestone 2 — top priority).** Drop the once-per
+      touched-mask; add "diminishing per pass, uncapped roof": an ore climbs toward a
+      value ceiling, each upgrader pass adding less than the last (log-shaped), so a
+      single loop settles and looping forever asymptotes. The ceiling is uncapped —
+      dropper (ore) quality x upgrader quality multiply into it, so numbers run into
+      the quadrillions+. Lives in world.{c,h} (Item.value/upgraded_mask, item_apply_cell,
+      UPGRADER_MULT).
+- [ ] **Money economy (GDD Milestone 3 — the progression spine).** Give money real,
+      competing sinks: grid expansion on a 2^n side-length cadence (2x2 -> 4x4 -> 8x8...,
+      cost scaling with area, gated by a playable_extent) + buyable tiers for
+      droppers/upgraders/belts. Space vs spend.
+- [ ] Rename collector -> furnace throughout (ENTITY_COLLECTOR / TOOL_COLLECTOR /
+      Entity_Collector in world.{h,c}, game.{h,c}, render_game.c). GDD naming decision.
+- [ ] Machine tiers plumbing: a `tier` field scaling one stat. Dropper/upgrader tiers
+      are a value bump today (drop_cooldown, UPGRADER_MULT). Belt-speed tiers need belt
+      speed moved off the global sim clock onto a per-entity ticks-per-cell cadence, with
+      item interpolation spanning that multi-tick window instead of one-move-per-tick.
 - [ ] Special upgraders (caps, value gates, multipliers with conditions)
-- [ ] Save/load a layout
+- [ ] Save/load a layout (full world state: objects + tiers, ore in flight, money,
+      unlocked grid size, camera)
+- [ ] Open (see GDD Open Questions): one furnace only (single sink, strong spatial
+      constraint) vs many placeable; whether furnaces become a 4th upgrade axis
 
 ## Feel & polish (backlog)
 Things to make it play and look right, batched for later sessions. Not urgent.

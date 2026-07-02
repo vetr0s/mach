@@ -8,11 +8,13 @@
 
 #include <SDL3/SDL.h>
 #include "../engine/core/core.h"
+#include "../engine/ui/clay_ui.h"
 #include "game.h"
 #include "render_game.h"
 
 typedef struct {
     Game_State game;
+    ClayUI     clay;   // UI layout/draw; lives in host memory so it survives hot reload
 } App;
 
 // The window the game wants the engine to create.

@@ -40,8 +40,11 @@ duplicate logic in them.
   hardware-accelerated 2D on whatever's native: Metal, Vulkan, D3D. There's no
   shader toolchain to install, no GPU SDK, nothing extra. That's the entire point
   of staying on SDL_Renderer.
-- **stb**, fetched by setup: `stb_image.h` for loading sprite art. Public domain,
-  single header, nothing to build.
+- **stb**, vendored in `third_party/stb/`: `stb_image.h` for loading sprite art.
+  Public domain, single header, nothing to build or fetch.
+- **Clay**, vendored in `third_party/clay/`: a single-header C UI layout library that
+  drives the HUD. Clay does layout; the engine walks its render commands and draws them
+  with `render2d` (`src/engine/ui/clay_ui.{h,c}`). Nothing to build or fetch.
 
 ## Playing with it
 
@@ -197,9 +200,11 @@ The ideas:
 The libraries:
 - **SDL3** — https://github.com/libsdl-org/SDL
 - **stb** (Sean Barrett) — https://github.com/nothings/stb
+- **Clay** (Nic Barker) — https://github.com/nicbarker/clay
 
 ## Licensing
 
 - **mach engine and game** — MIT
 - **SDL3** — Zlib (see `third_party/SDL/LICENSE.txt`)
 - **stb** — public domain (see each header)
+- **Clay** — Zlib (see the header)

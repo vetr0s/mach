@@ -120,6 +120,8 @@ engine/
     render2d.{h,c}                  # SDL_Renderer wrapper + iso camera/transforms
     font.{h,c}                      # 8x8 bitmap font as an SDL_Texture atlas
     image.{h,c}                     # stb_image loader (for sprite art)
+  ui/
+    clay_ui.{h,c}                   # Clay layout bound to render2d (HUD + future UI)
 game/
   world                             # entity sim (fat structs + grid)
   game                              # state, input, 2D iso camera, hover-pick

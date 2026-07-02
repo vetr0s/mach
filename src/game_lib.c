@@ -22,6 +22,7 @@
 #include "engine/render/image.c"
 #include "engine/render/font.c"
 #include "engine/render/render2d.c"
+#include "engine/ui/clay_ui.c"
 #include "engine/core/core.c"
 
 // Game (app.c defines the six exported entry points).

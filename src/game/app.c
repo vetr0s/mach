@@ -20,8 +20,8 @@ Window_Config game_window_config(void) {
 }
 
 void app_init(App *a, Engine *e) {
-    (void)e;
     game_init(&a->game);
+    clay_ui_init(&a->clay, &e->r2d);
 }
 
 void app_handle_event(App *a, Engine *e, const SDL_Event *ev) {
@@ -63,16 +63,17 @@ void app_update(App *a, f32 dt) {
     game_tick(&a->game, dt);
 }
 
+// HUD colors, in Clay's 0-255 convention.
+#define HUD_PANEL ((Clay_Color){24, 26, 32, 205})
+#define HUD_GOLD  ((Clay_Color){230, 199, 89, 255})
+#define HUD_GREEN ((Clay_Color){140, 216, 140, 255})
+#define HUD_AMBER ((Clay_Color){255, 166, 51, 255})
+#define HUD_GREY  ((Clay_Color){166, 168, 184, 255})
+
 void app_render(App *a, Engine *e) {
     Renderer *r = &e->r2d;
     const Game_State *g = &a->game;
     game_render_draw(r, g);
-
-    const Vec4 gold  = {0.90f, 0.78f, 0.35f, 1.0f};
-    const Vec4 green = {0.55f, 0.85f, 0.55f, 1.0f};
-    const Vec4 amber = {1.00f, 0.65f, 0.20f, 1.0f};
-    const Vec4 grey  = {0.65f, 0.66f, 0.72f, 1.0f};
-    char line[96];
 
     static const char *tool_names[] = {"None", "Dropper", "Conveyor", "Upgrader",
                                        "Collector", "Delete"};
@@ -82,41 +83,52 @@ void app_render(App *a, Engine *e) {
     const char *facing = (g->place_dir >= 0 && g->place_dir < (i32)ARRAY_COUNT(dir_names))
                              ? dir_names[g->place_dir] : "?";
 
-    // Always on: money (the headline), the selected tool/facing (you build with these),
-    // and a pause marker. Everything else is behind F3.
-    i64 money = g->world ? g->world->money : 0;
-    snprintf(line, sizeof(line), "$%lld", (long long)money);
-    r2d_text(r, 12.0f, 12.0f, 2.0f, line, gold);
-    snprintf(line, sizeof(line), "%s   facing %s", tool, facing);
-    r2d_text(r, 12.0f, 36.0f, 1.0f, line, green);
-    f32 y = 50.0f;
-    const f32 dy = 12.0f;
-    if (g->paused) { r2d_text(r, 12.0f, y, 1.0f, "PAUSED", amber); y += dy; }
-
-    if (!g->show_debug) return;
-
-    // F3 overlay: diagnostics, small so they stay out of the way. Minecraft-style —
-    // there when you want them, gone otherwise.
-    i32 tick  = g->world ? g->world->tick : 0;
-    i32 ents  = g->world ? g->world->entity_count : 0;
-    i32 items = g->world ? g->world->item_count : 0;
-    y += 4.0f;
-    snprintf(line, sizeof(line), "fps %d", engine_fps(e));
-    r2d_text(r, 12.0f, y, 1.0f, line, grey); y += dy;
-    snprintf(line, sizeof(line), "tick %d   entities %d   items %d", tick, ents, items);
-    r2d_text(r, 12.0f, y, 1.0f, line, grey); y += dy;
+    // HUD strings. These buffers must outlive clay_ui_render (Clay keeps the char
+    // pointers, not copies), so they stay in scope for the whole function.
+    char money_s[32], tool_s[48], fps_s[24], counts_s[64], hover_s[48], cam_s[48];
+    snprintf(money_s, sizeof(money_s), "$%lld", (long long)(g->world ? g->world->money : 0));
+    snprintf(tool_s, sizeof(tool_s), "%s   facing %s", tool, facing);
+    snprintf(fps_s, sizeof(fps_s), "fps %d", engine_fps(e));
+    snprintf(counts_s, sizeof(counts_s), "tick %d   entities %d   items %d",
+             g->world ? g->world->tick : 0, g->world ? g->world->entity_count : 0,
+             g->world ? g->world->item_count : 0);
     if (g->hover_valid)
-        snprintf(line, sizeof(line), "hover %d,%d%s", g->hover_grid_x, g->hover_grid_y,
+        snprintf(hover_s, sizeof(hover_s), "hover %d,%d%s", g->hover_grid_x, g->hover_grid_y,
                  g->hover_can_place ? "" : " (blocked)");
     else
-        snprintf(line, sizeof(line), "hover --");
-    r2d_text(r, 12.0f, y, 1.0f, line, grey); y += dy;
-    snprintf(line, sizeof(line), "cam %.0f,%.0f   zoom %.2f", g->camera.pan.x, g->camera.pan.y, g->camera.zoom);
-    r2d_text(r, 12.0f, y, 1.0f, line, grey); y += dy;
-    r2d_text(r, 12.0f, y, 1.0f, "1drop 2belt 3upgr 4collect 5del   R rotate   Space pause   F3 info", grey);
+        snprintf(hover_s, sizeof(hover_s), "hover --");
+    snprintf(cam_s, sizeof(cam_s), "cam %.0f,%.0f   zoom %.2f",
+             g->camera.pan.x, g->camera.pan.y, g->camera.zoom);
+
+    // A top-left panel: money always, tool/facing and a pause marker under it, and the
+    // rest of the diagnostics only when F3 is on. Font sizes are multiples of the 8px
+    // bitmap glyph (16 -> 2x, 8 -> 1x) so the text stays crisp.
+    clay_ui_begin(&a->clay, r, (Clay_Vector2){0, 0}, MACH_FALSE);
+    CLAY(CLAY_ID("hud"),
+         { .layout = { .layoutDirection = CLAY_TOP_TO_BOTTOM,
+                       .padding = CLAY_PADDING_ALL(10),
+                       .childGap = 4,
+                       .sizing = { .width = CLAY_SIZING_FIT(0), .height = CLAY_SIZING_FIT(0) } },
+           .backgroundColor = HUD_PANEL,
+           .cornerRadius = CLAY_CORNER_RADIUS(6) }) {
+        CLAY_TEXT(clay_string(money_s), CLAY_TEXT_CONFIG({ .fontSize = 16, .textColor = HUD_GOLD }));
+        CLAY_TEXT(clay_string(tool_s),  CLAY_TEXT_CONFIG({ .fontSize = 8,  .textColor = HUD_GREEN }));
+        if (g->paused)
+            CLAY_TEXT(CLAY_STRING("PAUSED"), CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_AMBER }));
+        if (g->show_debug) {
+            CLAY_TEXT(clay_string(fps_s),    CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_GREY }));
+            CLAY_TEXT(clay_string(counts_s), CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_GREY }));
+            CLAY_TEXT(clay_string(hover_s),  CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_GREY }));
+            CLAY_TEXT(clay_string(cam_s),    CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_GREY }));
+            CLAY_TEXT(CLAY_STRING("1drop 2belt 3upgr 4collect 5del   R rotate   Space pause   F3 info"),
+                      CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_GREY }));
+        }
+    }
+    clay_ui_render(&a->clay, r);
 }
 
 void app_shutdown(App *a, Engine *e) {
     (void)e;
+    clay_ui_shutdown(&a->clay);
     game_shutdown(&a->game);
 }

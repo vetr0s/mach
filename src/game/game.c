@@ -32,6 +32,7 @@ void game_init(Game_State *g) {
     g->sim_accumulator = 0.0f;
     g->anim_time = 0.0f;
     g->paused = MACH_FALSE;
+    g->show_debug = MACH_FALSE;
 
     setup_camera(&g->camera, 7.0f, 5.0f);
 
@@ -129,6 +130,9 @@ void game_handle_key(Game_State *g, SDL_Scancode scancode) {
     case SDL_SCANCODE_SPACE:
         g->paused = !g->paused;
         LOG_DEBUG("simulation %s", g->paused ? "paused" : "resumed");
+        break;
+    case SDL_SCANCODE_F3:
+        g->show_debug = !g->show_debug;
         break;
     case SDL_SCANCODE_R: {
         // Rotate the piece under the cursor in place; with no piece there (or a

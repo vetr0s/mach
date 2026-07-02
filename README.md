@@ -56,6 +56,7 @@ only counts once per item, so the puzzle is reaching lots of different ones.
 - **R** — rotate the piece you're hovering over in place; over an empty tile it rotates the facing of the next piece you place
 - **Left click** — place the current tool on the tile you're hovering
 - **Space** — pause / resume the simulation (freezes the world; you can still build and pan)
+- **F3** — toggle the debug/info overlay (FPS, selected tool/facing, tick + entity/item counts, hover cell, camera). Money is always on screen; everything else lives here.
 - **Esc** — quit
 
 ## Hacking on it

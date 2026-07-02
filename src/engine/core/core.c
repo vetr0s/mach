@@ -106,14 +106,15 @@ b32 engine_render_begin(Engine *e) {
     return MACH_TRUE;
 }
 
-// Finish the frame: draw the engine's debug overlay (FPS, top-left) on top of
-// whatever the game rendered, then present.
+// Finish the frame: present whatever the game rendered. The engine no longer draws
+// its own overlay — FPS is exposed via engine_fps() for the game to display however
+// it likes.
 void engine_render_end(Engine *e) {
-    char line[32];
-    snprintf(line, sizeof(line), "FPS: %d", e->fps);
-    r2d_text(&e->r2d, 10.0f, 10.0f, 2.0f, line, (Vec4){0.45f, 0.85f, 0.45f, 1.0f});
     r2d_present(&e->r2d);
 }
+
+// Frames per second over the last completed 1-second sampling window.
+i32 engine_fps(const Engine *e) { return e ? e->fps : 0; }
 
 // End-of-frame bookkeeping: update the 1s FPS sample and sleep to honor the soft
 // frame cap.

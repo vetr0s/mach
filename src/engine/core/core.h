@@ -47,4 +47,7 @@ b32  engine_render_begin(Engine *e);
 void engine_render_end(Engine *e);
 void engine_frame_end(Engine *e);
 
+// Frames per second over the last completed 1-second window, for the game to display.
+i32  engine_fps(const Engine *e);
+
 #endif

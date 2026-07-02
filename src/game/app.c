@@ -65,37 +65,53 @@ void app_update(App *a, f32 dt) {
 
 void app_render(App *a, Engine *e) {
     Renderer *r = &e->r2d;
-    game_render_draw(r, &a->game);
+    const Game_State *g = &a->game;
+    game_render_draw(r, g);
 
-    // Game HUD, drawn below the engine's FPS line.
+    const Vec4 gold  = {0.90f, 0.78f, 0.35f, 1.0f};
+    const Vec4 amber = {1.00f, 0.65f, 0.20f, 1.0f};
+    const Vec4 grey  = {0.65f, 0.66f, 0.72f, 1.0f};
+    char line[96];
+
+    // Always on: money is the one number worth a permanent, prominent slot. A pause
+    // marker sits under it since that's game state, not the toggled debug info.
+    i64 money = g->world ? g->world->money : 0;
+    snprintf(line, sizeof(line), "$%lld", (long long)money);
+    r2d_text(r, 12.0f, 12.0f, 2.0f, line, gold);
+    if (g->paused) r2d_text(r, 12.0f, 34.0f, 1.0f, "PAUSED", amber);
+
+    if (!g->show_debug) return;
+
+    // F3 overlay: everything else, small so it stays out of the way. Minecraft-style —
+    // there when you want it, gone otherwise.
     static const char *tool_names[] = {"None", "Dropper", "Conveyor", "Upgrader",
                                        "Collector", "Delete"};
     static const char *dir_names[]  = {"N", "E", "S", "W"};
-    const char *tool =
-        (a->game.selected_tool >= 0 && a->game.selected_tool < (i32)ARRAY_COUNT(tool_names))
-            ? tool_names[a->game.selected_tool]
-            : "?";
-    const char *facing =
-        (a->game.place_dir >= 0 && a->game.place_dir < (i32)ARRAY_COUNT(dir_names))
-            ? dir_names[a->game.place_dir]
-            : "?";
+    const char *tool = (g->selected_tool >= 0 && g->selected_tool < (i32)ARRAY_COUNT(tool_names))
+                           ? tool_names[g->selected_tool] : "?";
+    const char *facing = (g->place_dir >= 0 && g->place_dir < (i32)ARRAY_COUNT(dir_names))
+                             ? dir_names[g->place_dir] : "?";
+    i32 tick  = g->world ? g->world->tick : 0;
+    i32 ents  = g->world ? g->world->entity_count : 0;
+    i32 items = g->world ? g->world->item_count : 0;
 
-    const Vec4 gold  = {0.90f, 0.78f, 0.35f, 1.0f};
-    const Vec4 green = {0.45f, 0.85f, 0.45f, 1.0f};
-    const Vec4 grey  = {0.70f, 0.70f, 0.75f, 1.0f};
-    char line[80];
-
-    i64 money = a->game.world ? a->game.world->money : 0;
-    snprintf(line, sizeof(line), "Money: %lld", (long long)money);
-    r2d_text(r, 10.0f, 30.0f, 2.0f, line, gold);
-    snprintf(line, sizeof(line), "Tool: %s  Facing: %s", tool, facing);
-    r2d_text(r, 10.0f, 50.0f, 2.0f, line, green);
-    r2d_text(r, 10.0f, 70.0f, 2.0f, "1:Drop 2:Belt 3:Upgr 4:Collect 5:Del  R:rotate  Space:pause", grey);
-
-    if (a->game.paused) {
-        const Vec4 amber = {1.00f, 0.65f, 0.20f, 1.0f};
-        r2d_text(r, 10.0f, 95.0f, 2.0f, "-- PAUSED --", amber);
-    }
+    f32 y = 52.0f;
+    const f32 dy = 12.0f;
+    snprintf(line, sizeof(line), "fps %d", engine_fps(e));
+    r2d_text(r, 12.0f, y, 1.0f, line, grey); y += dy;
+    snprintf(line, sizeof(line), "tool %s   facing %s", tool, facing);
+    r2d_text(r, 12.0f, y, 1.0f, line, grey); y += dy;
+    snprintf(line, sizeof(line), "tick %d   entities %d   items %d", tick, ents, items);
+    r2d_text(r, 12.0f, y, 1.0f, line, grey); y += dy;
+    if (g->hover_valid)
+        snprintf(line, sizeof(line), "hover %d,%d%s", g->hover_grid_x, g->hover_grid_y,
+                 g->hover_can_place ? "" : " (blocked)");
+    else
+        snprintf(line, sizeof(line), "hover --");
+    r2d_text(r, 12.0f, y, 1.0f, line, grey); y += dy;
+    snprintf(line, sizeof(line), "cam %.0f,%.0f   zoom %.2f", g->camera.pan.x, g->camera.pan.y, g->camera.zoom);
+    r2d_text(r, 12.0f, y, 1.0f, line, grey); y += dy;
+    r2d_text(r, 12.0f, y, 1.0f, "1drop 2belt 3upgr 4collect 5del   R rotate   Space pause   F3 info", grey);
 }
 
 void app_shutdown(App *a, Engine *e) {

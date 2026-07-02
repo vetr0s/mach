@@ -63,13 +63,13 @@ mechanics the GDD calls for that the code hasn't caught up to yet, in priority o
 - [x] Upgraders bound "once per upgrader, per item" (u64 touched-mask, 64 cap).
       SUPERSEDED — the design now makes recirculating loops central, which the
       once-per rule made pointless. Replaced by the value model rework below.
-- [ ] **Value model rework (GDD Milestone 2 — top priority).** Drop the once-per
-      touched-mask; add "diminishing per pass, uncapped roof": an ore climbs toward a
-      value ceiling, each upgrader pass adding less than the last (log-shaped), so a
-      single loop settles and looping forever asymptotes. The ceiling is uncapped —
-      dropper (ore) quality x upgrader quality multiply into it, so numbers run into
-      the quadrillions+. Lives in world.{c,h} (Item.value/upgraded_mask, item_apply_cell,
-      UPGRADER_MULT).
+- [x] **Value model rework (GDD Milestone 2).** "Diminishing per pass, uncapped roof":
+      an ore climbs toward a value ceiling, each pass closing a fixed fraction of the gap
+      so a single loop settles and looping forever asymptotes. The once-per touched-mask
+      is repurposed — each *distinct* upgrader multiplies the ceiling once, so more/stronger
+      upgraders raise the (uncapped) roof. In world.{c,h} (Item.ceiling, item_apply_cell,
+      UPGRADER_CEILING_MULT / UPGRADER_CLIMB_DIVISOR). Ore value now renders above its sprite.
+      Tuning of the exact curve/constants is deferred (see GDD Open Questions).
 - [ ] **Money economy (GDD Milestone 3 — the progression spine).** Give money real,
       competing sinks: grid expansion on a 2^n side-length cadence (2x2 -> 4x4 -> 8x8...,
       cost scaling with area, gated by a playable_extent) + buyable tiers for

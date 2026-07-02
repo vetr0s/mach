@@ -69,7 +69,8 @@ typedef struct {
     i32 grid_x, grid_y;
     i32 prev_x, prev_y;   // cell at the start of this tick, for render interpolation
     i64 value;
-    u64 upgraded_mask;    // bit u set once upgrader u has touched this item
+    i64 ceiling;          // value cap this ore climbs toward; each distinct upgrader raises it
+    u64 upgraded_mask;    // bit u set once upgrader u has raised this ore's ceiling
 } Item;
 
 #define MAX_ENTITIES    10000

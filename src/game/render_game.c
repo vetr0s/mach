@@ -4,6 +4,7 @@
 #include "world/world.h"
 #include <math.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 // Ground tile colors (subtle checker so the grid reads).
 #define GROUND_A ((Vec4){0.16f, 0.20f, 0.24f, 1.0f})
@@ -183,9 +184,20 @@ static Vec4 item_color(const Item *it) {
                   fresh.z + (hot.z - fresh.z) * t, 1.0f};
 }
 
-// A small diamond floating just above the belt at the item's cell. `alpha` is the
-// fraction into the current sim tick, so the item slides from its previous cell to
-// its current one instead of snapping.
+// Compact money-style value: "25", "1.5K", "3.2M", up to quintillions (an i64 tops
+// out at ~9.2 Qi). Keeps the label short as values run away.
+static void format_value(i64 v, char *buf, size_t n) {
+    static const char *suffix[] = {"", "K", "M", "B", "T", "Qa", "Qi"};
+    if (v < 1000) { snprintf(buf, n, "%lld", (long long)v); return; }
+    f64 d = (f64)v;
+    i32 t = 0;
+    while (d >= 1000.0 && t < 6) { d /= 1000.0; t++; }
+    snprintf(buf, n, "%.1f%s", d, suffix[t]);
+}
+
+// A small diamond floating just above the belt at the item's cell, with the ore's
+// current value labeled above it. `alpha` is the fraction into the current sim tick,
+// so the item slides from its previous cell to its current one instead of snapping.
 static void draw_item(Renderer *r, const Camera2D *cam, const Item *it, f32 alpha) {
     f32 sw = (f32)r->width, sh = (f32)r->height;
     f32 gx = (f32)it->prev_x + ((f32)it->grid_x - (f32)it->prev_x) * alpha;
@@ -199,6 +211,18 @@ static void draw_item(Renderer *r, const Camera2D *cam, const Item *it, f32 alph
     Vec4 col = item_color(it);
     r2d_fill_poly(r, pts, 4, col);
     r2d_poly_outline(r, pts, 4, shade(col, 0.45f));
+
+    // Value label, centered over the diamond and sitting just above its top point.
+    char buf[32];
+    format_value(it->value, buf, sizeof buf);
+    f32 tscale = 1.0f;
+    f32 adv = (f32)r->font->advance * tscale;
+    f32 gh  = (f32)r->font->glyph_h * tscale;
+    Vec2 c  = iso_to_screen(cam, sw, sh, gx, gy, e);
+    f32 tx = c.x - adv * (f32)strlen(buf) * 0.5f;
+    f32 ty = n.y - gh - 4.0f;
+    r2d_text(r, tx + 1.0f, ty + 1.0f, tscale, buf, (Vec4){0.0f, 0.0f, 0.0f, 0.7f});  // shadow
+    r2d_text(r, tx, ty, tscale, buf, (Vec4){0.98f, 0.98f, 0.90f, 1.0f});
 }
 
 static void draw_entity(Renderer *r, const Camera2D *cam, const Entity *e, f32 belt_phase) {

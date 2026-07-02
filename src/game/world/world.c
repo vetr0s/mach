@@ -9,7 +9,15 @@
 // (This lives per-dropper as drop_cooldown, so dropper tiers are already a value bump.)
 #define DROP_PERIOD      2
 #define ITEM_BASE_VALUE  10
-#define UPGRADER_MULT    2
+
+// Value model: "diminishing per pass, uncapped roof" (see docs/gdd.typ). Each ore
+// climbs toward a ceiling. Every *distinct* upgrader multiplies that ceiling once, so
+// more (and, with tiers later, stronger) upgraders raise the roof without limit. Every
+// pass -- re-passes on a loop included -- closes a fixed fraction of the gap to the
+// ceiling, so a single loop settles toward it and looping forever stops paying.
+#define UPGRADER_CEILING_MULT  4                // a distinct upgrader's multiply on the ceiling
+#define UPGRADER_CLIMB_DIVISOR 2                // gap-to-ceiling closed per pass is 1/this
+#define MAX_ITEM_VALUE         ((i64)1 << 62)   // clamp so the uncapped ceiling can't overflow i64
 
 const i32 DIR_DX[DIR_COUNT] = { 0, 1, 0, -1 };
 const i32 DIR_DY[DIR_COUNT] = { -1, 0, 1, 0 };
@@ -214,11 +222,16 @@ static b32 item_apply_cell(World *w, i32 item_idx, i32 x, i32 y) {
     Item *it = &w->items[item_idx];
 
     if (e->type == ENTITY_UPGRADER) {
+        // Raise the roof once per distinct upgrader, then climb toward it (this pass
+        // and every re-pass). See the value-model note at the top of the file.
         u64 bit = (u64)1 << e->data.upgrader.upgrader_id;
         if (!(it->upgraded_mask & bit)) {
-            it->value *= UPGRADER_MULT;
             it->upgraded_mask |= bit;
+            if (it->ceiling > MAX_ITEM_VALUE / UPGRADER_CEILING_MULT) it->ceiling = MAX_ITEM_VALUE;
+            else it->ceiling *= UPGRADER_CEILING_MULT;
         }
+        i64 gap = it->ceiling - it->value;
+        if (gap > 0) it->value += gap / UPGRADER_CLIMB_DIVISOR;
     } else if (e->type == ENTITY_COLLECTOR) {
         w->money += it->value;
         e->data.collector.banked += it->value;
@@ -318,6 +331,7 @@ static void world_run_droppers(World *w) {
         it->prev_x = nx;     // spawns on the belt cell (outside the dropper); the
         it->prev_y = ny;     // same-tick move below carries it forward, so no idle beat
         it->value = ITEM_BASE_VALUE;
+        it->ceiling = ITEM_BASE_VALUE;
         it->upgraded_mask = 0;
         w->item_grid[nx][ny] = idx + 1;
         dr->drop_cooldown = DROP_PERIOD;

@@ -26,6 +26,8 @@ const i32 DIR_DY[DIR_COUNT] = { -1, 0, 1, 0 };
 static i32 entity_id_from_index(i32 idx) { return idx + 1; }
 static i32 entity_index_from_id(i32 id)  { return id - 1; }
 
+static void item_kill(World *w, i32 idx);   // defined in the Items section below
+
 static b32 in_bounds(i32 x, i32 y) {
     return x >= 0 && x < WORLD_GRID_SIZE && y >= 0 && y < WORLD_GRID_SIZE;
 }
@@ -157,6 +159,11 @@ void world_despawn(World *w, i32 entity_id) {
     i32 ex, ey;
     entity_grid_pos(e, &ex, &ey);
     w->grid[ex][ey] = 0;
+
+    // Any ore riding this cell is orphaned by the delete: despawn it rather than
+    // leave it stranded on bare ground (where it would sit forever and block the cell).
+    i32 item_here = w->item_grid[ex][ey];
+    if (item_here) item_kill(w, item_here - 1);
 
     // Swap-remove: move the last entity into the freed slot and fix its grid id.
     i32 last = w->entity_count - 1;

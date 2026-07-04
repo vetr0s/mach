@@ -107,6 +107,13 @@ mechanics the GDD calls for that the code hasn't caught up to yet, in priority o
 - [x] Rotate the hovered piece in place (R); over an empty tile it rotates the facing the
       next placed piece will use.
 - [x] Feed real mouse position/button into clay_ui_begin (from Engine.input).
+- [x] Color type + stock palette (engine/render/color.h): Color aliases Vec4, palette
+      is modus-vivendi with the theme's own names, helpers (shade/lighten/lerp/alpha)
+      moved up from render_game statics. Game rethemed onto it.
+- [x] HUD spread to the screen edges via Clay floating panels (attach-to-root):
+      status top-left, inspect top-center, F3 debug bottom-left, controls bottom-center.
+- [x] Hover inspect panel (WTHIT-style): names the machine under the cursor, facing,
+      dropper cooldown, collector banked total, and the ore's value / ceiling.
 - [ ] Interactive UI: build clickable UI on top of it — a tool palette, and the
       economy's shop / grid-expansion buttons. Needs "UI consumed this click"
       priority over world placement (Clay_PointerOver before place_at_hover).

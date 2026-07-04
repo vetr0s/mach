@@ -116,4 +116,8 @@ i32 world_get_entity_at(World *w, i32 x, i32 y);
 Entity* world_get_entity(World *w, i32 entity_id);
 b32 world_can_place_at(World *w, i32 x, i32 y);
 
+// The item riding cell (x,y), or NULL. Falling ore is off the item grid, so it
+// never comes back from here.
+Item* world_get_item_at(World *w, i32 x, i32 y);
+
 #endif

@@ -60,4 +60,8 @@ void game_shutdown(Game_State *g);
 // size, used to unproject the mouse onto the grid.
 void game_process_input(Game_State *g, const Input *in, f32 screen_w, f32 screen_h, f32 dt);
 
+// Compact money-style value: "25", "1.5K", "3.2M", up to quintillions (an i64
+// tops out at ~9.2 Qi). Keeps labels short as values run away.
+void game_format_value(i64 v, char *buf, usize n);
+
 #endif

@@ -3,6 +3,7 @@
 #include "game.h"
 #include "../engine/debug.h"
 #include <math.h>
+#include <stdio.h>
 
 // Camera zoom limits (pixels-per-iso-unit multiplier).
 #define ZOOM_MIN 0.5f
@@ -169,4 +170,13 @@ void game_process_input(Game_State *g, const Input *in, f32 screen_w, f32 screen
     }
 
     if (in->mouse_pressed[MOUSE_LEFT]) place_at_hover(g);
+}
+
+void game_format_value(i64 v, char *buf, usize n) {
+    static const char *suffix[] = {"", "K", "M", "B", "T", "Qa", "Qi"};
+    if (v < 1000) { snprintf(buf, n, "%lld", (long long)v); return; }
+    f64 d = (f64)v;
+    i32 t = 0;
+    while (d >= 1000.0 && t < 6) { d /= 1000.0; t++; }
+    snprintf(buf, n, "%.1f%s", d, suffix[t]);
 }

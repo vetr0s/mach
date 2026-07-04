@@ -194,6 +194,12 @@ b32 world_can_place_at(World *w, i32 x, i32 y) {
     return MACH_TRUE;
 }
 
+Item* world_get_item_at(World *w, i32 x, i32 y) {
+    if (!w || !in_bounds(x, y)) return NULL;
+    i32 id = w->item_grid[x][y];
+    return id ? &w->items[id - 1] : NULL;
+}
+
 // --- Items ------------------------------------------------------------------
 
 // Claim a free item slot, or -1 if the pool is full. The cursor amortizes the

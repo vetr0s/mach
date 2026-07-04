@@ -39,6 +39,13 @@ and they're load-bearing, so here they are spelled out.
   and `screen_to_iso` map grid to pixels and back (2:1 diamond tiles). Want a
   top-down or free 2D camera instead? Swap the transform. Nothing downstream cares.
 
+Colors are the `Color` type (`render/color.h`) — a `Vec4` alias, RGBA in [0,1] —
+plus a stock palette and small helpers (`color_shade`, `color_lighten`,
+`color_lerp`, `color_alpha`). The palette is **modus-vivendi** (Protesilaos
+Stavrou's Emacs theme): accessibility-grade contrast on a black background, with
+the theme's own names (`COLOR_BG_DIM`, `COLOR_RED_WARMER`, ...) so its docs apply.
+A game can lean on it wholesale or define its own colors with `COLOR_HEX`.
+
 The actual *look* lives in the **game** layer, where `render_game.c` composes those
 primitives: the ground is a viewport-culled checker of iso diamonds with grid lines
 stroked on; machines are **shaded blocks** (bright top, two darker side faces,
@@ -128,6 +135,7 @@ engine/
   core                              # loop lifecycle + per-frame steps, event drain, frame timing
   render/
     render2d.{h,c}                  # SDL_Renderer wrapper + iso camera/transforms
+    color.h                         # Color type, helpers, stock palette (modus-vivendi)
     font.{h,c}                      # 8x8 bitmap font as an SDL_Texture atlas
     image.{h,c}                     # stb_image loader (for sprite art)
   ui/

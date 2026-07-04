@@ -36,4 +36,10 @@ static inline Clay_String clay_string(const char *s) {
     return (Clay_String){ .length = (i32)strlen(s), .chars = s };
 }
 
+// An engine Color ([0,1] RGBA) in Clay's 0-255 convention, so the palette in
+// render/color.h works for UI declarations too.
+static inline Clay_Color clay_color_of(Color c) {
+    return (Clay_Color){ c.x * 255.0f, c.y * 255.0f, c.z * 255.0f, c.w * 255.0f };
+}
+
 #endif

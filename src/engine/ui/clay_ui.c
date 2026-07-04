@@ -22,8 +22,8 @@
 #include "../debug.h"
 #include <stdlib.h>
 
-static Vec4 clay_color(Clay_Color c) {
-    return (Vec4){ c.r / 255.0f, c.g / 255.0f, c.b / 255.0f, c.a / 255.0f };
+static Color clay_color(Clay_Color c) {
+    return (Color){ c.r / 255.0f, c.g / 255.0f, c.b / 255.0f, c.a / 255.0f };
 }
 
 // Clay measures text through this; our bitmap font is a fixed 8x8 glyph advanced by

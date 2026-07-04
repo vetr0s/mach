@@ -1,8 +1,9 @@
 // Math: 2D vectors and scalar helpers.
 //
-// The engine is 2D, so this is a 2D math library. Vec4 stays as the RGBA color
-// type. (3D vector/matrix math was removed with the SDL_GPU renderer; it returns
-// if and when 3D does.)
+// The engine is 2D, so this is a 2D math library. Vec4 exists mainly as the
+// backing of Color (render/color.h), which is what code should usually say.
+// (3D vector/matrix math was removed with the SDL_GPU renderer; it returns if
+// and when 3D does.)
 
 #ifndef MATH_H
 #define MATH_H

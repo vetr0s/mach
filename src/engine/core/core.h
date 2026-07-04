@@ -23,10 +23,10 @@ typedef struct {
     b32  fullscreen;
     b32  resizable;
 
-    Vec4 clear_color;    // frame clear color (RGBA in [0,1])
-    b32  escape_quits;   // Escape closes the window (dev convenience); otherwise
+    Color clear_color;   // frame clear color (see render/color.h for the palette)
+    b32   escape_quits;  // Escape closes the window (dev convenience); otherwise
                          // Escape reaches the game through the input snapshot
-    i32  target_fps;     // soft frame cap; <= 0 leaves the frame rate uncapped
+    i32   target_fps;    // soft frame cap; <= 0 leaves the frame rate uncapped
 } Engine_Config;
 
 typedef struct {
@@ -42,9 +42,9 @@ typedef struct {
     i32          running;
 
     // Per-frame policy, copied out of Engine_Config at init.
-    Vec4 clear_color;
-    b32  escape_quits;
-    u32  frame_cap_ms;   // 0 = uncapped
+    Color clear_color;
+    b32   escape_quits;
+    u32   frame_cap_ms;  // 0 = uncapped
 
     // Frame timing, persisted across loop iterations (the game owns the loop).
     u32 frame_start;       // tick at the current frame's start (for the cap)

@@ -7,6 +7,7 @@
 #include <SDL3/SDL.h>
 #include "../base/base.h"
 #include "../math/math.h"
+#include "color.h"
 #include "font.h"
 
 // Isometric tile footprint in screen pixels at zoom 1 (classic 2:1 diamond), and
@@ -37,19 +38,19 @@ void r2d_shutdown(Renderer *r);
 // window is resized so render and input coordinates track the new size.
 void r2d_resized(Renderer *r);
 
-// Frame. Clear color is Vec4 RGBA in [0,1], like every other color in the API.
-void r2d_begin(Renderer *r, Vec4 clear);
+// Frame.
+void r2d_begin(Renderer *r, Color clear);
 void r2d_present(Renderer *r);
 
-// Screen-space primitives. Colors are Vec4 RGBA in [0,1].
-void r2d_fill_rect(Renderer *r, f32 x, f32 y, f32 w, f32 h, Vec4 color);
-void r2d_fill_poly(Renderer *r, const Vec2 *pts, i32 n, Vec4 color);  // convex, <=16 pts
-void r2d_poly_outline(Renderer *r, const Vec2 *pts, i32 n, Vec4 color);  // closed loop, <=16 pts
-void r2d_text(Renderer *r, f32 x, f32 y, f32 scale, const char *text, Vec4 color);
+// Screen-space primitives. Colors are RGBA in [0,1]; see color.h for the palette.
+void r2d_fill_rect(Renderer *r, f32 x, f32 y, f32 w, f32 h, Color color);
+void r2d_fill_poly(Renderer *r, const Vec2 *pts, i32 n, Color color);  // convex, <=16 pts
+void r2d_poly_outline(Renderer *r, const Vec2 *pts, i32 n, Color color);  // closed loop, <=16 pts
+void r2d_text(Renderer *r, f32 x, f32 y, f32 scale, const char *text, Color color);
 
 // Sprites (for real art later). Tint multiplies the texture; pass white for none.
 SDL_Texture *r2d_load_texture(Renderer *r, const char *path);
-void r2d_sprite(Renderer *r, SDL_Texture *tex, f32 x, f32 y, f32 scale, Vec4 tint);
+void r2d_sprite(Renderer *r, SDL_Texture *tex, f32 x, f32 y, f32 scale, Color tint);
 
 // Isometric projection helpers (no Renderer needed). `elev` is block height in
 // units; the inverse solves on the ground plane (elev 0).

@@ -4,8 +4,8 @@
 #include "image.h"
 #include "../debug.h"
 
-// Vec4 [0,1] color -> SDL float color.
-static SDL_FColor to_fcolor(Vec4 c) {
+// Color [0,1] -> SDL float color.
+static SDL_FColor to_fcolor(Color c) {
     return (SDL_FColor){c.x, c.y, c.z, c.w};
 }
 
@@ -61,7 +61,7 @@ void r2d_resized(Renderer *r) {
 
 // --- Frame ------------------------------------------------------------------
 
-void r2d_begin(Renderer *r, Vec4 clear) {
+void r2d_begin(Renderer *r, Color clear) {
     SDL_SetRenderDrawColorFloat(r->sdl, clear.x, clear.y, clear.z, clear.w);
     SDL_RenderClear(r->sdl);
 }
@@ -72,14 +72,14 @@ void r2d_present(Renderer *r) {
 
 // --- Primitives -------------------------------------------------------------
 
-void r2d_fill_rect(Renderer *r, f32 x, f32 y, f32 w, f32 h, Vec4 color) {
+void r2d_fill_rect(Renderer *r, f32 x, f32 y, f32 w, f32 h, Color color) {
     SDL_SetRenderDrawColorFloat(r->sdl, color.x, color.y, color.z, color.w);
     SDL_FRect rect = {x, y, w, h};
     SDL_RenderFillRect(r->sdl, &rect);
 }
 
 // Fill a convex polygon as a triangle fan via SDL_RenderGeometry.
-void r2d_fill_poly(Renderer *r, const Vec2 *pts, i32 n, Vec4 color) {
+void r2d_fill_poly(Renderer *r, const Vec2 *pts, i32 n, Color color) {
     if (n < 3 || n > 16) return;
     SDL_Vertex v[16];
     SDL_FColor col = to_fcolor(color);
@@ -98,7 +98,7 @@ void r2d_fill_poly(Renderer *r, const Vec2 *pts, i32 n, Vec4 color) {
 
 // Stroke a closed polygon edge-to-edge with 1px lines. Repeats the first point
 // so the last edge closes the loop.
-void r2d_poly_outline(Renderer *r, const Vec2 *pts, i32 n, Vec4 color) {
+void r2d_poly_outline(Renderer *r, const Vec2 *pts, i32 n, Color color) {
     if (n < 2 || n > 16) return;
     SDL_SetRenderDrawColorFloat(r->sdl, color.x, color.y, color.z, color.w);
     SDL_FPoint p[17];
@@ -107,7 +107,7 @@ void r2d_poly_outline(Renderer *r, const Vec2 *pts, i32 n, Vec4 color) {
     SDL_RenderLines(r->sdl, p, n + 1);
 }
 
-void r2d_text(Renderer *r, f32 x, f32 y, f32 scale, const char *text, Vec4 color) {
+void r2d_text(Renderer *r, f32 x, f32 y, f32 scale, const char *text, Color color) {
     if (!text) return;
     Font *font = r->font;
 
@@ -148,7 +148,7 @@ SDL_Texture *r2d_load_texture(Renderer *r, const char *path) {
     return tex;
 }
 
-void r2d_sprite(Renderer *r, SDL_Texture *tex, f32 x, f32 y, f32 scale, Vec4 tint) {
+void r2d_sprite(Renderer *r, SDL_Texture *tex, f32 x, f32 y, f32 scale, Color tint) {
     if (!tex) return;
     f32 tw, th;
     SDL_GetTextureSize(tex, &tw, &th);

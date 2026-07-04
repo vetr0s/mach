@@ -170,7 +170,7 @@ void app_render(App *a, Engine *e) {
 
     // Bottom-center: the controls, on screen until a real menu exists to teach them.
     HUD_PANEL_AT("hud-controls", CLAY_ATTACH_POINT_CENTER_BOTTOM, 0, -10) {
-        CLAY_TEXT(CLAY_STRING("1drop 2belt 3upgr 4collect 5del   R rotate   Space pause   F3 info"),
+        CLAY_TEXT(CLAY_STRING("(1)drop (2)belt (3)upgr (4)collect (5)del (R)rotate (Space)pause (F3)info"),
                   CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_GREY }));
     }
 

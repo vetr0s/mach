@@ -32,32 +32,26 @@ extern const i32 DIR_DX[DIR_COUNT];
 extern const i32 DIR_DY[DIR_COUNT];
 
 typedef struct {
-    i32 grid_x, grid_y;
-    Direction dir;        // tile it drops onto
     i32 drop_cooldown;    // ticks until the next drop
 } Entity_Dropper;
 
 typedef struct {
-    i32 grid_x, grid_y;
-    Direction dir;        // tile items move toward
-} Entity_Conveyor;
-
-typedef struct {
-    i32 grid_x, grid_y;
-    Direction dir;        // upgraders move items too
     i32 upgrader_id;      // 0..MAX_UPGRADERS-1; the bit it sets in an item's mask
 } Entity_Upgrader;
 
 typedef struct {
-    i32 grid_x, grid_y;
     i64 banked;           // value banked here over its lifetime
 } Entity_Collector;
 
+// Position and facing are common to every piece, so they live here; the union
+// holds only genuinely per-type data (conveyors have none).
 typedef struct {
     Entity_Type type;
+    i32 grid_x, grid_y;
+    Direction dir;        // dropper: tile it drops onto; conveyor/upgrader: flow
+                          // direction. Collectors have no facing; theirs is never read.
     union {
         Entity_Dropper   dropper;
-        Entity_Conveyor  conveyor;
         Entity_Upgrader  upgrader;
         Entity_Collector collector;
     } data;
@@ -121,8 +115,5 @@ b32 world_rotate_entity(World *w, i32 entity_id);
 i32 world_get_entity_at(World *w, i32 x, i32 y);
 Entity* world_get_entity(World *w, i32 entity_id);
 b32 world_can_place_at(World *w, i32 x, i32 y);
-
-// Read the grid position of any entity regardless of its concrete type.
-void entity_grid_pos(const Entity *e, i32 *out_x, i32 *out_y);
 
 #endif

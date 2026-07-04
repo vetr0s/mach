@@ -240,29 +240,23 @@ static void draw_item(Renderer *r, const Camera2D *cam, const Item *it, f32 alph
 }
 
 static void draw_entity(Renderer *r, const Camera2D *cam, const Entity *e, f32 belt_phase) {
+    f32 gx = (f32)e->grid_x, gy = (f32)e->grid_y;
     switch (e->type) {
-    case ENTITY_DROPPER: {
-        const Entity_Dropper *d = &e->data.dropper;
-        draw_block(r, cam, (f32)d->grid_x, (f32)d->grid_y, DROPPER_H, DROPPER_COL);
-        draw_arrow(r, cam, (f32)d->grid_x, (f32)d->grid_y, DROPPER_H, d->dir,
-                   lighten(DROPPER_COL, 0.55f));
-    } break;
-    case ENTITY_CONVEYOR: {
-        const Entity_Conveyor *c = &e->data.conveyor;
-        draw_block(r, cam, (f32)c->grid_x, (f32)c->grid_y, CONVEYOR_H, CONVEYOR_COL);
-        draw_belt_surface(r, cam, (f32)c->grid_x, (f32)c->grid_y, c->dir, belt_phase,
-                          BELT_CHEVRON_COL);
-    } break;
-    case ENTITY_UPGRADER: {
-        const Entity_Upgrader *u = &e->data.upgrader;
-        draw_block(r, cam, (f32)u->grid_x, (f32)u->grid_y, UPGRADER_H, UPGRADER_COL);
-        draw_arrow(r, cam, (f32)u->grid_x, (f32)u->grid_y, UPGRADER_H, u->dir,
-                   lighten(UPGRADER_COL, 0.55f));
-    } break;
-    case ENTITY_COLLECTOR: {
-        const Entity_Collector *c = &e->data.collector;
-        draw_block(r, cam, (f32)c->grid_x, (f32)c->grid_y, COLLECTOR_H, COLLECTOR_COL);
-    } break;
+    case ENTITY_DROPPER:
+        draw_block(r, cam, gx, gy, DROPPER_H, DROPPER_COL);
+        draw_arrow(r, cam, gx, gy, DROPPER_H, e->dir, lighten(DROPPER_COL, 0.55f));
+        break;
+    case ENTITY_CONVEYOR:
+        draw_block(r, cam, gx, gy, CONVEYOR_H, CONVEYOR_COL);
+        draw_belt_surface(r, cam, gx, gy, e->dir, belt_phase, BELT_CHEVRON_COL);
+        break;
+    case ENTITY_UPGRADER:
+        draw_block(r, cam, gx, gy, UPGRADER_H, UPGRADER_COL);
+        draw_arrow(r, cam, gx, gy, UPGRADER_H, e->dir, lighten(UPGRADER_COL, 0.55f));
+        break;
+    case ENTITY_COLLECTOR:
+        draw_block(r, cam, gx, gy, COLLECTOR_H, COLLECTOR_COL);
+        break;
     default:
         break;
     }
@@ -321,9 +315,7 @@ void game_render_draw(Renderer *r, const Game_State *game) {
     i32 ne = 0;
     for (i32 i = 0; i < w->entity_count; i++) {
         const Entity *e = &w->entities[i];
-        i32 ex, ey;
-        entity_grid_pos(e, &ex, &ey);
-        g_entities[ne].depth = (f32)(ex + ey);
+        g_entities[ne].depth = (f32)(e->grid_x + e->grid_y);
         g_entities[ne].ptr = e;
         ne++;
     }

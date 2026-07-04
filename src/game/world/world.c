@@ -32,22 +32,13 @@ static b32 in_bounds(i32 x, i32 y) {
     return x >= 0 && x < WORLD_GRID_SIZE && y >= 0 && y < WORLD_GRID_SIZE;
 }
 
-void entity_grid_pos(const Entity *e, i32 *out_x, i32 *out_y) {
-    if (!e) { *out_x = 0; *out_y = 0; return; }
-    switch (e->type) {
-    case ENTITY_DROPPER:   *out_x = e->data.dropper.grid_x;   *out_y = e->data.dropper.grid_y;   break;
-    case ENTITY_CONVEYOR:  *out_x = e->data.conveyor.grid_x;  *out_y = e->data.conveyor.grid_y;  break;
-    case ENTITY_UPGRADER:  *out_x = e->data.upgrader.grid_x;  *out_y = e->data.upgrader.grid_y;  break;
-    case ENTITY_COLLECTOR: *out_x = e->data.collector.grid_x; *out_y = e->data.collector.grid_y; break;
-    default:               *out_x = 0; *out_y = 0; break;
-    }
-}
-
 // The direction an entity pushes items, if any. Only conveyors and upgraders move
 // items; droppers emit and collectors consume.
 static b32 entity_flow_dir(const Entity *e, Direction *out) {
-    if (e->type == ENTITY_CONVEYOR) { *out = e->data.conveyor.dir; return MACH_TRUE; }
-    if (e->type == ENTITY_UPGRADER) { *out = e->data.upgrader.dir; return MACH_TRUE; }
+    if (e->type == ENTITY_CONVEYOR || e->type == ENTITY_UPGRADER) {
+        *out = e->dir;
+        return MACH_TRUE;
+    }
     return MACH_FALSE;
 }
 
@@ -69,9 +60,11 @@ World* world_create(Arena *arena) {
 
 // --- Entities ---------------------------------------------------------------
 
-// Shared spawn path: validate, claim the cell, hand back the fresh slot. Returns
-// NULL on failure with entity_count left untouched.
-static Entity* world_spawn(World *w, i32 x, i32 y, Entity_Type type) {
+// Shared spawn path: validate, claim the cell, set the common fields, hand back
+// the fresh slot. Returns NULL on failure with entity_count left untouched.
+// (npt): Slots are reused after swap-remove, so spawners must set every field of
+// their union variant; the common fields are covered here.
+static Entity* world_spawn(World *w, i32 x, i32 y, Direction dir, Entity_Type type) {
     if (!w || w->entity_count >= MAX_ENTITIES) {
         LOG_DEBUG("spawn rejected: world full");
         return NULL;
@@ -88,23 +81,24 @@ static Entity* world_spawn(World *w, i32 x, i32 y, Entity_Type type) {
     i32 idx = w->entity_count++;
     Entity *e = &w->entities[idx];
     e->type = type;
+    e->grid_x = x;
+    e->grid_y = y;
+    e->dir = dir;
     w->grid[x][y] = entity_id_from_index(idx);
     return e;
 }
 
 i32 world_spawn_dropper(World *w, i32 x, i32 y, Direction dir) {
-    Entity *e = world_spawn(w, x, y, ENTITY_DROPPER);
+    Entity *e = world_spawn(w, x, y, dir, ENTITY_DROPPER);
     if (!e) return 0;
-    e->data.dropper = (Entity_Dropper){ .grid_x = x, .grid_y = y, .dir = dir, .drop_cooldown = 0 };
+    e->data.dropper = (Entity_Dropper){ .drop_cooldown = 0 };
     LOG_DEBUG("spawned dropper at (%d,%d) facing %d", x, y, dir);
     return w->grid[x][y];
 }
 
 i32 world_spawn_conveyor(World *w, i32 x, i32 y, Direction dir) {
-    Entity *e = world_spawn(w, x, y, ENTITY_CONVEYOR);
-    if (!e) return 0;
-    e->data.conveyor = (Entity_Conveyor){ .grid_x = x, .grid_y = y, .dir = dir };
-    return w->grid[x][y];
+    Entity *e = world_spawn(w, x, y, dir, ENTITY_CONVEYOR);
+    return e ? w->grid[x][y] : 0;
 }
 
 // Claim the lowest free upgrader id, or -1 if all MAX_UPGRADERS are taken.
@@ -131,19 +125,19 @@ i32 world_spawn_upgrader(World *w, i32 x, i32 y, Direction dir) {
         LOG_DEBUG("upgrader rejected: %d-upgrader limit reached", MAX_UPGRADERS);
         return 0;
     }
-    Entity *e = world_spawn(w, x, y, ENTITY_UPGRADER);
+    Entity *e = world_spawn(w, x, y, dir, ENTITY_UPGRADER);
     if (!e) {
         upgrader_id_free(w, uid);
         return 0;
     }
-    e->data.upgrader = (Entity_Upgrader){ .grid_x = x, .grid_y = y, .dir = dir, .upgrader_id = uid };
+    e->data.upgrader = (Entity_Upgrader){ .upgrader_id = uid };
     return w->grid[x][y];
 }
 
 i32 world_spawn_collector(World *w, i32 x, i32 y) {
-    Entity *e = world_spawn(w, x, y, ENTITY_COLLECTOR);
+    Entity *e = world_spawn(w, x, y, DIR_N, ENTITY_COLLECTOR);   // facing unused
     if (!e) return 0;
-    e->data.collector = (Entity_Collector){ .grid_x = x, .grid_y = y, .banked = 0 };
+    e->data.collector = (Entity_Collector){ .banked = 0 };
     return w->grid[x][y];
 }
 
@@ -156,8 +150,7 @@ void world_despawn(World *w, i32 entity_id) {
     Entity *e = &w->entities[idx];
     if (e->type == ENTITY_UPGRADER) upgrader_id_free(w, e->data.upgrader.upgrader_id);
 
-    i32 ex, ey;
-    entity_grid_pos(e, &ex, &ey);
+    i32 ex = e->grid_x, ey = e->grid_y;
     w->grid[ex][ey] = 0;
 
     // Any ore riding this cell is orphaned by the delete: despawn it rather than
@@ -169,9 +162,7 @@ void world_despawn(World *w, i32 entity_id) {
     i32 last = w->entity_count - 1;
     if (idx != last) {
         w->entities[idx] = w->entities[last];
-        i32 mx, my;
-        entity_grid_pos(&w->entities[idx], &mx, &my);
-        w->grid[mx][my] = entity_id_from_index(idx);
+        w->grid[w->entities[idx].grid_x][w->entities[idx].grid_y] = entity_id_from_index(idx);
     }
     w->entity_count--;
     LOG_DEBUG("despawned entity %d at (%d,%d), %d remaining", entity_id, ex, ey, w->entity_count);
@@ -179,13 +170,9 @@ void world_despawn(World *w, i32 entity_id) {
 
 b32 world_rotate_entity(World *w, i32 entity_id) {
     Entity *e = world_get_entity(w, entity_id);
-    if (!e) return MACH_FALSE;
-    switch (e->type) {
-    case ENTITY_DROPPER:  e->data.dropper.dir  = (Direction)((e->data.dropper.dir  + 1) % DIR_COUNT); return MACH_TRUE;
-    case ENTITY_CONVEYOR: e->data.conveyor.dir = (Direction)((e->data.conveyor.dir + 1) % DIR_COUNT); return MACH_TRUE;
-    case ENTITY_UPGRADER: e->data.upgrader.dir = (Direction)((e->data.upgrader.dir + 1) % DIR_COUNT); return MACH_TRUE;
-    default:              return MACH_FALSE;   // collectors have no facing
-    }
+    if (!e || e->type == ENTITY_COLLECTOR) return MACH_FALSE;   // collectors have no facing
+    e->dir = (Direction)((e->dir + 1) % DIR_COUNT);
+    return MACH_TRUE;
 }
 
 i32 world_get_entity_at(World *w, i32 x, i32 y) {
@@ -349,8 +336,8 @@ static void world_run_droppers(World *w) {
         Entity_Dropper *dr = &e->data.dropper;
         if (dr->drop_cooldown > 0) { dr->drop_cooldown--; continue; }
 
-        i32 nx = dr->grid_x + DIR_DX[dr->dir];
-        i32 ny = dr->grid_y + DIR_DY[dr->dir];
+        i32 nx = e->grid_x + DIR_DX[e->dir];
+        i32 ny = e->grid_y + DIR_DY[e->dir];
         if (!in_bounds(nx, ny)) continue;
 
         i32 dst_id = w->grid[nx][ny];

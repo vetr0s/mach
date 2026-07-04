@@ -57,13 +57,11 @@ int main(void) {
     App    app    = {0}; app_init(&app, &engine);
 
     while (engine_running(&engine)) {
-        f32 dt = engine_frame_begin(&engine);
-        SDL_Event ev;
-        while (engine_poll_event(&engine, &ev)) app_handle_event(&app, &engine, &ev);
-        app_update(&app, dt);
+        f32 dt = engine_frame_begin(&engine);      // drain events into engine.input, return dt
+        app_update(&app, &engine, dt);             // game reads engine.input, steps the sim
         if (engine_render_begin(&engine)) {        // clear
             app_render(&app, &engine);             // game draws via r2d
-            engine_render_end(&engine);            // FPS overlay + present
+            engine_render_end(&engine);            // present
         }
         engine_frame_end(&engine);                 // FPS + frame cap
     }
@@ -73,18 +71,24 @@ int main(void) {
 ```
 
 What actually enforces the separation isn't the shape of that loop. It's one rule:
-**`src/engine/` never names a type from `src/game/`.** That's it. (The game still
-drains raw `SDL_Event`s for now; a tidier input-query layer can slot in later if it
-earns its keep.)
+**`src/engine/` never names a type from `src/game/`.** That's it.
+
+Input follows the same toolbox shape. The game never sees an `SDL_Event`: the
+engine drains the queue in `engine_frame_begin` (consuming window lifecycle —
+quit, Escape, resize) and folds the rest into `Engine.input`, a per-frame
+snapshot (`engine/input`). The game reads state — `key_pressed[SDL_SCANCODE_1]`,
+`mouse_pressed[MOUSE_LEFT]`, `wheel` — in one place, `game_process_input`.
+"Pressed"/"released" are this frame's edges (key repeats excluded); "down"
+persists while held.
 
 ## Hot reload (dev builds)
 
-That six-function boundary (`game_window_config` + the five `app_*` calls) doubles
+That five-function boundary (`game_window_config` + the four `app_*` calls) doubles
 as a reload seam. `./build.sh hot` splits the same code into two artifacts instead
 of the monolith:
 
 - **`build/mach_hot`** (`src/host.c`) — the host. Owns the window, the engine, and
-  the `App` memory, and runs the loop by calling the six functions through pointers
+  the `App` memory, and runs the loop by calling the five functions through pointers
   resolved from a shared library. Never reloaded.
 - **`build/libmach_game.{dylib,so}`** (`src/game_lib.c`) — the game logic, plus its
   own copy of the engine. The host watches this file; when it changes, it reloads it
@@ -115,7 +119,8 @@ be reinterpreted wrong otherwise. `src/mach.c` stays the release monolith (no
 engine/
   base, math, debug, ui             # types, Vec2/scalar math, logging, window context
   mem                               # arena allocator (region list, whole-arena free/reset)
-  core                              # loop lifecycle + per-frame steps, frame timing
+  input                             # per-frame input snapshot (keys, mouse, wheel)
+  core                              # loop lifecycle + per-frame steps, event drain, frame timing
   render/
     render2d.{h,c}                  # SDL_Renderer wrapper + iso camera/transforms
     font.{h,c}                      # 8x8 bitmap font as an SDL_Texture atlas

@@ -4,9 +4,9 @@
 #define GAME_H
 
 #include "../engine/base/base.h"
+#include "../engine/input/input.h"
 #include "../engine/render/render2d.h"
 #include "world/world.h"
-#include <SDL3/SDL.h>
 
 // Fixed simulation rate. The world advances in discrete ticks at this rate,
 // decoupled from the render framerate. The renderer reads SIM_TICK_DT to turn the
@@ -54,10 +54,10 @@ typedef enum {
 void game_init(Game_State *g);
 void game_tick(Game_State *g, f32 dt);
 void game_shutdown(Game_State *g);
-void game_update_hover(Game_State *g, f32 screen_w, f32 screen_h, i32 mouse_x, i32 mouse_y);
-void game_handle_input(Game_State *g, f32 screen_w, f32 screen_h, i32 mouse_x, i32 mouse_y, i32 button);
-void game_handle_key(Game_State *g, SDL_Scancode scancode);
-void game_camera_pan(Game_State *g, f32 dx, f32 dy);
-void game_camera_zoom(Game_State *g, f32 zoom_delta);
+
+// Consume this frame's input snapshot: tool keys, rotate, pause, placement
+// clicks, camera pan/zoom, and hover tracking. screen_w/h are the current render
+// size, used to unproject the mouse onto the grid.
+void game_process_input(Game_State *g, const Input *in, f32 screen_w, f32 screen_h, f32 dt);
 
 #endif

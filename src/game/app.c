@@ -6,8 +6,6 @@
 #include "render_game.h"
 #include <stdio.h>
 
-#define CAMERA_PAN_SPEED 300.0f  // pixels per second
-
 // The game defines its own window here.
 Window_Config game_window_config(void) {
     return (Window_Config){
@@ -24,42 +22,10 @@ void app_init(App *a, Engine *e) {
     clay_ui_init(&a->clay, &e->r2d);
 }
 
-void app_handle_event(App *a, Engine *e, const SDL_Event *ev) {
-    // Hover and placement work in the renderer's current pixel space, which may
-    // differ from the requested size (fullscreen, or a resized window).
-    f32 sw = (f32)e->r2d.width, sh = (f32)e->r2d.height;
-    switch (ev->type) {
-    case SDL_EVENT_MOUSE_MOTION:
-        game_update_hover(&a->game, sw, sh, (i32)ev->motion.x, (i32)ev->motion.y);
-        break;
-    case SDL_EVENT_MOUSE_BUTTON_DOWN:
-        if (ev->button.button == SDL_BUTTON_LEFT) {
-            game_handle_input(&a->game, sw, sh, (i32)ev->button.x, (i32)ev->button.y, 1);
-        }
-        break;
-    case SDL_EVENT_MOUSE_WHEEL: {
-        f32 dir = (ev->wheel.direction == SDL_MOUSEWHEEL_NORMAL) ? 1.0f : -1.0f;
-        game_camera_zoom(&a->game, ev->wheel.y * 0.1f * dir);
-        break;
-    }
-    case SDL_EVENT_KEY_DOWN:
-        game_handle_key(&a->game, ev->key.scancode);
-        break;
-    default:
-        break;
-    }
-}
-
-void app_update(App *a, f32 dt) {
-    // Continuous camera panning from held keys.
-    const bool *keys = SDL_GetKeyboardState(NULL);
-    f32 px = 0.0f, py = 0.0f;
-    if (keys[SDL_SCANCODE_LEFT]  || keys[SDL_SCANCODE_A]) px -= CAMERA_PAN_SPEED * dt;
-    if (keys[SDL_SCANCODE_RIGHT] || keys[SDL_SCANCODE_D]) px += CAMERA_PAN_SPEED * dt;
-    if (keys[SDL_SCANCODE_UP]    || keys[SDL_SCANCODE_W]) py -= CAMERA_PAN_SPEED * dt;
-    if (keys[SDL_SCANCODE_DOWN]  || keys[SDL_SCANCODE_S]) py += CAMERA_PAN_SPEED * dt;
-    if (px != 0.0f || py != 0.0f) game_camera_pan(&a->game, px, py);
-
+void app_update(App *a, Engine *e, f32 dt) {
+    // Input works in the renderer's current pixel space, which may differ from
+    // the requested size (fullscreen, or a resized window).
+    game_process_input(&a->game, &e->input, (f32)e->r2d.width, (f32)e->r2d.height, dt);
     game_tick(&a->game, dt);
 }
 
@@ -103,7 +69,9 @@ void app_render(App *a, Engine *e) {
     // A top-left panel: money always, tool/facing and a pause marker under it, and the
     // rest of the diagnostics only when F3 is on. Font sizes are multiples of the 8px
     // bitmap glyph (16 -> 2x, 8 -> 1x) so the text stays crisp.
-    clay_ui_begin(&a->clay, r, (Clay_Vector2){0, 0}, MACH_FALSE);
+    const Input *in = &e->input;
+    clay_ui_begin(&a->clay, r, (Clay_Vector2){in->mouse.x, in->mouse.y},
+                  in->mouse_down[MOUSE_LEFT]);
     CLAY(CLAY_ID("hud"),
          { .layout = { .layoutDirection = CLAY_TOP_TO_BOTTOM,
                        .padding = CLAY_PADDING_ALL(10),

@@ -21,8 +21,7 @@ typedef struct {
 Window_Config game_window_config(void);
 
 void app_init(App *a, Engine *e);
-void app_handle_event(App *a, Engine *e, const SDL_Event *ev);
-void app_update(App *a, f32 dt);
+void app_update(App *a, Engine *e, f32 dt);
 void app_render(App *a, Engine *e);
 void app_shutdown(App *a, Engine *e);
 

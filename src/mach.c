@@ -11,6 +11,7 @@
 #include "engine/debug.h"
 #include "engine/mem/arena.c"
 #include "engine/math/math.c"
+#include "engine/input/input.c"
 #include "engine/render/image.c"
 #include "engine/render/font.c"
 #include "engine/render/render2d.c"
@@ -41,12 +42,7 @@ int main(int argc, char **argv) {
     while (engine_running(&engine)) {
         f32 dt = engine_frame_begin(&engine);
 
-        SDL_Event ev;
-        while (engine_poll_event(&engine, &ev)) {
-            app_handle_event(&app, &engine, &ev);
-        }
-
-        app_update(&app, dt);
+        app_update(&app, &engine, dt);
 
         if (engine_render_begin(&engine)) {
             app_render(&app, &engine);

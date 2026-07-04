@@ -12,7 +12,11 @@
 - [x] Fixed simulation timestep: world steps at a constant rate (3/s) decoupled
       from the render framerate, so the sim plays identically on any monitor
 - [x] Input system: keyboard, mouse
-- [ ] Event system: input, collision, game events
+- [x] Input layer: engine-owned per-frame snapshot (Engine.input, engine/input).
+      engine_frame_begin drains the SDL queue; the game reads state (down/pressed/
+      released, mouse, wheel) in game_process_input instead of handling events.
+      Reload seam shrank to five functions (app_handle_event deleted).
+- [ ] Event system: collision, game events (input is covered by the snapshot)
 - [x] Memory: arena allocator (Tsoding-style region list); the world is one
       arena block, freed whole at shutdown. `arena_reset` for reuse is in place.
 - [x] Hot reload (dev): game logic compiles to a shared lib the host (src/host.c)
@@ -100,9 +104,10 @@ mechanics the GDD calls for that the code hasn't caught up to yet, in priority o
       pan still work while frozen.
 - [x] Rotate the hovered piece in place (R); over an empty tile it rotates the facing the
       next placed piece will use.
-- [ ] Interactive UI: feed real mouse position/button into clay_ui_begin (zeroed today),
-      then build clickable UI — a tool palette, and the economy's shop / grid-expansion
-      buttons.
+- [x] Feed real mouse position/button into clay_ui_begin (from Engine.input).
+- [ ] Interactive UI: build clickable UI on top of it — a tool palette, and the
+      economy's shop / grid-expansion buttons. Needs "UI consumed this click"
+      priority over world placement (Clay_PointerOver before place_at_hover).
 
 ## Feel & polish (backlog)
 Things to make it play and look right, batched for later sessions. Not urgent.

@@ -26,6 +26,7 @@
 #include "engine/debug.h"
 #include "engine/mem/arena.c"
 #include "engine/math/math.c"
+#include "engine/input/input.c"
 #include "engine/render/image.c"
 #include "engine/render/font.c"
 #include "engine/render/render2d.c"
@@ -43,12 +44,11 @@
 // never catches a half-written file mid-build.
 #define RELOAD_SETTLE_MS 150
 
-// The six game entry points, resolved from the shared library each reload.
+// The five game entry points, resolved from the shared library each reload.
 typedef struct {
     Window_Config (*window_config)(void);
     void (*init)(App *, Engine *);
-    void (*handle_event)(App *, Engine *, const SDL_Event *);
-    void (*update)(App *, f32);
+    void (*update)(App *, Engine *, f32);
     void (*render)(App *, Engine *);
     void (*shutdown)(App *, Engine *);
 } Game_Api;
@@ -110,7 +110,6 @@ static b32 game_api_reload(Game_Api *api) {
     } while (0)
     LOAD(window_config, "game_window_config");
     LOAD(init,          "app_init");
-    LOAD(handle_event,  "app_handle_event");
     LOAD(update,        "app_update");
     LOAD(render,        "app_render");
     LOAD(shutdown,      "app_shutdown");
@@ -166,12 +165,7 @@ int main(int argc, char **argv) {
 
         f32 dt = engine_frame_begin(&engine);
 
-        SDL_Event ev;
-        while (engine_poll_event(&engine, &ev)) {
-            api.handle_event(app, &engine, &ev);
-        }
-
-        api.update(app, dt);
+        api.update(app, &engine, dt);
 
         if (engine_render_begin(&engine)) {
             api.render(app, &engine);

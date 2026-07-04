@@ -69,34 +69,32 @@ b32 engine_running(Engine *e) {
     return e->running;
 }
 
-// Start a frame: compute delta time since the previous frame (clamped).
+// Start a frame: compute delta time since the previous frame (clamped), then
+// drain the event queue. Window lifecycle events (quit, Escape, resize) are
+// consumed here; everything else folds into e->input for the game to read.
 f32 engine_frame_begin(Engine *e) {
     e->frame_start = SDL_GetTicks();
     f32 dt = (f32)(e->frame_start - e->last_frame_time) / 1000.0f;
     if (dt > MAX_DT) dt = MAX_DT;
     e->last_frame_time = e->frame_start;
-    return dt;
-}
 
-// Drain the next game-relevant event into `out`. Window lifecycle events (quit,
-// Escape, resize) are consumed here instead of reaching the game. Returns false
-// when the queue is empty.
-b32 engine_poll_event(Engine *e, SDL_Event *out) {
-    while (SDL_PollEvent(out)) {
-        if (out->type == SDL_EVENT_QUIT) {
+    input_frame_begin(&e->input);
+    SDL_Event ev;
+    while (SDL_PollEvent(&ev)) {
+        if (ev.type == SDL_EVENT_QUIT) {
             LOG_INFO("quit requested");
             e->running = 0;
-        } else if (out->type == SDL_EVENT_KEY_DOWN &&
-                   out->key.scancode == SDL_SCANCODE_ESCAPE) {
+        } else if (ev.type == SDL_EVENT_KEY_DOWN &&
+                   ev.key.scancode == SDL_SCANCODE_ESCAPE) {
             LOG_INFO("escape pressed, exiting");
             e->running = 0;
-        } else if (out->type == SDL_EVENT_WINDOW_RESIZED) {
+        } else if (ev.type == SDL_EVENT_WINDOW_RESIZED) {
             r2d_resized(&e->r2d);
         } else {
-            return MACH_TRUE;
+            input_handle_event(&e->input, &ev);
         }
     }
-    return MACH_FALSE;
+    return dt;
 }
 
 // Begin the frame: clear to the background color. Always succeeds (SDL_Renderer

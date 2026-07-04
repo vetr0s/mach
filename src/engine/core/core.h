@@ -1,8 +1,9 @@
 // Core engine lifecycle and the per-frame steps of the loop.
 //
 // The game owns the loop (in main()) and calls these steps directly. The engine
-// owns window lifecycle — engine_poll_event intercepts quit/Escape — and keeps
-// the frame timing and soft frame cap.
+// owns window lifecycle — engine_frame_begin drains the event queue, consuming
+// quit/Escape/resize and folding everything else into the Input snapshot — and
+// keeps the frame timing and soft frame cap.
 
 #ifndef CORE_H
 #define CORE_H
@@ -10,11 +11,13 @@
 #include <SDL3/SDL.h>
 #include "../base/base.h"
 #include "../ui.h"
+#include "../input/input.h"
 #include "../render/render2d.h"
 
 typedef struct {
     UI_Context   ui;
     Renderer     r2d;    // 2D renderer (SDL_Renderer + bitmap font)
+    Input        input;  // per-frame input snapshot, filled by engine_frame_begin
     i32          running;
 
     // Frame timing, persisted across loop iterations (the game owns the loop).
@@ -33,16 +36,14 @@ void engine_shutdown(Engine *e);
 b32  engine_running(Engine *e);
 
 // Per-frame steps, called in order by the game's loop:
-//   f32 dt = engine_frame_begin(e);          // compute + return delta time
-//   while (engine_poll_event(e, &ev)) {...}  // drain game-relevant events
-//   ... game update (dt) ...
-//   if (engine_render_begin(e)) {            // clear the frame (false => skip)
+//   f32 dt = engine_frame_begin(e);   // drain events into e->input, return delta time
+//   ... game update (dt, reads e->input) ...
+//   if (engine_render_begin(e)) {     // clear the frame (false => skip)
 //       ... game render ...
-//       engine_render_end(e);                // engine overlay + present
+//       engine_render_end(e);         // present
 //   }
-//   engine_frame_end(e);                     // FPS bookkeeping + frame cap
+//   engine_frame_end(e);              // FPS bookkeeping + frame cap
 f32  engine_frame_begin(Engine *e);
-b32  engine_poll_event(Engine *e, SDL_Event *out);
 b32  engine_render_begin(Engine *e);
 void engine_render_end(Engine *e);
 void engine_frame_end(Engine *e);

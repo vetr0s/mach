@@ -143,12 +143,18 @@ game/
 
 Arenas are the idiom: `engine/mem/arena`, modeled on Tsoding's arena.h. It's a
 linked list of malloc'd regions with bump allocation, freed or reset as a whole
-rather than one allocation at a time. The entire `World` is a single arena block
-owned by the game, and shutdown just frees the arena.
+rather than one allocation at a time. Two arenas exist today:
 
-To be clear about the motivation: this was set up to **establish the pattern before
-anything needs it** (assets, levels, strings, per-frame scratch), not to plug a
-leak, because there wasn't one. One thing to keep in the back of your mind:
+- **The world arena** (game-owned): the entire `World` is a single block, and
+  shutdown just frees the arena.
+- **The frame arena** (`Engine.frame_arena`): per-frame scratch, reset at every
+  `engine_frame_begin`. Anything allocated from it lives exactly one frame — the
+  render depth-sort buffers come from here, sized to what's actually alive. The
+  regions are reused across frames, so steady state allocates nothing.
+
+To be clear about the original motivation: this was set up to **establish the
+pattern before anything needs it** (assets, levels, strings), not to plug a leak,
+because there wasn't one. One thing to keep in the back of your mind:
 `world_despawn` swap-removes and reassigns entity ids, so an id you hold across a
 despawn goes stale. The fix is generational handles, and it can wait until entities
 are actually tracked over time.

@@ -19,6 +19,8 @@
 - [ ] Event system: collision, game events (input is covered by the snapshot)
 - [x] Memory: arena allocator (Tsoding-style region list); the world is one
       arena block, freed whole at shutdown. `arena_reset` for reuse is in place.
+- [x] Frame-scratch arena (Engine.frame_arena): reset each engine_frame_begin;
+      backs the render depth-sort buffers (which were 176KB of file-scope statics).
 - [x] Hot reload (dev): game logic compiles to a shared lib the host (src/host.c)
       dlopen's and swaps on rebuild, keeping App state across reloads. Run
       `./build.sh hot`, then `./build.sh game` in another terminal to reload.

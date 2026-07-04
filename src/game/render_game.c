@@ -264,15 +264,13 @@ static void draw_entity(Renderer *r, const Camera2D *cam, const Entity *e, f32 b
 
 // Depth-sort key for painter's order: far cells (smaller gx+gy) first.
 typedef struct { f32 depth; const void *ptr; } DrawItem;
-static DrawItem g_entities[MAX_ENTITIES];
-static DrawItem g_items[MAX_ITEMS];
 
 static int cmp_draw(const void *a, const void *b) {
     f32 da = ((const DrawItem *)a)->depth, db = ((const DrawItem *)b)->depth;
     return (da < db) ? -1 : (da > db) ? 1 : 0;
 }
 
-void game_render_draw(Renderer *r, const Game_State *game) {
+void game_render_draw(Renderer *r, const Game_State *game, Arena *scratch) {
     const Camera2D *cam = &game->camera;
     World *w = game->world;
     f32 sw = (f32)r->width, sh = (f32)r->height;
@@ -312,17 +310,20 @@ void game_render_draw(Renderer *r, const Game_State *game) {
     if (!w) return;
 
     // Machines, back-to-front by (gx+gy) so nearer blocks overdraw farther ones.
+    // Sort buffers come from the frame arena: sized to what's alive, gone next frame.
+    DrawItem *ents = (DrawItem *)arena_alloc(scratch, (usize)w->entity_count * sizeof(DrawItem));
+    if (w->entity_count > 0 && !ents) return;
     i32 ne = 0;
     for (i32 i = 0; i < w->entity_count; i++) {
         const Entity *e = &w->entities[i];
-        g_entities[ne].depth = (f32)(e->grid_x + e->grid_y);
-        g_entities[ne].ptr = e;
+        ents[ne].depth = (f32)(e->grid_x + e->grid_y);
+        ents[ne].ptr = e;
         ne++;
     }
     f32 belt_phase = game->anim_time * BELT_SCROLL_SPEED;
     belt_phase -= floorf(belt_phase);
-    qsort(g_entities, (size_t)ne, sizeof(DrawItem), cmp_draw);
-    for (i32 i = 0; i < ne; i++) draw_entity(r, cam, (const Entity *)g_entities[i].ptr, belt_phase);
+    qsort(ents, (size_t)ne, sizeof(DrawItem), cmp_draw);
+    for (i32 i = 0; i < ne; i++) draw_entity(r, cam, (const Entity *)ents[i].ptr, belt_phase);
 
     // Items ride on top of the belts, also depth-sorted among themselves. The
     // leftover sim accumulator gives the fraction into the current tick, which
@@ -331,14 +332,16 @@ void game_render_draw(Renderer *r, const Game_State *game) {
     if (alpha < 0.0f) alpha = 0.0f;
     if (alpha > 1.0f) alpha = 1.0f;
 
+    DrawItem *items = (DrawItem *)arena_alloc(scratch, (usize)w->item_count * sizeof(DrawItem));
+    if (w->item_count > 0 && !items) return;
     i32 ni = 0;
-    for (i32 i = 0; i < MAX_ITEMS; i++) {
+    for (i32 i = 0; i < MAX_ITEMS && ni < w->item_count; i++) {
         const Item *it = &w->items[i];
         if (!it->alive) continue;
-        g_items[ni].depth = (f32)(it->grid_x + it->grid_y);
-        g_items[ni].ptr = it;
+        items[ni].depth = (f32)(it->grid_x + it->grid_y);
+        items[ni].ptr = it;
         ni++;
     }
-    qsort(g_items, (size_t)ni, sizeof(DrawItem), cmp_draw);
-    for (i32 i = 0; i < ni; i++) draw_item(r, cam, (const Item *)g_items[i].ptr, alpha);
+    qsort(items, (size_t)ni, sizeof(DrawItem), cmp_draw);
+    for (i32 i = 0; i < ni; i++) draw_item(r, cam, (const Item *)items[i].ptr, alpha);
 }

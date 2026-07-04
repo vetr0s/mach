@@ -54,6 +54,7 @@ b32 engine_init(Engine *e, Engine_Config cfg) {
 
 // Clean up renderer resources and close the window.
 void engine_shutdown(Engine *e) {
+    arena_free(&e->frame_arena);
     r2d_shutdown(&e->r2d);
     if (e->window) {
         SDL_DestroyWindow(e->window);
@@ -76,6 +77,7 @@ f32 engine_frame_begin(Engine *e) {
     if (dt > MAX_DT) dt = MAX_DT;
     e->last_frame_time = e->frame_start;
 
+    arena_reset(&e->frame_arena);
     input_frame_begin(&e->input);
     SDL_Event ev;
     while (SDL_PollEvent(&ev)) {

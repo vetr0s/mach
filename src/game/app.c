@@ -42,7 +42,7 @@ void app_update(App *a, Engine *e, f32 dt) {
 void app_render(App *a, Engine *e) {
     Renderer *r = &e->r2d;
     const Game_State *g = &a->game;
-    game_render_draw(r, g);
+    game_render_draw(r, g, &e->frame_arena);
 
     static const char *tool_names[] = {"None", "Dropper", "Conveyor", "Upgrader",
                                        "Collector", "Delete"};

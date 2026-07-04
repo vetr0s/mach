@@ -11,6 +11,7 @@
 #include <SDL3/SDL.h>
 #include "../base/base.h"
 #include "../input/input.h"
+#include "../mem/arena.h"
 #include "../render/render2d.h"
 
 // How the game wants the engine set up: the window, plus the policy the engine
@@ -32,6 +33,12 @@ typedef struct {
     SDL_Window  *window;
     Renderer     r2d;    // 2D renderer (SDL_Renderer + bitmap font)
     Input        input;  // per-frame input snapshot, filled by engine_frame_begin
+
+    // Per-frame scratch: reset at every engine_frame_begin, so anything allocated
+    // from it lives exactly one frame (sort buffers, transient strings). The
+    // regions are reused, not freed, so steady-state allocation is malloc-free.
+    Arena        frame_arena;
+
     i32          running;
 
     // Per-frame policy, copied out of Engine_Config at init.

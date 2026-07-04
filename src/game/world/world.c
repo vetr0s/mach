@@ -241,12 +241,19 @@ static void world_update_falls(World *w) {
     }
 }
 
-// Apply the effect of the entity on (x,y) to an item that just arrived there.
-// Upgraders raise its value once each; collectors bank and consume it. Returns
-// false if the item was consumed.
-static b32 item_apply_cell(World *w, i32 item_idx, i32 x, i32 y) {
+// Bank `value` into a collector: the world total and the collector's own tally.
+static void collector_bank(World *w, Entity *e, i64 value) {
+    w->money += value;
+    e->data.collector.banked += value;
+}
+
+// Apply the effect of the entity on (x,y) to an item that just arrived there —
+// today that's upgraders raising its value. Collectors never appear here: both
+// arrival paths (world_move_items, world_run_droppers) bank and consume the
+// item *before* it would land, so an item never occupies a collector's cell.
+static void item_apply_cell(World *w, i32 item_idx, i32 x, i32 y) {
     i32 id = w->grid[x][y];
-    if (!id) return MACH_TRUE;
+    if (!id) return;
     Entity *e = world_get_entity(w, id);
     Item *it = &w->items[item_idx];
 
@@ -261,13 +268,7 @@ static b32 item_apply_cell(World *w, i32 item_idx, i32 x, i32 y) {
         }
         i64 gap = it->ceiling - it->value;
         if (gap > 0) it->value += gap / UPGRADER_CLIMB_DIVISOR;
-    } else if (e->type == ENTITY_COLLECTOR) {
-        w->money += it->value;
-        e->data.collector.banked += it->value;
-        item_kill(w, item_idx);
-        return MACH_FALSE;
     }
-    return MACH_TRUE;
 }
 
 // Advance items one cell along their belts. A "moved" flag caps each item to a
@@ -306,8 +307,7 @@ static void world_move_items(World *w) {
             }
 
             if (dst->type == ENTITY_COLLECTOR) {
-                w->money += it->value;
-                dst->data.collector.banked += it->value;
+                collector_bank(w, dst, it->value);
                 item_kill(w, i);
                 changed = MACH_TRUE;
                 continue;
@@ -346,8 +346,7 @@ static void world_run_droppers(World *w) {
         if (dst->type == ENTITY_DROPPER) continue;
 
         if (dst->type == ENTITY_COLLECTOR) {
-            w->money += ITEM_BASE_VALUE;
-            dst->data.collector.banked += ITEM_BASE_VALUE;
+            collector_bank(w, dst, ITEM_BASE_VALUE);
             dr->drop_cooldown = DROP_PERIOD;
             continue;
         }

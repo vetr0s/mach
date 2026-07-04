@@ -7,11 +7,13 @@
 #ifndef RENDER_GAME_H
 #define RENDER_GAME_H
 
+#include "../engine/mem/arena.h"
 #include "../engine/render/render2d.h"
 #include "game.h"
 
 // Draw the world (ground tiles, machines, hover preview) for the given frame.
-// Call between r2d_begin and r2d_present.
-void game_render_draw(Renderer *r, const Game_State *game);
+// Call between r2d_begin and r2d_present. `scratch` backs this frame's sort
+// buffers; pass the engine's frame arena.
+void game_render_draw(Renderer *r, const Game_State *game, Arena *scratch);
 
 #endif

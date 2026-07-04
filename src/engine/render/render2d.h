@@ -37,8 +37,8 @@ void r2d_shutdown(Renderer *r);
 // window is resized so render and input coordinates track the new size.
 void r2d_resized(Renderer *r);
 
-// Frame.
-void r2d_begin(Renderer *r, u8 clear_r, u8 clear_g, u8 clear_b);
+// Frame. Clear color is Vec4 RGBA in [0,1], like every other color in the API.
+void r2d_begin(Renderer *r, Vec4 clear);
 void r2d_present(Renderer *r);
 
 // Screen-space primitives. Colors are Vec4 RGBA in [0,1].

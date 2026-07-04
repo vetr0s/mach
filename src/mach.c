@@ -7,7 +7,6 @@
 
 // Engine
 #include "engine/base/base.h"
-#include "engine/ui.h"
 #include "engine/debug.h"
 #include "engine/mem/arena.c"
 #include "engine/math/math.c"
@@ -31,7 +30,7 @@ int main(int argc, char **argv) {
     (void)argv;
 
     Engine engine = {0};
-    if (!engine_init(&engine, game_window_config())) {
+    if (!engine_init(&engine, game_engine_config())) {
         return 1;
     }
 

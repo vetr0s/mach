@@ -22,7 +22,6 @@
 // Engine (own copy; state is all pointer-passed, so the library's copy and this
 // one share the same Engine/App data).
 #include "engine/base/base.h"
-#include "engine/ui.h"
 #include "engine/debug.h"
 #include "engine/mem/arena.c"
 #include "engine/math/math.c"
@@ -46,7 +45,7 @@
 
 // The five game entry points, resolved from the shared library each reload.
 typedef struct {
-    Window_Config (*window_config)(void);
+    Engine_Config (*engine_config)(void);
     void (*init)(App *, Engine *);
     void (*update)(App *, Engine *, f32);
     void (*render)(App *, Engine *);
@@ -108,7 +107,7 @@ static b32 game_api_reload(Game_Api *api) {
         *(void **)(&n.field) = dlsym(h, sym); \
         if (!n.field) { LOG_ERROR("hot reload: missing symbol %s", sym); ok = MACH_FALSE; } \
     } while (0)
-    LOAD(window_config, "game_window_config");
+    LOAD(engine_config, "game_engine_config");
     LOAD(init,          "app_init");
     LOAD(update,        "app_update");
     LOAD(render,        "app_render");
@@ -137,7 +136,7 @@ int main(int argc, char **argv) {
     }
 
     Engine engine = {0};
-    if (!engine_init(&engine, api.window_config())) {
+    if (!engine_init(&engine, api.engine_config())) {
         return 1;
     }
 

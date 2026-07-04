@@ -6,14 +6,17 @@
 #include "render_game.h"
 #include <stdio.h>
 
-// The game defines its own window here.
-Window_Config game_window_config(void) {
-    return (Window_Config){
+// The game defines its window and engine policy here.
+Engine_Config game_engine_config(void) {
+    return (Engine_Config){
         .title = "mach",
         .width = 1280,
         .height = 720,
         .fullscreen = MACH_FALSE,
         .resizable = MACH_TRUE,
+        .clear_color = {0.118f, 0.161f, 0.231f, 1.0f},   // dark slate (0x1e293b)
+        .escape_quits = MACH_TRUE,                        // dev convenience, for now
+        .target_fps = 120,
     };
 }
 

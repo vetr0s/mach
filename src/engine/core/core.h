@@ -10,15 +10,34 @@
 
 #include <SDL3/SDL.h>
 #include "../base/base.h"
-#include "../ui.h"
 #include "../input/input.h"
 #include "../render/render2d.h"
 
+// How the game wants the engine set up: the window, plus the policy the engine
+// applies each frame. The game fills all of it — the engine has no defaults of
+// its own — and passes it to engine_init.
 typedef struct {
-    UI_Context   ui;
+    const char *title;
+    i32  width, height;
+    b32  fullscreen;
+    b32  resizable;
+
+    Vec4 clear_color;    // frame clear color (RGBA in [0,1])
+    b32  escape_quits;   // Escape closes the window (dev convenience); otherwise
+                         // Escape reaches the game through the input snapshot
+    i32  target_fps;     // soft frame cap; <= 0 leaves the frame rate uncapped
+} Engine_Config;
+
+typedef struct {
+    SDL_Window  *window;
     Renderer     r2d;    // 2D renderer (SDL_Renderer + bitmap font)
     Input        input;  // per-frame input snapshot, filled by engine_frame_begin
     i32          running;
+
+    // Per-frame policy, copied out of Engine_Config at init.
+    Vec4 clear_color;
+    b32  escape_quits;
+    u32  frame_cap_ms;   // 0 = uncapped
 
     // Frame timing, persisted across loop iterations (the game owns the loop).
     u32 frame_start;       // tick at the current frame's start (for the cap)
@@ -28,8 +47,8 @@ typedef struct {
     i32 fps;               // last completed window's frame count
 } Engine;
 
-// Lifecycle. The game supplies the window configuration.
-b32  engine_init(Engine *e, Window_Config cfg);
+// Lifecycle. The game supplies the configuration.
+b32  engine_init(Engine *e, Engine_Config cfg);
 void engine_shutdown(Engine *e);
 
 // True until a quit is requested (window close or Escape).

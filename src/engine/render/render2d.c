@@ -61,8 +61,8 @@ void r2d_resized(Renderer *r) {
 
 // --- Frame ------------------------------------------------------------------
 
-void r2d_begin(Renderer *r, u8 clear_r, u8 clear_g, u8 clear_b) {
-    SDL_SetRenderDrawColor(r->sdl, clear_r, clear_g, clear_b, 255);
+void r2d_begin(Renderer *r, Vec4 clear) {
+    SDL_SetRenderDrawColorFloat(r->sdl, clear.x, clear.y, clear.z, clear.w);
     SDL_RenderClear(r->sdl);
 }
 

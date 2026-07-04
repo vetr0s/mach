@@ -6,7 +6,7 @@
 // Engine / Renderer / Arena / App structs, all owned by the host and passed in by
 // pointer. So the host's engine copy and this one operate on the same data.
 //
-// The reload interface is the five functions app.c exports (game_window_config,
+// The reload interface is the five functions app.c exports (game_engine_config,
 // app_init, app_update, app_render, app_shutdown). They keep external linkage
 // and default visibility, so the host resolves them via dlsym.
 //
@@ -15,7 +15,6 @@
 
 // Engine (own copy; state is all pointer-passed, see above).
 #include "engine/base/base.h"
-#include "engine/ui.h"
 #include "engine/debug.h"
 #include "engine/mem/arena.c"
 #include "engine/math/math.c"

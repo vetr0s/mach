@@ -7,18 +7,12 @@
 #include "../debug.h"
 #include <stdio.h>
 
-// Frame timing.
-#define TARGET_FRAME_MS 8     // ~120 FPS soft cap
-#define MAX_DT          0.1f  // clamp dt to prevent large simulation jumps
-
-// Background clear color (dark slate), 8-bit.
-#define CLEAR_R 0x1e
-#define CLEAR_G 0x29
-#define CLEAR_B 0x3b
+// Clamp dt to prevent large simulation jumps after a stall.
+#define MAX_DT 0.1f
 
 // Initialize SDL, create the window from the game's config, bring up the 2D
 // renderer, and start the frame-timing clocks.
-b32 engine_init(Engine *e, Window_Config cfg) {
+b32 engine_init(Engine *e, Engine_Config cfg) {
     LOG_INFO("mach v%d.%d.%d starting up",
              MACH_VERSION_MAJOR, MACH_VERSION_MINOR, MACH_VERSION_PATCH);
 
@@ -30,19 +24,23 @@ b32 engine_init(Engine *e, Window_Config cfg) {
     SDL_WindowFlags flags = 0;
     if (cfg.fullscreen) flags |= SDL_WINDOW_FULLSCREEN;
     if (cfg.resizable)  flags |= SDL_WINDOW_RESIZABLE;
-    e->ui.window = SDL_CreateWindow(cfg.title, cfg.width, cfg.height, flags);
-    if (!e->ui.window) {
+    e->window = SDL_CreateWindow(cfg.title, cfg.width, cfg.height, flags);
+    if (!e->window) {
         LOG_ERROR("SDL_CreateWindow failed: %s", SDL_GetError());
         SDL_Quit();
         return MACH_FALSE;
     }
 
-    if (!r2d_init(&e->r2d, e->ui.window)) {
-        SDL_DestroyWindow(e->ui.window);
-        e->ui.window = NULL;
+    if (!r2d_init(&e->r2d, e->window)) {
+        SDL_DestroyWindow(e->window);
+        e->window = NULL;
         SDL_Quit();
         return MACH_FALSE;
     }
+
+    e->clear_color = cfg.clear_color;
+    e->escape_quits = cfg.escape_quits;
+    e->frame_cap_ms = cfg.target_fps > 0 ? 1000u / (u32)cfg.target_fps : 0;
 
     u32 now = SDL_GetTicks();
     e->running = 1;
@@ -57,9 +55,9 @@ b32 engine_init(Engine *e, Window_Config cfg) {
 // Clean up renderer resources and close the window.
 void engine_shutdown(Engine *e) {
     r2d_shutdown(&e->r2d);
-    if (e->ui.window) {
-        SDL_DestroyWindow(e->ui.window);
-        e->ui.window = NULL;
+    if (e->window) {
+        SDL_DestroyWindow(e->window);
+        e->window = NULL;
     }
     SDL_Quit();
     LOG_INFO("shutdown complete");
@@ -84,7 +82,7 @@ f32 engine_frame_begin(Engine *e) {
         if (ev.type == SDL_EVENT_QUIT) {
             LOG_INFO("quit requested");
             e->running = 0;
-        } else if (ev.type == SDL_EVENT_KEY_DOWN &&
+        } else if (e->escape_quits && ev.type == SDL_EVENT_KEY_DOWN &&
                    ev.key.scancode == SDL_SCANCODE_ESCAPE) {
             LOG_INFO("escape pressed, exiting");
             e->running = 0;
@@ -97,10 +95,11 @@ f32 engine_frame_begin(Engine *e) {
     return dt;
 }
 
-// Begin the frame: clear to the background color. Always succeeds (SDL_Renderer
-// handles a minimized window gracefully), but keeps the bool shape of the loop.
+// Begin the frame: clear to the game's background color. Always succeeds
+// (SDL_Renderer handles a minimized window gracefully), but keeps the bool
+// shape of the loop.
 b32 engine_render_begin(Engine *e) {
-    r2d_begin(&e->r2d, CLEAR_R, CLEAR_G, CLEAR_B);
+    r2d_begin(&e->r2d, e->clear_color);
     return MACH_TRUE;
 }
 
@@ -126,7 +125,7 @@ void engine_frame_end(Engine *e) {
     }
 
     u32 frame_time = SDL_GetTicks() - e->frame_start;
-    if (frame_time < TARGET_FRAME_MS) {
-        SDL_Delay(TARGET_FRAME_MS - frame_time);
+    if (e->frame_cap_ms && frame_time < e->frame_cap_ms) {
+        SDL_Delay(e->frame_cap_ms - frame_time);
     }
 }

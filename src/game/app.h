@@ -17,8 +17,9 @@ typedef struct {
     ClayUI     clay;   // UI layout/draw; lives in host memory so it survives hot reload
 } App;
 
-// The window the game wants the engine to create.
-Window_Config game_window_config(void);
+// The window and engine policy the game wants (clear color, Escape behavior,
+// frame cap).
+Engine_Config game_engine_config(void);
 
 void app_init(App *a, Engine *e);
 void app_update(App *a, Engine *e, f32 dt);

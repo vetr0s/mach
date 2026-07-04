@@ -53,7 +53,7 @@ loop:
 
 ```c
 int main(void) {
-    Engine engine = {0}; engine_init(&engine, game_window_config());  // game sizes the window
+    Engine engine = {0}; engine_init(&engine, game_engine_config());  // game sets window + policy
     App    app    = {0}; app_init(&app, &engine);
 
     while (engine_running(&engine)) {
@@ -81,9 +81,14 @@ snapshot (`engine/input`). The game reads state — `key_pressed[SDL_SCANCODE_1]
 "Pressed"/"released" are this frame's edges (key repeats excluded); "down"
 persists while held.
 
+Policy the engine applies each frame is the game's to set, not the engine's to
+hardcode: `Engine_Config` carries the window setup plus the clear color, whether
+Escape quits (a dev convenience the game can turn off once Escape means "close
+menu"), and the soft frame cap (`target_fps`, `<= 0` for uncapped).
+
 ## Hot reload (dev builds)
 
-That five-function boundary (`game_window_config` + the four `app_*` calls) doubles
+That five-function boundary (`game_engine_config` + the four `app_*` calls) doubles
 as a reload seam. `./build.sh hot` splits the same code into two artifacts instead
 of the monolith:
 
@@ -117,7 +122,7 @@ be reinterpreted wrong otherwise. `src/mach.c` stays the release monolith (no
 
 ```
 engine/
-  base, math, debug, ui             # types, Vec2/scalar math, logging, window context
+  base, math, debug                 # types, Vec2/scalar math, logging
   mem                               # arena allocator (region list, whole-arena free/reset)
   input                             # per-frame input snapshot (keys, mouse, wheel)
   core                              # loop lifecycle + per-frame steps, event drain, frame timing

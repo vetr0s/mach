@@ -106,9 +106,13 @@ of the monolith:
   own copy of the engine. The host watches this file; when it changes, it reloads it
   and keeps running against the same `App` memory.
 
-Iterate by leaving `mach_hot` running and rebuilding just the library in another
-terminal: `./build.sh game`. Edit sim rules, tuning, or render code and it swaps in
-live — no restart, no lost state.
+`./build.sh hot` is the whole dev loop in one command: it builds both artifacts,
+launches `mach_hot`, then turns into a watcher over `src/` that rebuilds the
+library on every change. Edit sim rules, tuning, or render code and it swaps in
+live — no restart, no lost state. A compile error doesn't stop the watch; the
+game keeps running the last good code until the next save fixes it. Ctrl-C (or
+closing the game) ends the loop. `./build.sh game` still exists for a manual
+one-shot rebuild.
 
 Two facts make this work with zero linker tricks:
 

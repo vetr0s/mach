@@ -42,8 +42,11 @@ fi
 # Build target:
 #   debug   (default)  static monolith, -g -O0   -> build/mach_debug
 #   release            static monolith, -O3       -> build/mach_release
-#   hot                dev host + game library (hot reload) -> build/mach_hot (+ lib)
-#   game               rebuild only the game library (for the reload loop)
+#   hot                the dev loop: build host + game library, run the host, then
+#                      watch src/ and rebuild the library on every change so the
+#                      running game swaps it in live. Ctrl-C (or closing the game)
+#                      stops the watch.
+#   game               rebuild only the game library (one shot, for manual reloads)
 build_type="${1:-debug}"
 
 mkdir -p build
@@ -92,7 +95,39 @@ case "$build_type" in
       -DGAME_LIB_PATH="\"$game_lib\"" \
       -o "$out_file" src/host.c -lSDL3 $dl_lib
     copy_sdl
-    echo "Build complete: $out_file (run it, then \`./build.sh game\` to hot reload)"
+    echo "Build complete: $out_file"
+
+    # Now become the dev loop: run the host and watch the sources, rebuilding the
+    # game library on every change so the running host swaps it in live. Polling
+    # with find -newer keeps this dependency-free and portable (no fswatch).
+    "$out_file" &
+    game_pid=$!
+    trap 'kill "$game_pid" 2>/dev/null; exit 0' INT TERM
+
+    stamp="build/.hot_stamp"
+    touch "$stamp"
+    echo "Watching src/ for changes (Ctrl-C or close the game to stop)"
+    while kill -0 "$game_pid" 2>/dev/null; do
+      sleep 0.5
+      # (npt): No `| head -1` here — under pipefail, find dying of SIGPIPE when
+      # many files changed would kill the whole watch. Take the list, keep line 1.
+      changed_list="$(find src -type f \( -name '*.c' -o -name '*.h' \) -newer "$stamp")"
+      changed="${changed_list%%$'\n'*}"
+      [ -z "$changed" ] && continue
+      # Re-stamp before compiling so edits made mid-build trigger another pass.
+      touch "$stamp"
+      echo "Changed: $changed"
+      if [ "$changed" = "src/host.c" ]; then
+        echo "note: host.c is not hot-reloadable; restart \`./build.sh hot\` to pick it up"
+      fi
+      if build_game_lib; then
+        echo "Reload ready ($(date +%H:%M:%S)); the running game picks it up"
+      else
+        echo "Build failed; the game keeps the last good code. Still watching."
+      fi
+    done
+    wait "$game_pid" 2>/dev/null || true
+    echo "Game exited; watch stopped."
     ;;
   *)
     echo "Unknown build type: $build_type. Use debug | release | hot | game." >&2

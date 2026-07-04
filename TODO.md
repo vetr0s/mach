@@ -22,10 +22,11 @@
 - [x] Frame-scratch arena (Engine.frame_arena): reset each engine_frame_begin;
       backs the render depth-sort buffers (which were 176KB of file-scope statics).
 - [x] Hot reload (dev): game logic compiles to a shared lib the host (src/host.c)
-      dlopen's and swaps on rebuild, keeping App state across reloads. Run
-      `./build.sh hot`, then `./build.sh game` in another terminal to reload.
-      Release stays the src/mach.c monolith. See ARCHITECTURE.md. Limit: code, not
-      struct-layout, changes reload live.
+      dlopen's and swaps on rebuild, keeping App state across reloads. `./build.sh hot`
+      is the whole loop: it builds, runs the game, and watches src/ — every save
+      rebuilds the lib and the running game swaps it in (compile errors keep the
+      last good code). Release stays the src/mach.c monolith. See ARCHITECTURE.md.
+      Limit: code, not struct-layout, changes reload live.
 
 ## Rendering (2D on SDL_Renderer)
 - [x] **[v0.5.0] Pivot to a minimal 2D engine.** Dropped SDL_GPU + the offline

@@ -6,7 +6,6 @@
 #ifndef GAME_APP_H
 #define GAME_APP_H
 
-#include <SDL3/SDL.h>
 #include "../engine/core/core.h"
 #include "../engine/ui/clay_ui.h"
 #include "game.h"

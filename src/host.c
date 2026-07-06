@@ -146,16 +146,16 @@ int main(int argc, char **argv) {
     api.init(app, &engine);
 
     time_t last_mtime = lib_mtime();
-    u32    pending_at = 0;   // SDL ticks when a change was first seen; 0 = none
+    u32    pending_at = 0;   // engine ticks when a change was first seen; 0 = none
 
     LOG_INFO("entering main loop (hot reload watching %s)", GAME_LIB_PATH);
     while (engine_running(&engine)) {
         // Watch the library; reload once it has settled after a change.
         time_t m = lib_mtime();
         if (m != 0 && m != last_mtime && pending_at == 0) {
-            pending_at = SDL_GetTicks();
+            pending_at = engine_ticks_ms();
         }
-        if (pending_at != 0 && SDL_GetTicks() - pending_at >= RELOAD_SETTLE_MS) {
+        if (pending_at != 0 && engine_ticks_ms() - pending_at >= RELOAD_SETTLE_MS) {
             last_mtime = lib_mtime();
             pending_at = 0;
             if (game_api_reload(&api)) LOG_INFO("game hot-reloaded");

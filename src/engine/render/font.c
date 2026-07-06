@@ -1,11 +1,12 @@
-// Font implementation: 8x8 glyphs baked into an SDL_Texture atlas (included into
+// Font implementation: 8x8 glyphs baked into a GL texture atlas (included into
 // mach.c).
 //
 // Glyphs are stored as a static bit table, then expanded into an RGBA atlas
 // texture at startup (white pixels with alpha; transparent elsewhere). Text is
-// drawn by blitting glyph cells with a per-draw color mod for tint.
+// drawn by batching glyph quads with a per-vertex color for tint.
 
 #include "font.h"
+#include "render2d.h"
 #include "../debug.h"
 #include <stdlib.h>
 #include <string.h>
@@ -117,50 +118,45 @@ static u32 *font_build_pixels(void) {
     return px;
 }
 
-Font *font_create(SDL_Renderer *renderer) {
+Font *font_create(struct Renderer *r) {
     Font *font = (Font *)calloc(1, sizeof(Font));
     if (!font) return NULL;
 
     font->glyph_w = CELL;
     font->glyph_h = CELL;
     font->advance = CELL + 1;
-    font->atlas_w = (f32)ATLAS_W;
-    font->atlas_h = (f32)ATLAS_H;
 
     u32 *px = font_build_pixels();
     if (!px) { free(font); return NULL; }
 
-    font->atlas = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32,
-                                    SDL_TEXTUREACCESS_STATIC, ATLAS_W, ATLAS_H);
-    if (!font->atlas) {
-        LOG_ERROR("font_create: SDL_CreateTexture failed: %s", SDL_GetError());
-        free(px);
+    font->atlas = r2d_texture_from_pixels((Renderer *)r, px, ATLAS_W, ATLAS_H, MACH_TRUE);
+    free(px);
+    if (!font->atlas.id) {
+        LOG_ERROR("font_create: atlas texture creation failed");
         free(font);
         return NULL;
     }
-    SDL_UpdateTexture(font->atlas, NULL, px, ATLAS_W * (i32)sizeof(u32));
-    SDL_SetTextureBlendMode(font->atlas, SDL_BLENDMODE_BLEND);
-    SDL_SetTextureScaleMode(font->atlas, SDL_SCALEMODE_NEAREST);
-    free(px);
 
     LOG_INFO("font atlas created (%dx%d RGBA, %d glyphs)", ATLAS_W, ATLAS_H, FONT_GLYPH_COUNT);
     return font;
 }
 
-void font_destroy(Font *font) {
+void font_destroy(struct Renderer *r, Font *font) {
     if (!font) return;
-    if (font->atlas) SDL_DestroyTexture(font->atlas);
+    r2d_destroy_texture((Renderer *)r, &font->atlas);
     free(font);
 }
 
-b32 font_glyph_src(const Font *font, char ch, SDL_FRect *out) {
+b32 font_glyph_uv(const Font *font, char ch, f32 *u0, f32 *v0, f32 *u1, f32 *v1) {
     (void)font;
     u8 c = (u8)ch;
     if (c < FONT_FIRST_CHAR || c > FONT_LAST_CHAR) return MACH_FALSE;
     i32 idx = c - FONT_FIRST_CHAR;
-    out->x = (f32)((idx % ATLAS_COLS) * CELL);
-    out->y = (f32)((idx / ATLAS_COLS) * CELL);
-    out->w = (f32)CELL;
-    out->h = (f32)CELL;
+    f32 x = (f32)((idx % ATLAS_COLS) * CELL);
+    f32 y = (f32)((idx / ATLAS_COLS) * CELL);
+    *u0 = x / (f32)ATLAS_W;
+    *v0 = y / (f32)ATLAS_H;
+    *u1 = (x + (f32)CELL) / (f32)ATLAS_W;
+    *v1 = (y + (f32)CELL) / (f32)ATLAS_H;
     return MACH_TRUE;
 }

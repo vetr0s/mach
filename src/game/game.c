@@ -133,23 +133,23 @@ static void camera_zoom(Game_State *g, f32 zoom_delta) {
 void game_process_input(Game_State *g, const Input *in, f32 screen_w, f32 screen_h, f32 dt) {
     if (!g || !g->world || !in) return;
 
-    if (in->key_pressed[SDL_SCANCODE_1]) toggle_tool(g, TOOL_DROPPER);
-    if (in->key_pressed[SDL_SCANCODE_2]) toggle_tool(g, TOOL_CONVEYOR);
-    if (in->key_pressed[SDL_SCANCODE_3]) toggle_tool(g, TOOL_UPGRADER);
-    if (in->key_pressed[SDL_SCANCODE_4]) toggle_tool(g, TOOL_COLLECTOR);
-    if (in->key_pressed[SDL_SCANCODE_5]) toggle_tool(g, TOOL_DELETE);
-    if (in->key_pressed[SDL_SCANCODE_SPACE]) {
+    if (in->key_pressed[RGFW_key1]) toggle_tool(g, TOOL_DROPPER);
+    if (in->key_pressed[RGFW_key2]) toggle_tool(g, TOOL_CONVEYOR);
+    if (in->key_pressed[RGFW_key3]) toggle_tool(g, TOOL_UPGRADER);
+    if (in->key_pressed[RGFW_key4]) toggle_tool(g, TOOL_COLLECTOR);
+    if (in->key_pressed[RGFW_key5]) toggle_tool(g, TOOL_DELETE);
+    if (in->key_pressed[RGFW_keySpace]) {
         g->paused = !g->paused;
         LOG_DEBUG("simulation %s", g->paused ? "paused" : "resumed");
     }
-    if (in->key_pressed[SDL_SCANCODE_F3]) g->show_debug = !g->show_debug;
+    if (in->key_pressed[RGFW_keyF3]) g->show_debug = !g->show_debug;
 
     // Camera: continuous pan from held keys, zoom from the wheel.
     f32 px = 0.0f, py = 0.0f;
-    if (in->key_down[SDL_SCANCODE_LEFT]  || in->key_down[SDL_SCANCODE_A]) px -= CAMERA_PAN_SPEED * dt;
-    if (in->key_down[SDL_SCANCODE_RIGHT] || in->key_down[SDL_SCANCODE_D]) px += CAMERA_PAN_SPEED * dt;
-    if (in->key_down[SDL_SCANCODE_UP]    || in->key_down[SDL_SCANCODE_W]) py -= CAMERA_PAN_SPEED * dt;
-    if (in->key_down[SDL_SCANCODE_DOWN]  || in->key_down[SDL_SCANCODE_S]) py += CAMERA_PAN_SPEED * dt;
+    if (in->key_down[RGFW_keyLeft]  || in->key_down[RGFW_keyA]) px -= CAMERA_PAN_SPEED * dt;
+    if (in->key_down[RGFW_keyRight] || in->key_down[RGFW_keyD]) px += CAMERA_PAN_SPEED * dt;
+    if (in->key_down[RGFW_keyUp]    || in->key_down[RGFW_keyW]) py -= CAMERA_PAN_SPEED * dt;
+    if (in->key_down[RGFW_keyDown]  || in->key_down[RGFW_keyS]) py += CAMERA_PAN_SPEED * dt;
     if (px != 0.0f || py != 0.0f) camera_pan(g, px, py);
     if (in->wheel != 0.0f) camera_zoom(g, in->wheel * 0.1f);
 
@@ -157,7 +157,7 @@ void game_process_input(Game_State *g, const Input *in, f32 screen_w, f32 screen
     // zooming under a still cursor keeps the highlighted cell accurate.
     update_hover(g, screen_w, screen_h, in->mouse.x, in->mouse.y);
 
-    if (in->key_pressed[SDL_SCANCODE_R]) {
+    if (in->key_pressed[RGFW_keyR]) {
         // Rotate the piece under the cursor in place; with no piece there (or a
         // collector, which has no facing), rotate the facing for the next placement.
         i32 id = g->hover_valid ? world_get_entity_at(g->world, g->hover_grid_x, g->hover_grid_y) : 0;

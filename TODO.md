@@ -13,7 +13,7 @@
       from the render framerate, so the sim plays identically on any monitor
 - [x] Input system: keyboard, mouse
 - [x] Input layer: engine-owned per-frame snapshot (Engine.input, engine/input).
-      engine_frame_begin drains the SDL queue; the game reads state (down/pressed/
+      engine_frame_begin drains the event queue; the game reads state (down/pressed/
       released, mouse, wheel) in game_process_input instead of handling events.
       Reload seam shrank to five functions (app_handle_event deleted).
 - [ ] Event system: collision, game events (input is covered by the snapshot)
@@ -162,11 +162,10 @@ Things to make it play and look right, batched for later sessions. Not urgent.
 
 ## Platform
 - [x] macOS: building and running
-- [ ] Linux: build and test (toolchain wired: setup.sh + build.sh)
-- [ ] Windows: build and test (toolchain wired: setup.bat + build.bat)
+- [ ] Linux: build and test (toolchain wired: build.sh)
+- [ ] Windows: build and test (toolchain wired: build.bat)
 
-> **Note: cross-platform got much simpler.** Dropping SDL_GPU means there's no
-> shader toolchain and no per-backend bytecode to worry about — SDL_Renderer
-> picks the native 2D backend (Metal/Vulkan/D3D) on each platform on its own.
-> Linux/Windows just need SDL3 built and a C compiler; verify on real hardware
-> when available.
+> **Note: cross-platform got even simpler with RGFW.** One vendored header
+> speaks Win32, X11, and Cocoa, and the renderer is GL 3.3 core, which all
+> three platforms ship. Linux/Windows just need a C compiler; verify on real
+> hardware when available.

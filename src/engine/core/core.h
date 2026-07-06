@@ -8,7 +8,7 @@
 #ifndef CORE_H
 #define CORE_H
 
-#include <SDL3/SDL.h>
+#include "../rgfw.h"
 #include "../base/base.h"
 #include "../input/input.h"
 #include "../mem/arena.h"
@@ -30,8 +30,8 @@ typedef struct {
 } Engine_Config;
 
 typedef struct {
-    SDL_Window  *window;
-    Renderer     r2d;    // 2D renderer (SDL_Renderer + bitmap font)
+    RGFW_window *window;
+    Renderer     r2d;    // 2D renderer (GL batch renderer + bitmap font)
     Input        input;  // per-frame input snapshot, filled by engine_frame_begin
 
     // Per-frame scratch: reset at every engine_frame_begin, so anything allocated
@@ -76,5 +76,9 @@ void engine_frame_end(Engine *e);
 
 // Frames per second over the last completed 1-second window, for the game to display.
 i32  engine_fps(const Engine *e);
+
+// Monotonic milliseconds from an arbitrary origin; wraps every ~49 days, so
+// only differences are meaningful.
+u32  engine_ticks_ms(void);
 
 #endif

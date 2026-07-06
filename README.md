@@ -1,45 +1,43 @@
 # mach
 
-A game engine and the game it exists to run, built together as one thing. Pure C,
-SDL3, and not much else.
+A game engine and the game it exists to run, built together as one thing. Pure C99,
+three single-header libraries, and not much else.
 
 ![mach — isometric factory scene rendered by the engine](assets/mach-engine-screenshot.png)
 
 **Version:** v0.5.1
 
-It's a small **2D isometric** engine driving a factory/automation game. The
-rendering is plain 2D on top of SDL_Renderer. No shaders, no GPU pipeline, no
-offline shader tooling. There used to be all of that; it got cut. (Real 3D comes
-back when there's an actual reason for it and not a day sooner; see
-`ARCHITECTURE.md` for why.)
+It's a small **2D isometric** engine driving a factory/automation game. RGFW
+opens the window and delivers input; on top of that sits the engine's own little
+OpenGL batch renderer — one shader, one draw stream, done. No engine framework,
+no GPU pipeline, no offline shader tooling. (Real 3D comes back when there's an
+actual reason for it and not a day sooner; see `ARCHITECTURE.md` for why.)
 
 ## Building it
 
-You need a C compiler and SDL3. That's the whole list. SDL3 comes in as a git
-submodule and gets built once by the setup script.
+You need a C compiler. That's the whole list — every dependency is a single
+header committed to `third_party/`, and OpenGL comes from the OS. There is no
+setup step.
 
 **macOS / Linux** (bash):
 ```bash
-./scripts/setup.sh      # once: build SDL3, fetch stb
 ./build.sh              # build the game
 ./build/mach_debug      # run it
 ```
 
-**Windows** — from an elevated *Visual Studio "x64 Native Tools"* `cmd` prompt:
+**Windows** — from a *Visual Studio "x64 Native Tools"* `cmd` prompt:
 ```bat
-scripts\setup.bat       :: once: build SDL3 (cmake + MSVC), fetch stb
 build.bat               :: build the game
 build\mach_debug.exe    :: run it
 ```
-The `.bat` files just call the PowerShell scripts, so don't go looking for
-duplicate logic in them.
 
 ### What you actually need
 
-- **A C compiler and SDL3.** SDL_Renderer ships inside SDL3 and gives you
-  hardware-accelerated 2D on whatever's native: Metal, Vulkan, D3D. There's no
-  shader toolchain to install, no GPU SDK, nothing extra. That's the entire point
-  of staying on SDL_Renderer.
+- **A C compiler.** The renderer is a few hundred lines of OpenGL 3.3 core,
+  loaded at runtime. No shader toolchain to install, no GPU SDK, nothing extra.
+- **RGFW**, vendored in `third_party/rgfw/`: a single-header windowing library —
+  window, GL context, keyboard, mouse. What SDL used to do here, minus the
+  building of SDL.
 - **stb**, vendored in `third_party/stb/`: `stb_image.h` for loading sprite art.
   Public domain, single header, nothing to build or fetch.
 - **Clay**, vendored in `third_party/clay/`: a single-header C UI layout library that
@@ -78,8 +76,8 @@ and point your init at them:
 
 ## Why it's built this way
 
-**Pure C, no frameworks.** SDL3 handles the window, input, and rendering. Past
-that it's just C.
+**Pure C, no frameworks.** RGFW handles the window and input, OpenGL puts pixels
+on screen. Past that it's just C99.
 
 **Unity build.** The whole thing compiles in one `clang` call. `mach.c` includes
 every other `.c` file and the compiler sees it all at once. There's no build
@@ -107,9 +105,9 @@ data directly. The idea is lifted from Anton Mikhailov on the *Wookash Podcast*.
 - Linux — toolchain's wired, needs a real run on real hardware
 - Windows — same story
 
-Dropping SDL_GPU made the cross-platform story boring in the best way: no shader
-toolchain, no per-backend bytecode. SDL_Renderer picks the native 2D backend on
-each platform by itself. Build SDL3, bring a C compiler, go.
+The cross-platform story is boring in the best way: RGFW is one header that
+speaks Win32, X11, and Cocoa; the renderer is GL 3.3 core, which all three
+platforms still ship. Bring a C compiler, go.
 
 ## How the code is laid out
 
@@ -119,9 +117,10 @@ src/
     base/                 # fundamental types (i32, f32, b32, ...)
     math/                 # Vec2 + ops, Vec4 for color, scalar helpers
     mem/                  # arena allocator (region list, free/reset whole)
-    core/                 # frame-loop steps, timing, window lifecycle
-    render/               # 2D renderer: render2d (SDL_Renderer + iso), font, image
-    ui.h                  # window context
+    core/                 # frame-loop steps, timing, window lifecycle (owns RGFW)
+    render/               # 2D renderer: render2d (GL batch + iso), gl.h, font, image
+    ui/                   # clay_ui: Clay layout -> render2d draws
+    rgfw.h                # the one include point for RGFW declarations
     debug.h               # assertions, leveled logging
 
   game/                   # the factory sim
@@ -133,8 +132,7 @@ src/
   mach.c                  # unity root: includes everything, defines main()
 
 build.sh / build.bat      # the compiler invocation (macOS-Linux / Windows)
-scripts/setup.sh / .ps1   # build SDL3, fetch stb, run once
-third_party/SDL/          # SDL3 submodule
+third_party/              # rgfw, clay, stb — single headers, committed
 ```
 
 `ARCHITECTURE.md` has the longer version of why any of this is the way it is.
@@ -171,14 +169,17 @@ page. The whole `World` is a single allocation out of an arena.
 
 ## The rendering
 
-It's all **2D on SDL_Renderer**, living in `src/engine/render/`:
+It's all **2D on a small GL batch renderer**, living in `src/engine/render/`:
 
-- **`render2d.{h,c}`** — the actual render layer: clear and present, filled rects,
-  convex polygons (`SDL_RenderGeometry`), outlines (`SDL_RenderLines`), text, sprite
-  loading and drawing, and a 2D pan/zoom `Camera2D`. Plus the isometric transforms,
-  `iso_to_screen` and `screen_to_iso`.
-- **`font.{h,c}`** — an 8×8 bitmap font baked into an `SDL_Texture` atlas, tinted
-  per draw with color mod.
+- **`render2d.{h,c}`** — the actual render layer: one shader, one stream of
+  textured vertex-colored triangles, flushed per texture/scissor change. Filled
+  rects, convex polygons, outlines, text, sprite loading and drawing, and a 2D
+  pan/zoom `Camera2D`. Plus the isometric transforms, `iso_to_screen` and
+  `screen_to_iso`.
+- **`gl.h`** — the ~40 GL 3.3 core entry points the renderer uses, declared by
+  hand and loaded at runtime into the `Renderer` struct. No system GL headers.
+- **`font.{h,c}`** — an 8×8 bitmap font baked into a GL texture atlas, tinted
+  per vertex.
 - **`image.{h,c}`** — the `stb_image` loader for sprite art.
 
 **Isometric is a coordinate transform, not a projection.** The grid maps to 2:1
@@ -198,13 +199,13 @@ The ideas:
   https://www.youtube.com/channel/UC9J9u3apteD0EuFjzRpt71w
 
 The libraries:
-- **SDL3** — https://github.com/libsdl-org/SDL
+- **RGFW** (Riley Mabb) — https://github.com/ColleagueRiley/RGFW
 - **stb** (Sean Barrett) — https://github.com/nothings/stb
 - **Clay** (Nic Barker) — https://github.com/nicbarker/clay
 
 ## Licensing
 
 - **mach engine and game** — Zlib (see `LICENSE`)
-- **SDL3** — Zlib (see `third_party/SDL/LICENSE.txt`)
+- **RGFW** — Zlib (see the header)
 - **stb** — public domain (see each header)
 - **Clay** — Zlib (see the header)

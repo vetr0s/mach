@@ -11,10 +11,11 @@
 mach is **engine-first, minimal, and 2D**. In practice that means a few things,
 and they're load-bearing, so here they are spelled out.
 
-- **A small 2D engine on SDL_Renderer drives the game.** No shaders, no
-  GPU-pipeline ownership, no offline shader tooling. SDL_Renderer already gives you
-  hardware-accelerated 2D on the native backend (Metal, Vulkan, D3D) for zero
-  extra dependencies, because it's part of the SDL3 you're already building.
+- **A small 2D engine on its own GL batch renderer drives the game.** RGFW (a
+  single header, vendored) opens the window and delivers input; the engine owns
+  everything above that: one shader, one stream of textured vertex-colored
+  triangles. No engine framework to build, no GPU-pipeline ownership beyond
+  those few hundred lines, no offline shader tooling.
 - **The game is a 2D isometric builder, and it does not need real 3D.** Look at the
   genre: Factorio, RimWorld, old SimCity. That's 2D sprites in an iso projection.
   The "3D look" is faked with shaded blocks and draw order, not a depth buffer.
@@ -28,11 +29,20 @@ and they're load-bearing, so here they are spelled out.
 
 ## Rendering
 
-`render2d.{h,c}` is the entire render layer, sitting on **SDL_Renderer**:
+`render2d.{h,c}` is the entire render layer, a **batch renderer on OpenGL 3.3
+core**. Every draw call appends textured, vertex-colored triangles to one
+CPU-side batch; the batch flushes to a single `glDrawElements` when the texture
+or scissor changes, the batch fills, or the frame presents. Solid fills sample a
+1×1 white texture, so everything — fills, outlines, text, sprites — goes through
+the same shader. `gl.h` declares the ~40 GL entry points by hand and `r2d_init`
+loads them at runtime through RGFW's proc loader into the `Renderer` struct
+(pointer-passed like all engine state, which is what keeps hot reload honest —
+see below). No system GL headers.
 
 - **Primitives:** `r2d_begin` / `r2d_present`, `r2d_fill_rect`, `r2d_fill_poly`
-  (convex polys through `SDL_RenderGeometry`), `r2d_poly_outline` (closed loops
-  through `SDL_RenderLines`), `r2d_text`, and sprite load/draw
+  (convex fans), `r2d_poly_outline` (closed loops as thin edge quads — core GL
+  has no reliable line width), `r2d_text`, a clip rect for the UI
+  (`r2d_clip_begin`/`end`), and sprite load/draw
   (`r2d_load_texture` / `r2d_sprite`) for real art when it shows up.
 - **Camera2D:** pan and zoom over the isometric plane.
 - **Isometric is a pure coordinate transform**, not a 3D projection. `iso_to_screen`
@@ -50,8 +60,8 @@ The actual *look* lives in the **game** layer, where `render_game.c` composes th
 primitives: the ground is a viewport-culled checker of iso diamonds with grid lines
 stroked on; machines are **shaded blocks** (bright top, two darker side faces,
 outlined edges) drawn back-to-front by `gx+gy`. That's the oldest trick in the
-2D-iso book for faking depth, and it holds up. The font is an `SDL_Texture` atlas,
-tinted per draw with color mod.
+2D-iso book for faking depth, and it holds up. The font is a GL texture atlas of
+8×8 glyphs, tinted per vertex.
 
 ## The engine ÷ game boundary
 
@@ -80,10 +90,10 @@ int main(void) {
 What actually enforces the separation isn't the shape of that loop. It's one rule:
 **`src/engine/` never names a type from `src/game/`.** That's it.
 
-Input follows the same toolbox shape. The game never sees an `SDL_Event`: the
+Input follows the same toolbox shape. The game never sees an `RGFW_event`: the
 engine drains the queue in `engine_frame_begin` (consuming window lifecycle —
 quit, Escape, resize) and folds the rest into `Engine.input`, a per-frame
-snapshot (`engine/input`). The game reads state — `key_pressed[SDL_SCANCODE_1]`,
+snapshot (`engine/input`). The game reads state — `key_pressed[RGFW_key1]`,
 `mouse_pressed[MOUSE_LEFT]`, `wheel` — in one place, `game_process_input`.
 "Pressed"/"released" are this frame's edges (key repeats excluded); "down"
 persists while held.
@@ -120,6 +130,11 @@ Two facts make this work with zero linker tricks:
   `Renderer` / `Arena` / `App`, all owned by the host and passed in by pointer. So
   the host and the library can each carry their own copy of the engine *code* and
   still operate on the same *data*. (Keep it that way: no mutable file-scope state.)
+  This is also why the GL function pointers live *inside* `Renderer`: the library's
+  copy of the draw code batches and flushes through the pointers the host loaded.
+  RGFW itself does keep internal globals, but only the host ever calls it — the
+  library's engine copy stops at `r2d_*`, and the frame lifecycle (events, swap)
+  runs host-side.
 - **State is host-owned.** `App` sits in host memory the reload never touches, and
   the arena's regions are plain `malloc` (process-global), so every pointer survives
   a code swap.
@@ -137,10 +152,13 @@ engine/
   mem                               # arena allocator (region list, whole-arena free/reset)
   input                             # per-frame input snapshot (keys, mouse, wheel)
   core                              # loop lifecycle + per-frame steps, event drain, frame timing
+                                    #   (single home of the RGFW implementation)
+  rgfw.h                            # the one include point for RGFW declarations
   render/
-    render2d.{h,c}                  # SDL_Renderer wrapper + iso camera/transforms
+    render2d.{h,c}                  # GL batch renderer + iso camera/transforms
+    gl.h                            # hand-declared GL 3.3 core surface, runtime-loaded
     color.h                         # Color type, helpers, stock palette (modus-vivendi)
-    font.{h,c}                      # 8x8 bitmap font as an SDL_Texture atlas
+    font.{h,c}                      # 8x8 bitmap font as a GL texture atlas
     image.{h,c}                     # stb_image loader (for sprite art)
   ui/
     clay_ui.{h,c}                   # Clay layout bound to render2d (HUD + future UI)
@@ -175,8 +193,8 @@ are actually tracked over time.
 
 - **Real-time 3D, for now.** Deferred until there's a real need and the GPU
   understanding to own it. The renderer is 2D on purpose, not by accident.
-- **Shaders, custom GPU pipelines, offline shader tooling.** Gone, and good
-  riddance. SDL_Renderer talks to the GPU so you don't have to.
+- **Shaders, custom GPU pipelines, offline shader tooling.** The renderer owns
+  exactly one shader, compiled from a string at startup, and that's the ceiling.
 - **A generic component-system ECS.** Entities are fat structs. You loop over an
   array.
 - **Being a do-everything engine.** Breadth shows up only when a concrete need drags
@@ -187,7 +205,7 @@ are actually tracked over time.
 1. **Game-owned loop** (raylib-style) — done, kept.
 2. *SDL_GPU generic core + batteries split* — done, then **ripped out** when the 2D
    pivot made the whole GPU-stack thesis moot.
-3. **2D SDL_Renderer engine** (this document) — done.
+3. **2D SDL_Renderer engine** — done, then replaced by (8).
 4. **Fixed simulation timestep** — done; the world steps at a constant rate,
    independent of framerate.
 5. **Arena allocator** — done; the world is one arena block.
@@ -195,6 +213,9 @@ are actually tracked over time.
 7. **Value-loop sim** — done; droppers, conveyors, upgraders, and collectors with
    a belt simulation in world_tick. Upgraders are bounded "once per item" so the
    game is about routing, not depletion.
+8. **SDL3 → RGFW + own GL batch renderer** (this document) — done. Every
+   dependency is now a committed single header; the codebase is C99; there is no
+   setup step.
 
 Next up: machine tiers and special upgraders, and real sprite art dropped onto the
 loader that's already sitting there wired and waiting.

@@ -2,13 +2,13 @@
 
 #include "input.h"
 
-// Map an SDL button index to Mouse_Button, or -1 for buttons we don't model.
-static i32 mouse_button_index(u8 sdl_button) {
-    switch (sdl_button) {
-    case SDL_BUTTON_LEFT:   return MOUSE_LEFT;
-    case SDL_BUTTON_RIGHT:  return MOUSE_RIGHT;
-    case SDL_BUTTON_MIDDLE: return MOUSE_MIDDLE;
-    default:                return -1;
+// Map an RGFW button to Mouse_Button, or -1 for buttons we don't model.
+static i32 mouse_button_index(u8 rgfw_button) {
+    switch (rgfw_button) {
+    case RGFW_mouseLeft:   return MOUSE_LEFT;
+    case RGFW_mouseRight:  return MOUSE_RIGHT;
+    case RGFW_mouseMiddle: return MOUSE_MIDDLE;
+    default:               return -1;
     }
 }
 
@@ -20,28 +20,30 @@ void input_frame_begin(Input *in) {
     in->wheel = 0.0f;
 }
 
-void input_handle_event(Input *in, const SDL_Event *ev) {
+void input_handle_event(Input *in, const RGFW_event *ev) {
     switch (ev->type) {
-    case SDL_EVENT_KEY_DOWN:
-        if (ev->key.scancode < SDL_SCANCODE_COUNT) {
-            if (!ev->key.repeat) in->key_pressed[ev->key.scancode] = 1;
-            in->key_down[ev->key.scancode] = 1;
+    case RGFW_keyPressed:
+        if (!ev->key.repeat) in->key_pressed[ev->key.value] = 1;
+        in->key_down[ev->key.value] = 1;
+        break;
+    case RGFW_keyReleased:
+        in->key_down[ev->key.value] = 0;
+        break;
+    case RGFW_mouseMotion: {
+        // RGFW reports absolute positions; the delta is ours to accumulate.
+        Vec2 m = {(f32)ev->mouse.x, (f32)ev->mouse.y};
+        if (in->mouse_seen) {
+            in->mouse_delta.x += m.x - in->mouse.x;
+            in->mouse_delta.y += m.y - in->mouse.y;
         }
-        break;
-    case SDL_EVENT_KEY_UP:
-        if (ev->key.scancode < SDL_SCANCODE_COUNT) in->key_down[ev->key.scancode] = 0;
-        break;
-    case SDL_EVENT_MOUSE_MOTION:
-        in->mouse = (Vec2){ev->motion.x, ev->motion.y};
-        in->mouse_delta.x += ev->motion.xrel;
-        in->mouse_delta.y += ev->motion.yrel;
-        break;
-    case SDL_EVENT_MOUSE_BUTTON_DOWN:
-    case SDL_EVENT_MOUSE_BUTTON_UP: {
-        i32 b = mouse_button_index(ev->button.button);
+        in->mouse = m;
+        in->mouse_seen = 1;
+    } break;
+    case RGFW_mouseButtonPressed:
+    case RGFW_mouseButtonReleased: {
+        i32 b = mouse_button_index(ev->button.value);
         if (b < 0) break;
-        in->mouse = (Vec2){ev->button.x, ev->button.y};
-        if (ev->type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+        if (ev->type == RGFW_mouseButtonPressed) {
             in->mouse_down[b] = 1;
             in->mouse_pressed[b] = 1;
         } else {
@@ -49,12 +51,9 @@ void input_handle_event(Input *in, const SDL_Event *ev) {
             in->mouse_released[b] = 1;
         }
     } break;
-    case SDL_EVENT_MOUSE_WHEEL: {
-        // (npt): Normalize "natural"/flipped scrolling here so the game never
-        // has to look at wheel.direction.
-        f32 dir = (ev->wheel.direction == SDL_MOUSEWHEEL_FLIPPED) ? -1.0f : 1.0f;
-        in->wheel += ev->wheel.y * dir;
-    } break;
+    case RGFW_mouseScroll:
+        in->wheel += ev->delta.y;
+        break;
     default:
         break;
     }

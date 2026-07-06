@@ -108,12 +108,11 @@ void clay_ui_render(ClayUI *ui, Renderer *r) {
             if (bd->width.left)   r2d_fill_rect(r, b.x, b.y, (f32)bd->width.left, b.height, col);
             if (bd->width.right)  r2d_fill_rect(r, b.x + b.width - (f32)bd->width.right, b.y, (f32)bd->width.right, b.height, col);
         } break;
-        case CLAY_RENDER_COMMAND_TYPE_SCISSOR_START: {
-            SDL_Rect clip = { (int)b.x, (int)b.y, (int)b.width, (int)b.height };
-            SDL_SetRenderClipRect(r->sdl, &clip);
-        } break;
+        case CLAY_RENDER_COMMAND_TYPE_SCISSOR_START:
+            r2d_clip_begin(r, b.x, b.y, b.width, b.height);
+            break;
         case CLAY_RENDER_COMMAND_TYPE_SCISSOR_END:
-            SDL_SetRenderClipRect(r->sdl, NULL);
+            r2d_clip_end(r);
             break;
         default:
             break;  // images, custom, overlays: unused by our HUD for now

@@ -1,43 +1,32 @@
 #!/usr/bin/env bash
 # Build the mach engine with platform-native compiler toolchain.
-# Usage: ./build.sh [debug|release]
+# Usage: ./build.sh [debug|release|hot|game]
 # Defaults to debug.
 
 set -euo pipefail
 
-# Derive platform tag (same scheme as SDL3 install prefix).
+# Platform toolchain and the libs RGFW + OpenGL need. No SDL, no setup step:
+# windowing is third_party/rgfw (single header), GL comes from the OS.
 os_name="$(uname -s)"
-machine="$(uname -m)"
 
 case "$os_name" in
   Darwin)
-    platform="${os_name}-${machine}"
     cc="clang"
-    ld_flags="-Wl,-rpath,@loader_path"
+    libs="-framework Cocoa -framework CoreVideo -framework IOKit -framework OpenGL"
     lib_ext=".dylib"
     shared_flags="-dynamiclib"
-    dl_lib=""              # dlopen lives in libSystem
     ;;
   Linux)
-    platform="${os_name}-${machine}"
     cc="clang"
-    ld_flags="-Wl,-rpath,\$ORIGIN"
+    libs="-lX11 -lXrandr -lGL -lm -ldl"
     lib_ext=".so"
     shared_flags="-shared -fPIC"
-    dl_lib="-ldl"
     ;;
   *)
     echo "Unsupported platform: $os_name" >&2
     exit 1
     ;;
 esac
-
-# SDL3 install prefix (must exist; run ./scripts/setup.sh first).
-SDL_PREFIX="third_party/SDL/install/${platform}"
-if [ ! -d "$SDL_PREFIX" ]; then
-  echo "SDL3 not found at $SDL_PREFIX. Run ./scripts/setup.sh first." >&2
-  exit 1
-fi
 
 # Build target:
 #   debug   (default)  static monolith, -g -O0   -> build/mach_debug
@@ -52,22 +41,14 @@ build_type="${1:-debug}"
 mkdir -p build
 
 game_lib="build/libmach_game${lib_ext}"
-common_flags="-std=c11 -Wall -Wextra -I$SDL_PREFIX/include -L$SDL_PREFIX/lib"
+common_flags="-std=c99 -Wall -Wextra"
 
 # Build the hot-reloadable game library from src/game_lib.c.
 build_game_lib() {
   echo "Compiling: $game_lib"
   # shellcheck disable=SC2086
-  $cc $common_flags -g -O0 $shared_flags $ld_flags \
-    -o "$game_lib" src/game_lib.c -lSDL3
-}
-
-# Copy the SDL3 shared library next to the binaries so they run without LD_LIBRARY_PATH.
-copy_sdl() {
-  case "$os_name" in
-    Darwin) cp -f "$SDL_PREFIX/lib/libSDL3.0.dylib" "build/" ;;
-    Linux)  cp -f "$SDL_PREFIX/lib/libSDL3.so" "build/" ;;
-  esac
+  $cc $common_flags -g -O0 $shared_flags \
+    -o "$game_lib" src/game_lib.c $libs
 }
 
 case "$build_type" in
@@ -77,8 +58,7 @@ case "$build_type" in
     out_file="build/mach${suffix}"
     echo "Compiling: $out_file"
     # shellcheck disable=SC2086
-    $cc $common_flags $opt_flags $ld_flags -o "$out_file" src/mach.c -lSDL3
-    copy_sdl
+    $cc $common_flags $opt_flags -o "$out_file" src/mach.c $libs
     echo "Build complete: $out_file"
     ;;
   game)
@@ -91,10 +71,9 @@ case "$build_type" in
     out_file="build/mach_hot"
     echo "Compiling: $out_file"
     # shellcheck disable=SC2086
-    $cc $common_flags -g -O0 $ld_flags \
+    $cc $common_flags -g -O0 \
       -DGAME_LIB_PATH="\"$game_lib\"" \
-      -o "$out_file" src/host.c -lSDL3 $dl_lib
-    copy_sdl
+      -o "$out_file" src/host.c $libs
     echo "Build complete: $out_file"
 
     # Now become the dev loop: run the host and watch the sources, rebuilding the

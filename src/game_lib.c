@@ -14,16 +14,8 @@
 // monolith. See build.sh and ARCHITECTURE.md.
 
 // Engine (own copy; state is all pointer-passed, see above).
-#include "engine/base/base.h"
-#include "engine/debug.h"
-#include "engine/mem/arena.c"
-#include "engine/math/math.c"
-#include "engine/input/input.c"
-#include "engine/render/image.c"
-#include "engine/render/font.c"
-#include "engine/render/render2d.c"
-#include "engine/ui/clay_ui.c"
-#include "engine/core/core.c"
+#define MACH_IMPLEMENTATION
+#include "mach.h"
 
 // Game (app.c defines the five exported entry points).
 #include "game/world/world.c"

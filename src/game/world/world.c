@@ -1,7 +1,6 @@
 // World implementation (included into mach.c).
 
 #include "world.h"
-#include "../../engine/debug.h"
 
 // Sim tuning. DROP_PERIOD is in ticks, so an item lands every DROP_PERIOD cells on a
 // straight belt regardless of the tick rate. At 3 ticks/sec, DROP_PERIOD 2 drops one

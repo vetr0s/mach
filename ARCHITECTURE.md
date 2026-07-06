@@ -29,12 +29,12 @@ and they're load-bearing, so here they are spelled out.
 
 ## Rendering
 
-`render2d.{h,c}` is the entire render layer, a **batch renderer on OpenGL 3.3
+`render2d` is the entire render layer, a **batch renderer on OpenGL 3.3
 core**. Every draw call appends textured, vertex-colored triangles to one
 CPU-side batch; the batch flushes to a single `glDrawElements` when the texture
 or scissor changes, the batch fills, or the frame presents. Solid fills sample a
 1×1 white texture, so everything — fills, outlines, text, sprites — goes through
-the same shader. `gl.h` declares the ~40 GL entry points by hand and `r2d_init`
+the same shader. The `gl` section declares the ~40 GL entry points by hand and `r2d_init`
 loads them at runtime through RGFW's proc loader into the `Renderer` struct
 (pointer-passed like all engine state, which is what keeps hot reload honest —
 see below). No system GL headers.
@@ -49,7 +49,7 @@ see below). No system GL headers.
   and `screen_to_iso` map grid to pixels and back (2:1 diamond tiles). Want a
   top-down or free 2D camera instead? Swap the transform. Nothing downstream cares.
 
-Colors are the `Color` type (`render/color.h`) — a `Vec4` alias, RGBA in [0,1] —
+Colors are the `Color` type (the `color` section) — a `Vec4` alias, RGBA in [0,1] —
 plus a stock palette and small helpers (`color_shade`, `color_lighten`,
 `color_lerp`, `color_alpha`). The palette is **modus-vivendi** (Protesilaos
 Stavrou's Emacs theme): accessibility-grade contrast on a black background, with
@@ -88,12 +88,12 @@ int main(void) {
 ```
 
 What actually enforces the separation isn't the shape of that loop. It's one rule:
-**`src/engine/` never names a type from `src/game/`.** That's it.
+**`mach.h` never names a type from `src/game/`.** That's it.
 
 Input follows the same toolbox shape. The game never sees an `RGFW_event`: the
 engine drains the queue in `engine_frame_begin` (consuming window lifecycle —
 quit, Escape, resize) and folds the rest into `Engine.input`, a per-frame
-snapshot (`engine/input`). The game reads state — `key_pressed[RGFW_key1]`,
+snapshot (the `input` section of `mach.h`). The game reads state — `key_pressed[RGFW_key1]`,
 `mouse_pressed[MOUSE_LEFT]`, `wheel` — in one place, `game_process_input`.
 "Pressed"/"released" are this frame's edges (key repeats excluded); "down"
 persists while held.
@@ -117,7 +117,7 @@ of the monolith:
   and keeps running against the same `App` memory.
 
 `./build.sh hot` is the whole dev loop in one command: it builds both artifacts,
-launches `mach_hot`, then turns into a watcher over `src/` that rebuilds the
+launches `mach_hot`, then turns into a watcher over `mach.h` and `src/` that rebuilds the
 library on every change. Edit sim rules, tuning, or render code and it swaps in
 live — no restart, no lost state. A compile error doesn't stop the watch; the
 game keeps running the last good code until the next save fixes it. Ctrl-C (or
@@ -146,32 +146,42 @@ be reinterpreted wrong otherwise. `src/mach.c` stays the release monolith (no
 
 ## The modules
 
+The engine is **one header, `mach.h`**, stb-style: declarations always,
+implementation compiled where `MACH_IMPLEMENTATION` is defined (the unity root,
+the dev host, and the hot-reload library each do it once). The header is the
+source of truth — there is no per-module file tree behind it and no
+amalgamation step. Its sections, in order:
+
 ```
-engine/
-  base, math, debug                 # types, Vec2/scalar math, logging
+mach.h
+  base, debug                       # types, logging/assertions
+  RGFW declarations                 # windowing/input/GL context (impl in core)
   mem                               # arena allocator (region list, whole-arena free/reset)
+  math                              # Vec2 + scalar helpers
+  color                             # Color type, helpers, stock palette (modus-vivendi)
+  gl                                # hand-declared GL 3.3 core surface, runtime-loaded
+  font                              # 8x8 bitmap font as a GL texture atlas
+  image                             # stb_image loader (for sprite art)
+  render2d                          # GL batch renderer + iso camera/transforms
   input                             # per-frame input snapshot (keys, mouse, wheel)
-  core                              # loop lifecycle + per-frame steps, event drain, frame timing
+  clay_ui                           # Clay layout bound to render2d (HUD + future UI)
+  core                              # loop lifecycle + per-frame steps, event drain, timing
                                     #   (single home of the RGFW implementation)
-  rgfw.h                            # the one include point for RGFW declarations
-  render/
-    render2d.{h,c}                  # GL batch renderer + iso camera/transforms
-    gl.h                            # hand-declared GL 3.3 core surface, runtime-loaded
-    color.h                         # Color type, helpers, stock palette (modus-vivendi)
-    font.{h,c}                      # 8x8 bitmap font as a GL texture atlas
-    image.{h,c}                     # stb_image loader (for sprite art)
-  ui/
-    clay_ui.{h,c}                   # Clay layout bound to render2d (HUD + future UI)
-game/
+
+src/game/
   world                             # entity sim (fat structs + grid)
   game                              # state, input, 2D iso camera, hover-pick
   render_game                       # draws the world as iso tiles + shaded blocks
   app                               # glue: bridges engine API and game internals
 ```
 
+The single-header deps (`RGFW.h`, `stb_image.h`, `clay.h`) sit on the include
+path from `third_party/`; `mach.h` includes them by bare name so it works
+wherever it's vendored.
+
 ## Memory
 
-Arenas are the idiom: `engine/mem/arena`, modeled on Tsoding's arena.h. It's a
+Arenas are the idiom: the `mem` section of `mach.h`, modeled on Tsoding's arena.h. It's a
 linked list of malloc'd regions with bump allocation, freed or reset as a whole
 rather than one allocation at a time. Two arenas exist today:
 
@@ -216,6 +226,9 @@ are actually tracked over time.
 8. **SDL3 → RGFW + own GL batch renderer** (this document) — done. Every
    dependency is now a committed single header; the codebase is C99; there is no
    setup step.
+9. **Single-header engine** (this document) — done. The whole engine is `mach.h`,
+   edited directly, nob.h-style. Groundwork for splitting engine and game into
+   their own repos.
 
 Next up: machine tiers and special upgraders, and real sprite art dropped onto the
 loader that's already sitting there wired and waiting.

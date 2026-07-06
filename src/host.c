@@ -21,15 +21,8 @@
 
 // Engine (own copy; state is all pointer-passed, so the library's copy and this
 // one share the same Engine/App data).
-#include "engine/base/base.h"
-#include "engine/debug.h"
-#include "engine/mem/arena.c"
-#include "engine/math/math.c"
-#include "engine/input/input.c"
-#include "engine/render/image.c"
-#include "engine/render/font.c"
-#include "engine/render/render2d.c"
-#include "engine/core/core.c"
+#define MACH_IMPLEMENTATION
+#include "mach.h"
 
 // Game types and the reload-interface signatures (NOT the game .c sources: those
 // are compiled into the library and reached only through the pointers below).

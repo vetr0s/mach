@@ -7,8 +7,7 @@
 #ifndef RENDER_GAME_H
 #define RENDER_GAME_H
 
-#include "../engine/mem/arena.h"
-#include "../engine/render/render2d.h"
+#include "mach.h"
 #include "game.h"
 
 // Draw the world (ground tiles, machines, hover preview) for the given frame.

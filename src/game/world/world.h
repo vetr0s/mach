@@ -7,8 +7,7 @@
 #ifndef WORLD_H
 #define WORLD_H
 
-#include "../../engine/base/base.h"
-#include "../../engine/mem/arena.h"
+#include "mach.h"
 
 typedef enum {
     ENTITY_INVALID = 0,

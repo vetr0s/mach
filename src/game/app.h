@@ -6,8 +6,7 @@
 #ifndef GAME_APP_H
 #define GAME_APP_H
 
-#include "../engine/core/core.h"
-#include "../engine/ui/clay_ui.h"
+#include "mach.h"
 #include "game.h"
 #include "render_game.h"
 

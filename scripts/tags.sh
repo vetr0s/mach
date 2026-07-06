@@ -6,8 +6,8 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-echo "Generating tags for src/..."
-ctags -e -R src/
+echo "Generating tags for mach.h + src/..."
+ctags -e -R mach.h src/
 
 echo "Tags generated: $(pwd)/TAGS"
 echo ""

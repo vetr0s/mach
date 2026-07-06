@@ -1,21 +1,14 @@
-// Unity build root. Includes every translation unit and defines main().
+// Unity build root. Includes everything and defines main().
 //
-// The whole engine compiles as one translation unit: this file #includes all the
-// .c sources directly, so the compiler sees everything at once. The game owns the
-// loop in main() and drives the engine through its public API. See ARCHITECTURE.md
-// for the design and TODO.md for the roadmap.
+// The whole game compiles as one translation unit: the engine comes in as
+// mach.h (this file defines its implementation), then this file #includes the
+// game .c sources directly, so the compiler sees everything at once. The game
+// owns the loop in main() and drives the engine through its public API. See
+// ARCHITECTURE.md for the design and TODO.md for the roadmap.
 
 // Engine
-#include "engine/base/base.h"
-#include "engine/debug.h"
-#include "engine/mem/arena.c"
-#include "engine/math/math.c"
-#include "engine/input/input.c"
-#include "engine/render/image.c"
-#include "engine/render/font.c"
-#include "engine/render/render2d.c"
-#include "engine/ui/clay_ui.c"
-#include "engine/core/core.c"
+#define MACH_IMPLEMENTATION
+#include "mach.h"
 
 // Game
 #include "game/world/world.c"

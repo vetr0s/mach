@@ -42,7 +42,7 @@ build\mach_debug.exe    :: run it
   Public domain, single header, nothing to build or fetch.
 - **Clay**, vendored in `third_party/clay/`: a single-header C UI layout library that
   drives the HUD. Clay does layout; the engine walks its render commands and draws them
-  with `render2d` (`src/engine/ui/clay_ui.{h,c}`). Nothing to build or fetch.
+  with `render2d` (the `clay_ui` section of `mach.h`). Nothing to build or fetch.
 
 ## Playing with it
 
@@ -84,12 +84,13 @@ every other `.c` file and the compiler sees it all at once. There's no build
 system to speak of; `build.sh` is the compiler invocation. If that sounds strange,
 go watch some Handmade Hero and look at how RAD Debugger builds. It's freeing.
 
-**Engine and game, kept apart.** The engine (rendering, input, windowing) lives
-in `src/engine/`. The game (entities, rules, content) lives in `src/game/`. The
-dependency only ever points one way: **`src/engine/` never names a game type.** The
-game owns the loop in `main()` and calls into the engine, raylib-style; the engine
-drives nothing on its own. Swap in a different game and `src/engine/` doesn't have
-to notice.
+**Engine and game, kept apart.** The engine is one header, `mach.h`, in the
+stb style: declarations always, implementation in the one translation unit that
+defines `MACH_IMPLEMENTATION`. The game (entities, rules, content) lives in
+`src/game/`. The dependency only ever points one way: **`mach.h` never names a
+game type.** The game owns the loop in `main()` and calls into the engine,
+raylib-style; the engine drives nothing on its own. Swap in a different game
+and `mach.h` doesn't have to notice.
 
 **Minimal, and 2D on purpose.** Isometric is a coordinate transform, not a 3D
 projection. The "3D look" is faked with shaded, outlined blocks. The engine stays
@@ -112,24 +113,16 @@ platforms still ship. Bring a C compiler, go.
 ## How the code is laid out
 
 ```
-src/
-  engine/                 # the reusable part
-    base/                 # fundamental types (i32, f32, b32, ...)
-    math/                 # Vec2 + ops, Vec4 for color, scalar helpers
-    mem/                  # arena allocator (region list, free/reset whole)
-    core/                 # frame-loop steps, timing, window lifecycle (owns RGFW)
-    render/               # 2D renderer: render2d (GL batch + iso), gl.h, font, image
-    ui/                   # clay_ui: Clay layout -> render2d draws
-    rgfw.h                # the one include point for RGFW declarations
-    debug.h               # assertions, leveled logging
+mach.h                    # the engine: one header, stb-style, C99
 
+src/
   game/                   # the factory sim
     app.c                 # glue: the one file that knows both the engine and the game
     game.h/.c             # game state, input, the 2D iso camera, hover-picking
     render_game.h/.c      # draws the world as iso tiles and shaded blocks
     world/                # entities and the grid simulation
 
-  mach.c                  # unity root: includes everything, defines main()
+  mach.c                  # unity root: MACH_IMPLEMENTATION + game sources + main()
 
 build.sh / build.bat      # the compiler invocation (macOS-Linux / Windows)
 third_party/              # rgfw, clay, stb — single headers, committed
@@ -169,18 +162,18 @@ page. The whole `World` is a single allocation out of an arena.
 
 ## The rendering
 
-It's all **2D on a small GL batch renderer**, living in `src/engine/render/`:
+It's all **2D on a small GL batch renderer**, the render sections of `mach.h`:
 
-- **`render2d.{h,c}`** — the actual render layer: one shader, one stream of
+- **`render2d`** — the actual render layer: one shader, one stream of
   textured vertex-colored triangles, flushed per texture/scissor change. Filled
   rects, convex polygons, outlines, text, sprite loading and drawing, and a 2D
   pan/zoom `Camera2D`. Plus the isometric transforms, `iso_to_screen` and
   `screen_to_iso`.
-- **`gl.h`** — the ~40 GL 3.3 core entry points the renderer uses, declared by
+- **`gl`** — the ~40 GL 3.3 core entry points the renderer uses, declared by
   hand and loaded at runtime into the `Renderer` struct. No system GL headers.
-- **`font.{h,c}`** — an 8×8 bitmap font baked into a GL texture atlas, tinted
+- **`font`** — an 8×8 bitmap font baked into a GL texture atlas, tinted
   per vertex.
-- **`image.{h,c}`** — the `stb_image` loader for sprite art.
+- **`image`** — the `stb_image` loader for sprite art.
 
 **Isometric is a coordinate transform, not a projection.** The grid maps to 2:1
 diamond tiles. Machines are **shaded blocks** (a bright top, two darker side faces,

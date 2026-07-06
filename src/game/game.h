@@ -3,9 +3,7 @@
 #ifndef GAME_H
 #define GAME_H
 
-#include "../engine/base/base.h"
-#include "../engine/input/input.h"
-#include "../engine/render/render2d.h"
+#include "mach.h"
 #include "world/world.h"
 
 // Fixed simulation rate. The world advances in discrete ticks at this rate,

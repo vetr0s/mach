@@ -66,7 +66,7 @@ typedef i32 b32;
 #define MACH_FALSE 0
 
 // Number of elements in a fixed-size array.
-#define ARRAY_COUNT(a) (sizeof(a) / sizeof((a)[0]))
+#define MACH_ARRAY_COUNT(a) (sizeof(a) / sizeof((a)[0]))
 
 // =============================================================================
 // debug: leveled logging and assertions
@@ -75,18 +75,18 @@ typedef i32 b32;
 // Debug utilities: leveled logging and assertions.
 //
 // Logging levels:
-//   LOG_INFO  - lifecycle / high-level events (always compiled in)
-//   LOG_ERROR - failures and recoverable errors (always compiled in)
-//   LOG_DEBUG - verbose per-frame / per-event tracing (debug builds only)
+//   MACH_LOG_INFO  - lifecycle / high-level events (always compiled in)
+//   MACH_LOG_ERROR - failures and recoverable errors (always compiled in)
+//   MACH_LOG_DEBUG - verbose per-frame / per-event tracing (debug builds only)
 //
 // All output goes to stderr with a level tag so logs are greppable.
 
 #include <stdio.h>
 
-#define LOG_INFO(fmt, ...) \
+#define MACH_LOG_INFO(fmt, ...) \
   fprintf(stderr, "[INFO]  " fmt "\n", ##__VA_ARGS__)
 
-#define LOG_ERROR(fmt, ...) \
+#define MACH_LOG_ERROR(fmt, ...) \
   fprintf(stderr, "[ERROR] " fmt "\n", ##__VA_ARGS__)
 
 // Break into the debugger, per compiler. gcc has no __builtin_debugbreak, so it
@@ -101,17 +101,17 @@ typedef i32 b32;
 #endif
 
 #ifdef NDEBUG
-  #define DEBUG_ASSERT(x) (void)(x)
-  #define LOG_DEBUG(fmt, ...) (void)0
+  #define MACH_DEBUG_ASSERT(x) (void)(x)
+  #define MACH_LOG_DEBUG(fmt, ...) (void)0
 #else
-  #define DEBUG_ASSERT(x) \
+  #define MACH_DEBUG_ASSERT(x) \
     do { \
       if (!(x)) { \
-        LOG_ERROR("assertion failed: %s (%s:%d)", #x, __FILE__, __LINE__); \
+        MACH_LOG_ERROR("assertion failed: %s (%s:%d)", #x, __FILE__, __LINE__); \
         MACH_DEBUGBREAK(); \
       } \
     } while (0)
-  #define LOG_DEBUG(fmt, ...) \
+  #define MACH_LOG_DEBUG(fmt, ...) \
     fprintf(stderr, "[DEBUG] " fmt "\n", ##__VA_ARGS__)
 #endif
 
@@ -159,14 +159,14 @@ typedef struct {
 // Hand back `size` bytes from the arena, chaining on a new region if the current
 // one is full. The result is uintptr_t-aligned. Memory is NOT zeroed. Returns
 // NULL only if the backing malloc fails.
-void *arena_alloc(Mach_Arena *a, usize size);
+void *mach_arena_alloc(Mach_Arena *a, usize size);
 
 // Mark every region empty so its memory is reused by later allocations, without
 // returning anything to the OS. Pointers from before the reset become garbage.
-void arena_reset(Mach_Arena *a);
+void mach_arena_reset(Mach_Arena *a);
 
 // Return every region to the OS and leave the arena empty (safe to reuse).
-void arena_free(Mach_Arena *a);
+void mach_arena_free(Mach_Arena *a);
 
 // =============================================================================
 // math: 2D vectors and scalar helpers
@@ -189,19 +189,19 @@ typedef struct {
 } Mach_Vec4;  // also used as RGBA color
 
 // Scalar
-f32 math_min(f32 a, f32 b);
-f32 math_max(f32 a, f32 b);
-f32 math_clamp(f32 v, f32 lo, f32 hi);
-f32 math_lerp(f32 a, f32 b, f32 t);
+f32 mach_min(f32 a, f32 b);
+f32 mach_max(f32 a, f32 b);
+f32 mach_clamp(f32 v, f32 lo, f32 hi);
+f32 mach_lerp(f32 a, f32 b, f32 t);
 
 // Mach_Vec2
-Mach_Vec2 vec2_add(Mach_Vec2 a, Mach_Vec2 b);
-Mach_Vec2 vec2_sub(Mach_Vec2 a, Mach_Vec2 b);
-Mach_Vec2 vec2_scale(Mach_Vec2 v, f32 s);
-f32  vec2_dot(Mach_Vec2 a, Mach_Vec2 b);
-f32  vec2_length(Mach_Vec2 v);
-Mach_Vec2 vec2_normalize(Mach_Vec2 v);
-Mach_Vec2 vec2_lerp(Mach_Vec2 a, Mach_Vec2 b, f32 t);
+Mach_Vec2 mach_vec2_add(Mach_Vec2 a, Mach_Vec2 b);
+Mach_Vec2 mach_vec2_sub(Mach_Vec2 a, Mach_Vec2 b);
+Mach_Vec2 mach_vec2_scale(Mach_Vec2 v, f32 s);
+f32  mach_vec2_dot(Mach_Vec2 a, Mach_Vec2 b);
+f32  mach_vec2_length(Mach_Vec2 v);
+Mach_Vec2 mach_vec2_normalize(Mach_Vec2 v);
+Mach_Vec2 mach_vec2_lerp(Mach_Vec2 a, Mach_Vec2 b, f32 t);
 
 // =============================================================================
 // color: Mach_Color type, helpers, stock palette (modus-vivendi)
@@ -215,7 +215,7 @@ Mach_Vec2 vec2_lerp(Mach_Vec2 a, Mach_Vec2 b, f32 t);
 // colors designed for a black background, which is exactly what a game HUD wants.
 // The names mirror the theme's own (bg-dim, red-warmer, ...), so its docs apply.
 //
-// A game can lean on these everywhere, or define its own colors with COLOR_HEX
+// A game can lean on these everywhere, or define its own colors with MACH_COLOR_HEX
 // and ignore the palette entirely. The engine itself has no opinion.
 
 
@@ -223,7 +223,7 @@ typedef Mach_Vec4 Mach_Color;
 
 // A Mach_Color from 0xRRGGBB, alpha 1. Every palette entry below is one of these, so
 // the hex value stays visible and greppable.
-#define COLOR_HEX(h) ((Mach_Color){ \
+#define MACH_COLOR_HEX(h) ((Mach_Color){ \
     (f32)(((h) >> 16) & 0xFF) / 255.0f, \
     (f32)(((h) >>  8) & 0xFF) / 255.0f, \
     (f32)(((h)      ) & 0xFF) / 255.0f, \
@@ -231,114 +231,114 @@ typedef Mach_Vec4 Mach_Color;
 
 // --- Basic values -------------------------------------------------------------
 
-#define COLOR_BG_MAIN      COLOR_HEX(0x000000)
-#define COLOR_BG_DIM       COLOR_HEX(0x1e1e1e)
-#define COLOR_FG_MAIN      COLOR_HEX(0xffffff)
-#define COLOR_FG_DIM       COLOR_HEX(0x989898)
-#define COLOR_FG_ALT       COLOR_HEX(0xc6daff)
-#define COLOR_BG_ACTIVE    COLOR_HEX(0x535353)
-#define COLOR_BG_INACTIVE  COLOR_HEX(0x303030)
-#define COLOR_BORDER       COLOR_HEX(0x646464)
+#define MACH_COLOR_BG_MAIN      MACH_COLOR_HEX(0x000000)
+#define MACH_COLOR_BG_DIM       MACH_COLOR_HEX(0x1e1e1e)
+#define MACH_COLOR_FG_MAIN      MACH_COLOR_HEX(0xffffff)
+#define MACH_COLOR_FG_DIM       MACH_COLOR_HEX(0x989898)
+#define MACH_COLOR_FG_ALT       MACH_COLOR_HEX(0xc6daff)
+#define MACH_COLOR_BG_ACTIVE    MACH_COLOR_HEX(0x535353)
+#define MACH_COLOR_BG_INACTIVE  MACH_COLOR_HEX(0x303030)
+#define MACH_COLOR_BORDER       MACH_COLOR_HEX(0x646464)
 
-#define COLOR_BLACK        COLOR_BG_MAIN
-#define COLOR_WHITE        COLOR_FG_MAIN
+#define MACH_COLOR_BLACK        MACH_COLOR_BG_MAIN
+#define MACH_COLOR_WHITE        MACH_COLOR_FG_MAIN
 
 // --- Common accents -----------------------------------------------------------
 
-#define COLOR_RED              COLOR_HEX(0xff5f59)
-#define COLOR_RED_WARMER       COLOR_HEX(0xff6b55)
-#define COLOR_RED_COOLER       COLOR_HEX(0xff7f86)
-#define COLOR_RED_FAINT        COLOR_HEX(0xff9580)
-#define COLOR_RED_INTENSE      COLOR_HEX(0xff5f5f)
+#define MACH_COLOR_RED              MACH_COLOR_HEX(0xff5f59)
+#define MACH_COLOR_RED_WARMER       MACH_COLOR_HEX(0xff6b55)
+#define MACH_COLOR_RED_COOLER       MACH_COLOR_HEX(0xff7f86)
+#define MACH_COLOR_RED_FAINT        MACH_COLOR_HEX(0xff9580)
+#define MACH_COLOR_RED_INTENSE      MACH_COLOR_HEX(0xff5f5f)
 
-#define COLOR_GREEN            COLOR_HEX(0x44bc44)
-#define COLOR_GREEN_WARMER     COLOR_HEX(0x70b900)
-#define COLOR_GREEN_COOLER     COLOR_HEX(0x00c06f)
-#define COLOR_GREEN_FAINT      COLOR_HEX(0x88ca9f)
-#define COLOR_GREEN_INTENSE    COLOR_HEX(0x44df44)
+#define MACH_COLOR_GREEN            MACH_COLOR_HEX(0x44bc44)
+#define MACH_COLOR_GREEN_WARMER     MACH_COLOR_HEX(0x70b900)
+#define MACH_COLOR_GREEN_COOLER     MACH_COLOR_HEX(0x00c06f)
+#define MACH_COLOR_GREEN_FAINT      MACH_COLOR_HEX(0x88ca9f)
+#define MACH_COLOR_GREEN_INTENSE    MACH_COLOR_HEX(0x44df44)
 
-#define COLOR_YELLOW           COLOR_HEX(0xd0bc00)
-#define COLOR_YELLOW_WARMER    COLOR_HEX(0xfec43f)
-#define COLOR_YELLOW_COOLER    COLOR_HEX(0xdfaf7a)
-#define COLOR_YELLOW_FAINT     COLOR_HEX(0xd2b580)
-#define COLOR_YELLOW_INTENSE   COLOR_HEX(0xefef00)
+#define MACH_COLOR_YELLOW           MACH_COLOR_HEX(0xd0bc00)
+#define MACH_COLOR_YELLOW_WARMER    MACH_COLOR_HEX(0xfec43f)
+#define MACH_COLOR_YELLOW_COOLER    MACH_COLOR_HEX(0xdfaf7a)
+#define MACH_COLOR_YELLOW_FAINT     MACH_COLOR_HEX(0xd2b580)
+#define MACH_COLOR_YELLOW_INTENSE   MACH_COLOR_HEX(0xefef00)
 
-#define COLOR_BLUE             COLOR_HEX(0x2fafff)
-#define COLOR_BLUE_WARMER      COLOR_HEX(0x79a8ff)
-#define COLOR_BLUE_COOLER      COLOR_HEX(0x00bcff)
-#define COLOR_BLUE_FAINT       COLOR_HEX(0x82b0ec)
-#define COLOR_BLUE_INTENSE     COLOR_HEX(0x338fff)
+#define MACH_COLOR_BLUE             MACH_COLOR_HEX(0x2fafff)
+#define MACH_COLOR_BLUE_WARMER      MACH_COLOR_HEX(0x79a8ff)
+#define MACH_COLOR_BLUE_COOLER      MACH_COLOR_HEX(0x00bcff)
+#define MACH_COLOR_BLUE_FAINT       MACH_COLOR_HEX(0x82b0ec)
+#define MACH_COLOR_BLUE_INTENSE     MACH_COLOR_HEX(0x338fff)
 
-#define COLOR_MAGENTA          COLOR_HEX(0xfeacd0)
-#define COLOR_MAGENTA_WARMER   COLOR_HEX(0xf78fe7)
-#define COLOR_MAGENTA_COOLER   COLOR_HEX(0xb6a0ff)
-#define COLOR_MAGENTA_FAINT    COLOR_HEX(0xcaa6df)
-#define COLOR_MAGENTA_INTENSE  COLOR_HEX(0xff66ff)
+#define MACH_COLOR_MAGENTA          MACH_COLOR_HEX(0xfeacd0)
+#define MACH_COLOR_MAGENTA_WARMER   MACH_COLOR_HEX(0xf78fe7)
+#define MACH_COLOR_MAGENTA_COOLER   MACH_COLOR_HEX(0xb6a0ff)
+#define MACH_COLOR_MAGENTA_FAINT    MACH_COLOR_HEX(0xcaa6df)
+#define MACH_COLOR_MAGENTA_INTENSE  MACH_COLOR_HEX(0xff66ff)
 
-#define COLOR_CYAN             COLOR_HEX(0x00d3d0)
-#define COLOR_CYAN_WARMER      COLOR_HEX(0x4ae2f0)
-#define COLOR_CYAN_COOLER      COLOR_HEX(0x6ae4b9)
-#define COLOR_CYAN_FAINT       COLOR_HEX(0x9ac8e0)
-#define COLOR_CYAN_INTENSE     COLOR_HEX(0x00eff0)
+#define MACH_COLOR_CYAN             MACH_COLOR_HEX(0x00d3d0)
+#define MACH_COLOR_CYAN_WARMER      MACH_COLOR_HEX(0x4ae2f0)
+#define MACH_COLOR_CYAN_COOLER      MACH_COLOR_HEX(0x6ae4b9)
+#define MACH_COLOR_CYAN_FAINT       MACH_COLOR_HEX(0x9ac8e0)
+#define MACH_COLOR_CYAN_INTENSE     MACH_COLOR_HEX(0x00eff0)
 
 // --- Uncommon accents ---------------------------------------------------------
 
-#define COLOR_RUST    COLOR_HEX(0xdb7b5f)
-#define COLOR_GOLD    COLOR_HEX(0xc0965b)
-#define COLOR_OLIVE   COLOR_HEX(0x9cbd6f)
-#define COLOR_SLATE   COLOR_HEX(0x76afbf)
-#define COLOR_INDIGO  COLOR_HEX(0x9099d9)
-#define COLOR_MAROON  COLOR_HEX(0xcf7fa7)
-#define COLOR_PINK    COLOR_HEX(0xd09dc0)
+#define MACH_COLOR_RUST    MACH_COLOR_HEX(0xdb7b5f)
+#define MACH_COLOR_GOLD    MACH_COLOR_HEX(0xc0965b)
+#define MACH_COLOR_OLIVE   MACH_COLOR_HEX(0x9cbd6f)
+#define MACH_COLOR_SLATE   MACH_COLOR_HEX(0x76afbf)
+#define MACH_COLOR_INDIGO  MACH_COLOR_HEX(0x9099d9)
+#define MACH_COLOR_MAROON  MACH_COLOR_HEX(0xcf7fa7)
+#define MACH_COLOR_PINK    MACH_COLOR_HEX(0xd09dc0)
 
 // --- Accent backgrounds (intense > subtle > nuanced) --------------------------
 
-#define COLOR_BG_RED_INTENSE      COLOR_HEX(0x9d1f1f)
-#define COLOR_BG_GREEN_INTENSE    COLOR_HEX(0x2f822f)
-#define COLOR_BG_YELLOW_INTENSE   COLOR_HEX(0x7a6100)
-#define COLOR_BG_BLUE_INTENSE     COLOR_HEX(0x1640b0)
-#define COLOR_BG_MAGENTA_INTENSE  COLOR_HEX(0x7030af)
-#define COLOR_BG_CYAN_INTENSE     COLOR_HEX(0x2266ae)
+#define MACH_COLOR_BG_RED_INTENSE      MACH_COLOR_HEX(0x9d1f1f)
+#define MACH_COLOR_BG_GREEN_INTENSE    MACH_COLOR_HEX(0x2f822f)
+#define MACH_COLOR_BG_YELLOW_INTENSE   MACH_COLOR_HEX(0x7a6100)
+#define MACH_COLOR_BG_BLUE_INTENSE     MACH_COLOR_HEX(0x1640b0)
+#define MACH_COLOR_BG_MAGENTA_INTENSE  MACH_COLOR_HEX(0x7030af)
+#define MACH_COLOR_BG_CYAN_INTENSE     MACH_COLOR_HEX(0x2266ae)
 
-#define COLOR_BG_RED_SUBTLE       COLOR_HEX(0x620f2a)
-#define COLOR_BG_GREEN_SUBTLE     COLOR_HEX(0x00422a)
-#define COLOR_BG_YELLOW_SUBTLE    COLOR_HEX(0x4a4000)
-#define COLOR_BG_BLUE_SUBTLE      COLOR_HEX(0x242679)
-#define COLOR_BG_MAGENTA_SUBTLE   COLOR_HEX(0x552f5f)
-#define COLOR_BG_CYAN_SUBTLE      COLOR_HEX(0x004065)
+#define MACH_COLOR_BG_RED_SUBTLE       MACH_COLOR_HEX(0x620f2a)
+#define MACH_COLOR_BG_GREEN_SUBTLE     MACH_COLOR_HEX(0x00422a)
+#define MACH_COLOR_BG_YELLOW_SUBTLE    MACH_COLOR_HEX(0x4a4000)
+#define MACH_COLOR_BG_BLUE_SUBTLE      MACH_COLOR_HEX(0x242679)
+#define MACH_COLOR_BG_MAGENTA_SUBTLE   MACH_COLOR_HEX(0x552f5f)
+#define MACH_COLOR_BG_CYAN_SUBTLE      MACH_COLOR_HEX(0x004065)
 
-#define COLOR_BG_RED_NUANCED      COLOR_HEX(0x3a0c14)
-#define COLOR_BG_GREEN_NUANCED    COLOR_HEX(0x092f1f)
-#define COLOR_BG_YELLOW_NUANCED   COLOR_HEX(0x381d0f)
-#define COLOR_BG_BLUE_NUANCED     COLOR_HEX(0x12154a)
-#define COLOR_BG_MAGENTA_NUANCED  COLOR_HEX(0x2f0c3f)
-#define COLOR_BG_CYAN_NUANCED     COLOR_HEX(0x042837)
+#define MACH_COLOR_BG_RED_NUANCED      MACH_COLOR_HEX(0x3a0c14)
+#define MACH_COLOR_BG_GREEN_NUANCED    MACH_COLOR_HEX(0x092f1f)
+#define MACH_COLOR_BG_YELLOW_NUANCED   MACH_COLOR_HEX(0x381d0f)
+#define MACH_COLOR_BG_BLUE_NUANCED     MACH_COLOR_HEX(0x12154a)
+#define MACH_COLOR_BG_MAGENTA_NUANCED  MACH_COLOR_HEX(0x2f0c3f)
+#define MACH_COLOR_BG_CYAN_NUANCED     MACH_COLOR_HEX(0x042837)
 
 // --- Special purpose ----------------------------------------------------------
 
-#define COLOR_BG_POPUP    COLOR_HEX(0x0c0c0c)
-#define COLOR_BG_HOVER    COLOR_HEX(0x45605e)
-#define COLOR_BG_HL_LINE  COLOR_HEX(0x2f3849)
-#define COLOR_BG_REGION   COLOR_HEX(0x5a5a5a)
+#define MACH_COLOR_BG_POPUP    MACH_COLOR_HEX(0x0c0c0c)
+#define MACH_COLOR_BG_HOVER    MACH_COLOR_HEX(0x45605e)
+#define MACH_COLOR_BG_HL_LINE  MACH_COLOR_HEX(0x2f3849)
+#define MACH_COLOR_BG_REGION   MACH_COLOR_HEX(0x5a5a5a)
 
 // --- Helpers ------------------------------------------------------------------
 
 // Same color, different alpha.
-static inline Mach_Color color_alpha(Mach_Color c, f32 a) { c.w = a; return c; }
+static inline Mach_Color mach_color_alpha(Mach_Color c, f32 a) { c.w = a; return c; }
 
 // Multiply RGB by f (keeps alpha): cheap directional shading.
-static inline Mach_Color color_shade(Mach_Color c, f32 f) {
+static inline Mach_Color mach_color_shade(Mach_Color c, f32 f) {
     return (Mach_Color){c.x * f, c.y * f, c.z * f, c.w};
 }
 
 // Move RGB toward white by t in [0,1] (keeps alpha).
-static inline Mach_Color color_lighten(Mach_Color c, f32 t) {
+static inline Mach_Color mach_color_lighten(Mach_Color c, f32 t) {
     return (Mach_Color){c.x + (1.0f - c.x) * t, c.y + (1.0f - c.y) * t,
                    c.z + (1.0f - c.z) * t, c.w};
 }
 
 // Componentwise blend from a to b, alpha included.
-static inline Mach_Color color_lerp(Mach_Color a, Mach_Color b, f32 t) {
+static inline Mach_Color mach_color_lerp(Mach_Color a, Mach_Color b, f32 t) {
     return (Mach_Color){a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t,
                    a.z + (b.z - a.z) * t, a.w + (b.w - a.w) * t};
 }
@@ -350,7 +350,7 @@ static inline Mach_Color color_lerp(Mach_Color a, Mach_Color b, f32 t) {
 // Minimal OpenGL 3.3 core surface for the 2D renderer.
 //
 // The renderer declares exactly the entry points and constants it uses instead
-// of pulling in platform GL headers. r2d_init fills the function table through
+// of pulling in platform GL headers. mach_r2d_init fills the function table through
 // RGFW's proc loader once the context exists; the table lives inside the
 // Mach_Renderer struct — pointer-passed like all engine state — so a hot-reloaded
 // game library draws through the pointers the host loaded.
@@ -459,12 +459,12 @@ typedef struct {
     i32 advance;              // horizontal step per character
 } Mach_Font;
 
-Mach_Font *font_create(struct Mach_Renderer *r);
-void  font_destroy(struct Mach_Renderer *r, Mach_Font *font);
+Mach_Font *mach_font_create(struct Mach_Renderer *r);
+void  mach_font_destroy(struct Mach_Renderer *r, Mach_Font *font);
 
 // Normalized atlas UVs for an ASCII character. Returns false for glyphs outside
 // the printable range.
-b32 font_glyph_uv(const Mach_Font *font, char ch, f32 *u0, f32 *v0, f32 *u1, f32 *v1);
+b32 mach_font_glyph_uv(const Mach_Font *font, char ch, f32 *u0, f32 *v0, f32 *u1, f32 *v1);
 
 // =============================================================================
 // image: stb_image loading
@@ -481,10 +481,10 @@ typedef struct {
 } Mach_Image;
 
 // Load image from file. Returns image with allocated data, or zeroed struct on failure.
-Mach_Image image_load(const char *path);
+Mach_Image mach_image_load(const char *path);
 
 // Free image data.
-void image_free(Mach_Image *img);
+void mach_image_free(Mach_Image *img);
 
 // =============================================================================
 // render2d: the batch renderer
@@ -497,9 +497,9 @@ void image_free(Mach_Image *img);
 
 // Isometric tile footprint in screen pixels at zoom 1 (classic 2:1 diamond), and
 // the screen height of one unit of block elevation.
-#define ISO_TILE_W 64.0f
-#define ISO_TILE_H 32.0f
-#define ISO_ELEV   28.0f
+#define MACH_ISO_TILE_W 64.0f
+#define MACH_ISO_TILE_H 32.0f
+#define MACH_ISO_ELEV   28.0f
 
 // 2D camera over the isometric plane: an iso-space pan point centered on screen,
 // and a zoom (pixels-per-iso-unit multiplier).
@@ -518,8 +518,8 @@ typedef struct {
 
 // Batch capacity. A flush costs one glDrawElements; overflowing mid-frame just
 // splits the frame into more draws, so these only need to cover the common case.
-#define R2D_MAX_VERTS   8192
-#define R2D_MAX_INDICES 16384
+#define MACH_R2D_MAX_VERTS   8192
+#define MACH_R2D_MAX_INDICES 16384
 
 typedef struct Mach_Renderer {
     RGFW_window *window;
@@ -539,45 +539,45 @@ typedef struct Mach_Renderer {
     // scissor change, overflow, or present.
     u32        batch_tex;      // texture the pending vertices sample
     i32        vert_count, index_count;
-    Mach_R2D_Vertex verts[R2D_MAX_VERTS];
-    u16        indices[R2D_MAX_INDICES];
+    Mach_R2D_Vertex verts[MACH_R2D_MAX_VERTS];
+    u16        indices[MACH_R2D_MAX_INDICES];
 } Mach_Renderer;
 
 // Lifecycle. The window must already hold a current GL 3.3 core context.
-b32  r2d_init(Mach_Renderer *r, RGFW_window *window);
-void r2d_shutdown(Mach_Renderer *r);
+b32  mach_r2d_init(Mach_Renderer *r, RGFW_window *window);
+void mach_r2d_shutdown(Mach_Renderer *r);
 
 // Re-read the window and framebuffer size. Call after the window is resized so
 // render and input coordinates track the new size.
-void r2d_resized(Mach_Renderer *r);
+void mach_r2d_resized(Mach_Renderer *r);
 
 // Frame.
-void r2d_begin(Mach_Renderer *r, Mach_Color clear);
-void r2d_present(Mach_Renderer *r);
+void mach_r2d_begin(Mach_Renderer *r, Mach_Color clear);
+void mach_r2d_present(Mach_Renderer *r);
 
 // Screen-space primitives. Colors are RGBA in [0,1]; see color.h for the palette.
-void r2d_fill_rect(Mach_Renderer *r, f32 x, f32 y, f32 w, f32 h, Mach_Color color);
-void r2d_fill_poly(Mach_Renderer *r, const Mach_Vec2 *pts, i32 n, Mach_Color color);  // convex, <=16 pts
-void r2d_poly_outline(Mach_Renderer *r, const Mach_Vec2 *pts, i32 n, Mach_Color color);  // closed loop, <=16 pts
-void r2d_text(Mach_Renderer *r, f32 x, f32 y, f32 scale, const char *text, Mach_Color color);
+void mach_r2d_fill_rect(Mach_Renderer *r, f32 x, f32 y, f32 w, f32 h, Mach_Color color);
+void mach_r2d_fill_poly(Mach_Renderer *r, const Mach_Vec2 *pts, i32 n, Mach_Color color);  // convex, <=16 pts
+void mach_r2d_poly_outline(Mach_Renderer *r, const Mach_Vec2 *pts, i32 n, Mach_Color color);  // closed loop, <=16 pts
+void mach_r2d_text(Mach_Renderer *r, f32 x, f32 y, f32 scale, const char *text, Mach_Color color);
 
 // Clip rect in window points (the UI's scissor). Draws between begin/end are
 // clipped; nesting is not supported.
-void r2d_clip_begin(Mach_Renderer *r, f32 x, f32 y, f32 w, f32 h);
-void r2d_clip_end(Mach_Renderer *r);
+void mach_r2d_clip_begin(Mach_Renderer *r, f32 x, f32 y, f32 w, f32 h);
+void mach_r2d_clip_end(Mach_Renderer *r);
 
 // Textures and sprites (for real art later). Tint multiplies the texture; pass
 // white for none. A zero id means the load failed.
-Mach_R2D_Texture r2d_texture_from_pixels(Mach_Renderer *r, const void *rgba, i32 w, i32 h, b32 nearest);
-Mach_R2D_Texture r2d_load_texture(Mach_Renderer *r, const char *path);
-void r2d_destroy_texture(Mach_Renderer *r, Mach_R2D_Texture *tex);
-void r2d_sprite(Mach_Renderer *r, Mach_R2D_Texture tex, f32 x, f32 y, f32 scale, Mach_Color tint);
+Mach_R2D_Texture mach_r2d_texture_from_pixels(Mach_Renderer *r, const void *rgba, i32 w, i32 h, b32 nearest);
+Mach_R2D_Texture mach_r2d_load_texture(Mach_Renderer *r, const char *path);
+void mach_r2d_destroy_texture(Mach_Renderer *r, Mach_R2D_Texture *tex);
+void mach_r2d_sprite(Mach_Renderer *r, Mach_R2D_Texture tex, f32 x, f32 y, f32 scale, Mach_Color tint);
 
 // Isometric projection helpers (no Mach_Renderer needed). `elev` is block height in
 // units; the inverse solves on the ground plane (elev 0).
-Mach_Vec2 iso_to_screen(const Mach_Camera2D *cam, f32 screen_w, f32 screen_h,
+Mach_Vec2 mach_iso_to_screen(const Mach_Camera2D *cam, f32 screen_w, f32 screen_h,
                    f32 grid_x, f32 grid_y, f32 elev);
-Mach_Vec2 screen_to_iso(const Mach_Camera2D *cam, f32 screen_w, f32 screen_h,
+Mach_Vec2 mach_screen_to_iso(const Mach_Camera2D *cam, f32 screen_w, f32 screen_h,
                    f32 screen_x, f32 screen_y);
 
 // =============================================================================
@@ -594,10 +594,10 @@ Mach_Vec2 screen_to_iso(const Mach_Camera2D *cam, f32 screen_w, f32 screen_h,
 
 
 typedef enum {
-    MOUSE_LEFT = 0,
-    MOUSE_RIGHT,
-    MOUSE_MIDDLE,
-    MOUSE_BUTTON_COUNT,
+    MACH_MOUSE_LEFT = 0,
+    MACH_MOUSE_RIGHT,
+    MACH_MOUSE_MIDDLE,
+    MACH_MOUSE_BUTTON_COUNT,
 } Mach_Mouse_Button;
 
 typedef struct {
@@ -610,18 +610,18 @@ typedef struct {
     Mach_Vec2 mouse;
     Mach_Vec2 mouse_delta;
     f32  wheel;
-    u8   mouse_down[MOUSE_BUTTON_COUNT];
-    u8   mouse_pressed[MOUSE_BUTTON_COUNT];
-    u8   mouse_released[MOUSE_BUTTON_COUNT];
+    u8   mouse_down[MACH_MOUSE_BUTTON_COUNT];
+    u8   mouse_pressed[MACH_MOUSE_BUTTON_COUNT];
+    u8   mouse_released[MACH_MOUSE_BUTTON_COUNT];
 
     u8 mouse_seen;  // internal: first motion event seeds mouse without a delta spike
 } Mach_Input;
 
 // Clear the per-frame edges (pressed/released/delta/wheel). Held state persists.
-void input_frame_begin(Mach_Input *in);
+void mach_input_frame_begin(Mach_Input *in);
 
 // Fold one RGFW event into the snapshot. Events the snapshot doesn't model are ignored.
-void input_handle_event(Mach_Input *in, const RGFW_event *ev);
+void mach_input_handle_event(Mach_Input *in, const RGFW_event *ev);
 
 // =============================================================================
 // clay_ui: Clay layout bound to render2d
@@ -631,9 +631,9 @@ void input_handle_event(Mach_Input *in, const RGFW_event *ev);
 
 // Clay UI binding: layout by Clay (third_party/clay), drawing by our 2D renderer.
 //
-// Clay does the UI layout and hands back a list of render commands; clay_ui_render
+// Clay does the UI layout and hands back a list of render commands; mach_clay_ui_render
 // walks that list and draws each with r2d. Clay keeps an internal "current context"
-// global plus callback pointers, so those are re-pointed every frame in clay_ui_begin
+// global plus callback pointers, so those are re-pointed every frame in mach_clay_ui_begin
 // to survive hot reload (the reloaded library's globals start empty). The context data
 // itself lives in a malloc'd block held in host-owned App memory, so it persists across
 // a code swap.
@@ -646,24 +646,24 @@ typedef struct {
 } Mach_ClayUI;
 
 // One-time setup: allocate Clay's arena and initialize it against the renderer's size.
-b32  clay_ui_init(Mach_ClayUI *ui, Mach_Renderer *r);
-void clay_ui_shutdown(Mach_ClayUI *ui);
+b32  mach_clay_ui_init(Mach_ClayUI *ui, Mach_Renderer *r);
+void mach_clay_ui_shutdown(Mach_ClayUI *ui);
 
-// Per-frame. Call clay_ui_begin, declare the layout with CLAY(...) / CLAY_TEXT(...),
-// then clay_ui_render to draw it. `mouse`/`mouse_down` feed Clay's pointer state for
+// Per-frame. Call mach_clay_ui_begin, declare the layout with CLAY(...) / CLAY_TEXT(...),
+// then mach_clay_ui_render to draw it. `mouse`/`mouse_down` feed Clay's pointer state for
 // hover/click handling (pass zero/false when there's nothing interactive yet).
-void clay_ui_begin(Mach_ClayUI *ui, Mach_Renderer *r, Clay_Vector2 mouse, b32 mouse_down);
-void clay_ui_render(Mach_ClayUI *ui, Mach_Renderer *r);
+void mach_clay_ui_begin(Mach_ClayUI *ui, Mach_Renderer *r, Clay_Vector2 mouse, b32 mouse_down);
+void mach_clay_ui_render(Mach_ClayUI *ui, Mach_Renderer *r);
 
 // A Clay_String over a null-terminated C string. The chars are not copied, so they
-// must outlive this frame's clay_ui_render call.
-static inline Clay_String clay_string(const char *s) {
+// must outlive this frame's mach_clay_ui_render call.
+static inline Clay_String mach_clay_string(const char *s) {
     return (Clay_String){ .length = (i32)strlen(s), .chars = s };
 }
 
 // An engine Mach_Color ([0,1] RGBA) in Clay's 0-255 convention, so the palette in
 // render/color.h works for UI declarations too.
-static inline Clay_Color clay_color_of(Mach_Color c) {
+static inline Clay_Color mach_clay_color_of(Mach_Color c) {
     return (Clay_Color){ c.x * 255.0f, c.y * 255.0f, c.z * 255.0f, c.w * 255.0f };
 }
 
@@ -702,7 +702,7 @@ typedef struct {
 
 typedef struct {
     // What a frame is made of. The game reads these directly.
-    Mach_Renderer r2d;    // draw through this: r2d_fill_rect(&m.r2d, ...)
+    Mach_Renderer r2d;    // draw through this: mach_r2d_fill_rect(&m.r2d, ...)
     Mach_Input    input;  // this frame's input snapshot, filled by mach_frame_begin
     f32           dt;     // seconds since the previous frame (clamped, so a stall
                           // can't produce a giant simulation step)
@@ -767,13 +767,13 @@ u32  mach_ticks_ms(void);
 
 // (npt): Default region size in words. 8K words is 64 KiB on a 64-bit target —
 // big enough that most arenas live in one region, small enough to not over-commit.
-#define ARENA_REGION_CAPACITY (8 * 1024)
+#define MACH_ARENA_REGION_CAPACITY (8 * 1024)
 
-static Mach_Arena_Region *region_new(usize capacity) {
+static Mach_Arena_Region *mach_region_new(usize capacity) {
     usize bytes = sizeof(Mach_Arena_Region) + sizeof(uintptr_t) * capacity;
     Mach_Arena_Region *r = (Mach_Arena_Region *)malloc(bytes);
     if (!r) {
-        LOG_ERROR("arena: region allocation failed (%zu bytes)", bytes);
+        MACH_LOG_ERROR("arena: region allocation failed (%zu bytes)", bytes);
         return NULL;
     }
     r->next = NULL;
@@ -782,14 +782,14 @@ static Mach_Arena_Region *region_new(usize capacity) {
     return r;
 }
 
-void *arena_alloc(Mach_Arena *a, usize size) {
+void *mach_arena_alloc(Mach_Arena *a, usize size) {
     // (npt): Round the byte request up to whole words so the next allocation
     // starts word-aligned too.
     usize words = (size + sizeof(uintptr_t) - 1) / sizeof(uintptr_t);
 
     if (a->end == NULL) {
-        usize capacity = words > ARENA_REGION_CAPACITY ? words : ARENA_REGION_CAPACITY;
-        a->begin = a->end = region_new(capacity);
+        usize capacity = words > MACH_ARENA_REGION_CAPACITY ? words : MACH_ARENA_REGION_CAPACITY;
+        a->begin = a->end = mach_region_new(capacity);
         if (!a->end) return NULL;
     }
 
@@ -799,8 +799,8 @@ void *arena_alloc(Mach_Arena *a, usize size) {
         a->end = a->end->next;
     }
     if (a->end->count + words > a->end->capacity) {
-        usize capacity = words > ARENA_REGION_CAPACITY ? words : ARENA_REGION_CAPACITY;
-        a->end->next = region_new(capacity);
+        usize capacity = words > MACH_ARENA_REGION_CAPACITY ? words : MACH_ARENA_REGION_CAPACITY;
+        a->end->next = mach_region_new(capacity);
         a->end = a->end->next;
         if (!a->end) return NULL;
     }
@@ -810,14 +810,14 @@ void *arena_alloc(Mach_Arena *a, usize size) {
     return result;
 }
 
-void arena_reset(Mach_Arena *a) {
+void mach_arena_reset(Mach_Arena *a) {
     for (Mach_Arena_Region *r = a->begin; r != NULL; r = r->next) {
         r->count = 0;
     }
     a->end = a->begin;
 }
 
-void arena_free(Mach_Arena *a) {
+void mach_arena_free(Mach_Arena *a) {
     Mach_Arena_Region *r = a->begin;
     while (r != NULL) {
         Mach_Arena_Region *next = r->next;
@@ -836,30 +836,30 @@ void arena_free(Mach_Arena *a) {
 
 #include <math.h>
 
-f32 math_min(f32 a, f32 b) { return a < b ? a : b; }
-f32 math_max(f32 a, f32 b) { return a > b ? a : b; }
-f32 math_lerp(f32 a, f32 b, f32 t) { return a + (b - a) * t; }
+f32 mach_min(f32 a, f32 b) { return a < b ? a : b; }
+f32 mach_max(f32 a, f32 b) { return a > b ? a : b; }
+f32 mach_lerp(f32 a, f32 b, f32 t) { return a + (b - a) * t; }
 
-f32 math_clamp(f32 v, f32 lo, f32 hi) {
+f32 mach_clamp(f32 v, f32 lo, f32 hi) {
     if (v < lo) return lo;
     if (v > hi) return hi;
     return v;
 }
 
-Mach_Vec2 vec2_add(Mach_Vec2 a, Mach_Vec2 b)  { return (Mach_Vec2){a.x + b.x, a.y + b.y}; }
-Mach_Vec2 vec2_sub(Mach_Vec2 a, Mach_Vec2 b)  { return (Mach_Vec2){a.x - b.x, a.y - b.y}; }
-Mach_Vec2 vec2_scale(Mach_Vec2 v, f32 s) { return (Mach_Vec2){v.x * s, v.y * s}; }
-f32  vec2_dot(Mach_Vec2 a, Mach_Vec2 b)  { return a.x * b.x + a.y * b.y; }
-f32  vec2_length(Mach_Vec2 v)       { return sqrtf(vec2_dot(v, v)); }
+Mach_Vec2 mach_vec2_add(Mach_Vec2 a, Mach_Vec2 b)  { return (Mach_Vec2){a.x + b.x, a.y + b.y}; }
+Mach_Vec2 mach_vec2_sub(Mach_Vec2 a, Mach_Vec2 b)  { return (Mach_Vec2){a.x - b.x, a.y - b.y}; }
+Mach_Vec2 mach_vec2_scale(Mach_Vec2 v, f32 s) { return (Mach_Vec2){v.x * s, v.y * s}; }
+f32  mach_vec2_dot(Mach_Vec2 a, Mach_Vec2 b)  { return a.x * b.x + a.y * b.y; }
+f32  mach_vec2_length(Mach_Vec2 v)       { return sqrtf(mach_vec2_dot(v, v)); }
 
-Mach_Vec2 vec2_normalize(Mach_Vec2 v) {
-    f32 len = vec2_length(v);
+Mach_Vec2 mach_vec2_normalize(Mach_Vec2 v) {
+    f32 len = mach_vec2_length(v);
     if (len == 0.0f) return (Mach_Vec2){0.0f, 0.0f};
-    return vec2_scale(v, 1.0f / len);
+    return mach_vec2_scale(v, 1.0f / len);
 }
 
-Mach_Vec2 vec2_lerp(Mach_Vec2 a, Mach_Vec2 b, f32 t) {
-    return (Mach_Vec2){math_lerp(a.x, b.x, t), math_lerp(a.y, b.y, t)};
+Mach_Vec2 mach_vec2_lerp(Mach_Vec2 a, Mach_Vec2 b, f32 t) {
+    return (Mach_Vec2){mach_lerp(a.x, b.x, t), mach_lerp(a.y, b.y, t)};
 }
 
 // =============================================================================
@@ -873,7 +873,7 @@ Mach_Vec2 vec2_lerp(Mach_Vec2 a, Mach_Vec2 b, f32 t) {
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-Mach_Image image_load(const char *path) {
+Mach_Image mach_image_load(const char *path) {
     Mach_Image img = {0};
     if (!path) return img;
 
@@ -888,7 +888,7 @@ Mach_Image image_load(const char *path) {
     return img;
 }
 
-void image_free(Mach_Image *img) {
+void mach_image_free(Mach_Image *img) {
     if (!img || !img->data) return;
     stbi_image_free(img->data);
     img->data = NULL;
@@ -910,153 +910,153 @@ void image_free(Mach_Image *img) {
 #include <stdlib.h>
 #include <string.h>
 
-#define FONT_FIRST_CHAR 32
-#define FONT_LAST_CHAR  126
-#define FONT_GLYPH_COUNT (FONT_LAST_CHAR - FONT_FIRST_CHAR + 1)  // 95
+#define MACH_FONT_FIRST_CHAR 32
+#define MACH_FONT_LAST_CHAR  126
+#define MACH_FONT_GLYPH_COUNT (MACH_FONT_LAST_CHAR - MACH_FONT_FIRST_CHAR + 1)  // 95
 
-#define CELL      8
-#define ATLAS_COLS 16
-#define ATLAS_ROWS 6
-#define ATLAS_W   (ATLAS_COLS * CELL)  // 128
-#define ATLAS_H   (ATLAS_ROWS * CELL)  // 48
+#define MACH_CELL      8
+#define MACH_ATLAS_COLS 16
+#define MACH_ATLAS_ROWS 6
+#define MACH_ATLAS_W   (MACH_ATLAS_COLS * MACH_CELL)  // 128
+#define MACH_ATLAS_H   (MACH_ATLAS_ROWS * MACH_CELL)  // 48
 
-// 8x8 glyphs indexed by (ascii - FONT_FIRST_CHAR). MSB = leftmost pixel.
-static const u8 GLYPHS[FONT_GLYPH_COUNT][CELL] = {
-    [' ' - FONT_FIRST_CHAR] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
-    ['$' - FONT_FIRST_CHAR] = {0x18, 0x3E, 0x58, 0x3C, 0x1A, 0x7C, 0x18, 0x00},
-    ['(' - FONT_FIRST_CHAR] = {0x0C, 0x18, 0x30, 0x30, 0x30, 0x18, 0x0C, 0x00},
-    [')' - FONT_FIRST_CHAR] = {0x30, 0x18, 0x0C, 0x0C, 0x0C, 0x18, 0x30, 0x00},
-    ['+' - FONT_FIRST_CHAR] = {0x00, 0x18, 0x18, 0x7E, 0x18, 0x18, 0x00, 0x00},
-    [',' - FONT_FIRST_CHAR] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 0x18, 0x30},
-    ['-' - FONT_FIRST_CHAR] = {0x00, 0x00, 0x00, 0x7E, 0x00, 0x00, 0x00, 0x00},
-    ['.' - FONT_FIRST_CHAR] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 0x18, 0x00},
-    ['%' - FONT_FIRST_CHAR] = {0x62, 0x66, 0x0C, 0x18, 0x30, 0x66, 0x46, 0x00},
-    ['/' - FONT_FIRST_CHAR] = {0x06, 0x0C, 0x18, 0x18, 0x30, 0x60, 0xC0, 0x00},
-    ['!' - FONT_FIRST_CHAR] = {0x18, 0x18, 0x18, 0x18, 0x18, 0x00, 0x18, 0x00},
-    ['0' - FONT_FIRST_CHAR] = {0x3C, 0x66, 0x66, 0x66, 0x66, 0x66, 0x3C, 0x00},
-    ['1' - FONT_FIRST_CHAR] = {0x18, 0x38, 0x18, 0x18, 0x18, 0x18, 0x3C, 0x00},
-    ['2' - FONT_FIRST_CHAR] = {0x3C, 0x66, 0x06, 0x0C, 0x18, 0x30, 0x7E, 0x00},
-    ['3' - FONT_FIRST_CHAR] = {0x3C, 0x66, 0x06, 0x1C, 0x06, 0x66, 0x3C, 0x00},
-    ['4' - FONT_FIRST_CHAR] = {0x0C, 0x1C, 0x3C, 0x6C, 0x7E, 0x0C, 0x0C, 0x00},
-    ['5' - FONT_FIRST_CHAR] = {0x7E, 0x60, 0x7C, 0x06, 0x06, 0x66, 0x3C, 0x00},
-    ['6' - FONT_FIRST_CHAR] = {0x3C, 0x66, 0x60, 0x7C, 0x66, 0x66, 0x3C, 0x00},
-    ['7' - FONT_FIRST_CHAR] = {0x7E, 0x06, 0x0C, 0x18, 0x30, 0x60, 0x60, 0x00},
-    ['8' - FONT_FIRST_CHAR] = {0x3C, 0x66, 0x66, 0x3C, 0x66, 0x66, 0x3C, 0x00},
-    ['9' - FONT_FIRST_CHAR] = {0x3C, 0x66, 0x66, 0x3E, 0x06, 0x66, 0x3C, 0x00},
-    [':' - FONT_FIRST_CHAR] = {0x00, 0x18, 0x18, 0x00, 0x18, 0x18, 0x00, 0x00},
-    ['A' - FONT_FIRST_CHAR] = {0x3C, 0x66, 0x66, 0x7E, 0x66, 0x66, 0x66, 0x00},
-    ['B' - FONT_FIRST_CHAR] = {0x7C, 0x66, 0x7C, 0x66, 0x66, 0x66, 0x7C, 0x00},
-    ['C' - FONT_FIRST_CHAR] = {0x3C, 0x66, 0x60, 0x60, 0x60, 0x66, 0x3C, 0x00},
-    ['D' - FONT_FIRST_CHAR] = {0x78, 0x6C, 0x66, 0x66, 0x66, 0x6C, 0x78, 0x00},
-    ['E' - FONT_FIRST_CHAR] = {0x7E, 0x60, 0x7C, 0x60, 0x60, 0x60, 0x7E, 0x00},
-    ['F' - FONT_FIRST_CHAR] = {0x7E, 0x60, 0x7C, 0x60, 0x60, 0x60, 0x60, 0x00},
-    ['G' - FONT_FIRST_CHAR] = {0x3C, 0x66, 0x60, 0x6E, 0x66, 0x66, 0x3C, 0x00},
-    ['H' - FONT_FIRST_CHAR] = {0x66, 0x66, 0x7E, 0x66, 0x66, 0x66, 0x66, 0x00},
-    ['I' - FONT_FIRST_CHAR] = {0x3C, 0x18, 0x18, 0x18, 0x18, 0x18, 0x3C, 0x00},
-    ['J' - FONT_FIRST_CHAR] = {0x0E, 0x06, 0x06, 0x06, 0x66, 0x66, 0x3C, 0x00},
-    ['K' - FONT_FIRST_CHAR] = {0x66, 0x6C, 0x78, 0x70, 0x78, 0x6C, 0x66, 0x00},
-    ['L' - FONT_FIRST_CHAR] = {0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x7E, 0x00},
-    ['M' - FONT_FIRST_CHAR] = {0x63, 0x77, 0x7F, 0x6B, 0x63, 0x63, 0x63, 0x00},
-    ['N' - FONT_FIRST_CHAR] = {0x66, 0x76, 0x7E, 0x7E, 0x6E, 0x66, 0x66, 0x00},
-    ['O' - FONT_FIRST_CHAR] = {0x3C, 0x66, 0x66, 0x66, 0x66, 0x66, 0x3C, 0x00},
-    ['P' - FONT_FIRST_CHAR] = {0x7C, 0x66, 0x7C, 0x60, 0x60, 0x60, 0x60, 0x00},
-    ['Q' - FONT_FIRST_CHAR] = {0x3C, 0x66, 0x66, 0x66, 0x6E, 0x7C, 0x06, 0x00},
-    ['R' - FONT_FIRST_CHAR] = {0x7C, 0x66, 0x66, 0x7C, 0x78, 0x6C, 0x66, 0x00},
-    ['S' - FONT_FIRST_CHAR] = {0x3C, 0x66, 0x60, 0x3C, 0x06, 0x66, 0x3C, 0x00},
-    ['T' - FONT_FIRST_CHAR] = {0x7E, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x00},
-    ['U' - FONT_FIRST_CHAR] = {0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x3C, 0x00},
-    ['V' - FONT_FIRST_CHAR] = {0x66, 0x66, 0x66, 0x66, 0x3C, 0x3C, 0x18, 0x00},
-    ['W' - FONT_FIRST_CHAR] = {0x63, 0x63, 0x6B, 0x7F, 0x77, 0x63, 0x63, 0x00},
-    ['X' - FONT_FIRST_CHAR] = {0x66, 0x66, 0x3C, 0x18, 0x3C, 0x66, 0x66, 0x00},
-    ['Y' - FONT_FIRST_CHAR] = {0x66, 0x66, 0x3C, 0x18, 0x18, 0x18, 0x18, 0x00},
-    ['Z' - FONT_FIRST_CHAR] = {0x7E, 0x06, 0x0C, 0x18, 0x30, 0x60, 0x7E, 0x00},
-    ['a' - FONT_FIRST_CHAR] = {0x00, 0x3C, 0x06, 0x3E, 0x66, 0x66, 0x3C, 0x00},
-    ['b' - FONT_FIRST_CHAR] = {0x60, 0x60, 0x7C, 0x66, 0x66, 0x66, 0x7C, 0x00},
-    ['c' - FONT_FIRST_CHAR] = {0x00, 0x3C, 0x60, 0x60, 0x60, 0x60, 0x3C, 0x00},
-    ['d' - FONT_FIRST_CHAR] = {0x06, 0x06, 0x3E, 0x66, 0x66, 0x66, 0x3E, 0x00},
-    ['e' - FONT_FIRST_CHAR] = {0x00, 0x3C, 0x66, 0x7E, 0x60, 0x66, 0x3C, 0x00},
-    ['f' - FONT_FIRST_CHAR] = {0x1C, 0x30, 0x7E, 0x30, 0x30, 0x30, 0x30, 0x00},
-    ['g' - FONT_FIRST_CHAR] = {0x00, 0x3E, 0x66, 0x66, 0x3E, 0x06, 0x3C, 0x00},
-    ['h' - FONT_FIRST_CHAR] = {0x60, 0x60, 0x7C, 0x66, 0x66, 0x66, 0x66, 0x00},
-    ['i' - FONT_FIRST_CHAR] = {0x18, 0x00, 0x18, 0x18, 0x18, 0x18, 0x3C, 0x00},
-    ['j' - FONT_FIRST_CHAR] = {0x0C, 0x00, 0x0C, 0x0C, 0x0C, 0x6C, 0x38, 0x00},
-    ['k' - FONT_FIRST_CHAR] = {0x60, 0x60, 0x66, 0x6C, 0x78, 0x6C, 0x66, 0x00},
-    ['l' - FONT_FIRST_CHAR] = {0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x3C, 0x00},
-    ['m' - FONT_FIRST_CHAR] = {0x00, 0x7C, 0xA6, 0x92, 0x92, 0x82, 0x82, 0x00},
-    ['n' - FONT_FIRST_CHAR] = {0x00, 0x7C, 0x66, 0x66, 0x66, 0x66, 0x66, 0x00},
-    ['o' - FONT_FIRST_CHAR] = {0x00, 0x3C, 0x66, 0x66, 0x66, 0x66, 0x3C, 0x00},
-    ['p' - FONT_FIRST_CHAR] = {0x00, 0x7C, 0x66, 0x66, 0x7C, 0x60, 0x60, 0x00},
-    ['q' - FONT_FIRST_CHAR] = {0x00, 0x3E, 0x66, 0x66, 0x3E, 0x06, 0x06, 0x00},
-    ['r' - FONT_FIRST_CHAR] = {0x00, 0x7C, 0x66, 0x60, 0x60, 0x60, 0x60, 0x00},
-    ['s' - FONT_FIRST_CHAR] = {0x00, 0x3C, 0x60, 0x3C, 0x06, 0x06, 0x3C, 0x00},
-    ['t' - FONT_FIRST_CHAR] = {0x30, 0x7E, 0x30, 0x30, 0x30, 0x30, 0x1C, 0x00},
-    ['u' - FONT_FIRST_CHAR] = {0x00, 0x66, 0x66, 0x66, 0x66, 0x66, 0x3E, 0x00},
-    ['v' - FONT_FIRST_CHAR] = {0x00, 0x66, 0x66, 0x66, 0x3C, 0x3C, 0x18, 0x00},
-    ['w' - FONT_FIRST_CHAR] = {0x00, 0x63, 0x63, 0x6B, 0x7F, 0x37, 0x63, 0x00},
-    ['x' - FONT_FIRST_CHAR] = {0x00, 0x66, 0x3C, 0x18, 0x3C, 0x66, 0x66, 0x00},
-    ['y' - FONT_FIRST_CHAR] = {0x00, 0x66, 0x66, 0x3E, 0x06, 0x06, 0x3C, 0x00},
-    ['z' - FONT_FIRST_CHAR] = {0x00, 0x7E, 0x0C, 0x18, 0x30, 0x60, 0x7E, 0x00},
+// 8x8 glyphs indexed by (ascii - MACH_FONT_FIRST_CHAR). MSB = leftmost pixel.
+static const u8 GLYPHS[MACH_FONT_GLYPH_COUNT][MACH_CELL] = {
+    [' ' - MACH_FONT_FIRST_CHAR] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+    ['$' - MACH_FONT_FIRST_CHAR] = {0x18, 0x3E, 0x58, 0x3C, 0x1A, 0x7C, 0x18, 0x00},
+    ['(' - MACH_FONT_FIRST_CHAR] = {0x0C, 0x18, 0x30, 0x30, 0x30, 0x18, 0x0C, 0x00},
+    [')' - MACH_FONT_FIRST_CHAR] = {0x30, 0x18, 0x0C, 0x0C, 0x0C, 0x18, 0x30, 0x00},
+    ['+' - MACH_FONT_FIRST_CHAR] = {0x00, 0x18, 0x18, 0x7E, 0x18, 0x18, 0x00, 0x00},
+    [',' - MACH_FONT_FIRST_CHAR] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 0x18, 0x30},
+    ['-' - MACH_FONT_FIRST_CHAR] = {0x00, 0x00, 0x00, 0x7E, 0x00, 0x00, 0x00, 0x00},
+    ['.' - MACH_FONT_FIRST_CHAR] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 0x18, 0x00},
+    ['%' - MACH_FONT_FIRST_CHAR] = {0x62, 0x66, 0x0C, 0x18, 0x30, 0x66, 0x46, 0x00},
+    ['/' - MACH_FONT_FIRST_CHAR] = {0x06, 0x0C, 0x18, 0x18, 0x30, 0x60, 0xC0, 0x00},
+    ['!' - MACH_FONT_FIRST_CHAR] = {0x18, 0x18, 0x18, 0x18, 0x18, 0x00, 0x18, 0x00},
+    ['0' - MACH_FONT_FIRST_CHAR] = {0x3C, 0x66, 0x66, 0x66, 0x66, 0x66, 0x3C, 0x00},
+    ['1' - MACH_FONT_FIRST_CHAR] = {0x18, 0x38, 0x18, 0x18, 0x18, 0x18, 0x3C, 0x00},
+    ['2' - MACH_FONT_FIRST_CHAR] = {0x3C, 0x66, 0x06, 0x0C, 0x18, 0x30, 0x7E, 0x00},
+    ['3' - MACH_FONT_FIRST_CHAR] = {0x3C, 0x66, 0x06, 0x1C, 0x06, 0x66, 0x3C, 0x00},
+    ['4' - MACH_FONT_FIRST_CHAR] = {0x0C, 0x1C, 0x3C, 0x6C, 0x7E, 0x0C, 0x0C, 0x00},
+    ['5' - MACH_FONT_FIRST_CHAR] = {0x7E, 0x60, 0x7C, 0x06, 0x06, 0x66, 0x3C, 0x00},
+    ['6' - MACH_FONT_FIRST_CHAR] = {0x3C, 0x66, 0x60, 0x7C, 0x66, 0x66, 0x3C, 0x00},
+    ['7' - MACH_FONT_FIRST_CHAR] = {0x7E, 0x06, 0x0C, 0x18, 0x30, 0x60, 0x60, 0x00},
+    ['8' - MACH_FONT_FIRST_CHAR] = {0x3C, 0x66, 0x66, 0x3C, 0x66, 0x66, 0x3C, 0x00},
+    ['9' - MACH_FONT_FIRST_CHAR] = {0x3C, 0x66, 0x66, 0x3E, 0x06, 0x66, 0x3C, 0x00},
+    [':' - MACH_FONT_FIRST_CHAR] = {0x00, 0x18, 0x18, 0x00, 0x18, 0x18, 0x00, 0x00},
+    ['A' - MACH_FONT_FIRST_CHAR] = {0x3C, 0x66, 0x66, 0x7E, 0x66, 0x66, 0x66, 0x00},
+    ['B' - MACH_FONT_FIRST_CHAR] = {0x7C, 0x66, 0x7C, 0x66, 0x66, 0x66, 0x7C, 0x00},
+    ['C' - MACH_FONT_FIRST_CHAR] = {0x3C, 0x66, 0x60, 0x60, 0x60, 0x66, 0x3C, 0x00},
+    ['D' - MACH_FONT_FIRST_CHAR] = {0x78, 0x6C, 0x66, 0x66, 0x66, 0x6C, 0x78, 0x00},
+    ['E' - MACH_FONT_FIRST_CHAR] = {0x7E, 0x60, 0x7C, 0x60, 0x60, 0x60, 0x7E, 0x00},
+    ['F' - MACH_FONT_FIRST_CHAR] = {0x7E, 0x60, 0x7C, 0x60, 0x60, 0x60, 0x60, 0x00},
+    ['G' - MACH_FONT_FIRST_CHAR] = {0x3C, 0x66, 0x60, 0x6E, 0x66, 0x66, 0x3C, 0x00},
+    ['H' - MACH_FONT_FIRST_CHAR] = {0x66, 0x66, 0x7E, 0x66, 0x66, 0x66, 0x66, 0x00},
+    ['I' - MACH_FONT_FIRST_CHAR] = {0x3C, 0x18, 0x18, 0x18, 0x18, 0x18, 0x3C, 0x00},
+    ['J' - MACH_FONT_FIRST_CHAR] = {0x0E, 0x06, 0x06, 0x06, 0x66, 0x66, 0x3C, 0x00},
+    ['K' - MACH_FONT_FIRST_CHAR] = {0x66, 0x6C, 0x78, 0x70, 0x78, 0x6C, 0x66, 0x00},
+    ['L' - MACH_FONT_FIRST_CHAR] = {0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x7E, 0x00},
+    ['M' - MACH_FONT_FIRST_CHAR] = {0x63, 0x77, 0x7F, 0x6B, 0x63, 0x63, 0x63, 0x00},
+    ['N' - MACH_FONT_FIRST_CHAR] = {0x66, 0x76, 0x7E, 0x7E, 0x6E, 0x66, 0x66, 0x00},
+    ['O' - MACH_FONT_FIRST_CHAR] = {0x3C, 0x66, 0x66, 0x66, 0x66, 0x66, 0x3C, 0x00},
+    ['P' - MACH_FONT_FIRST_CHAR] = {0x7C, 0x66, 0x7C, 0x60, 0x60, 0x60, 0x60, 0x00},
+    ['Q' - MACH_FONT_FIRST_CHAR] = {0x3C, 0x66, 0x66, 0x66, 0x6E, 0x7C, 0x06, 0x00},
+    ['R' - MACH_FONT_FIRST_CHAR] = {0x7C, 0x66, 0x66, 0x7C, 0x78, 0x6C, 0x66, 0x00},
+    ['S' - MACH_FONT_FIRST_CHAR] = {0x3C, 0x66, 0x60, 0x3C, 0x06, 0x66, 0x3C, 0x00},
+    ['T' - MACH_FONT_FIRST_CHAR] = {0x7E, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x00},
+    ['U' - MACH_FONT_FIRST_CHAR] = {0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x3C, 0x00},
+    ['V' - MACH_FONT_FIRST_CHAR] = {0x66, 0x66, 0x66, 0x66, 0x3C, 0x3C, 0x18, 0x00},
+    ['W' - MACH_FONT_FIRST_CHAR] = {0x63, 0x63, 0x6B, 0x7F, 0x77, 0x63, 0x63, 0x00},
+    ['X' - MACH_FONT_FIRST_CHAR] = {0x66, 0x66, 0x3C, 0x18, 0x3C, 0x66, 0x66, 0x00},
+    ['Y' - MACH_FONT_FIRST_CHAR] = {0x66, 0x66, 0x3C, 0x18, 0x18, 0x18, 0x18, 0x00},
+    ['Z' - MACH_FONT_FIRST_CHAR] = {0x7E, 0x06, 0x0C, 0x18, 0x30, 0x60, 0x7E, 0x00},
+    ['a' - MACH_FONT_FIRST_CHAR] = {0x00, 0x3C, 0x06, 0x3E, 0x66, 0x66, 0x3C, 0x00},
+    ['b' - MACH_FONT_FIRST_CHAR] = {0x60, 0x60, 0x7C, 0x66, 0x66, 0x66, 0x7C, 0x00},
+    ['c' - MACH_FONT_FIRST_CHAR] = {0x00, 0x3C, 0x60, 0x60, 0x60, 0x60, 0x3C, 0x00},
+    ['d' - MACH_FONT_FIRST_CHAR] = {0x06, 0x06, 0x3E, 0x66, 0x66, 0x66, 0x3E, 0x00},
+    ['e' - MACH_FONT_FIRST_CHAR] = {0x00, 0x3C, 0x66, 0x7E, 0x60, 0x66, 0x3C, 0x00},
+    ['f' - MACH_FONT_FIRST_CHAR] = {0x1C, 0x30, 0x7E, 0x30, 0x30, 0x30, 0x30, 0x00},
+    ['g' - MACH_FONT_FIRST_CHAR] = {0x00, 0x3E, 0x66, 0x66, 0x3E, 0x06, 0x3C, 0x00},
+    ['h' - MACH_FONT_FIRST_CHAR] = {0x60, 0x60, 0x7C, 0x66, 0x66, 0x66, 0x66, 0x00},
+    ['i' - MACH_FONT_FIRST_CHAR] = {0x18, 0x00, 0x18, 0x18, 0x18, 0x18, 0x3C, 0x00},
+    ['j' - MACH_FONT_FIRST_CHAR] = {0x0C, 0x00, 0x0C, 0x0C, 0x0C, 0x6C, 0x38, 0x00},
+    ['k' - MACH_FONT_FIRST_CHAR] = {0x60, 0x60, 0x66, 0x6C, 0x78, 0x6C, 0x66, 0x00},
+    ['l' - MACH_FONT_FIRST_CHAR] = {0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x3C, 0x00},
+    ['m' - MACH_FONT_FIRST_CHAR] = {0x00, 0x7C, 0xA6, 0x92, 0x92, 0x82, 0x82, 0x00},
+    ['n' - MACH_FONT_FIRST_CHAR] = {0x00, 0x7C, 0x66, 0x66, 0x66, 0x66, 0x66, 0x00},
+    ['o' - MACH_FONT_FIRST_CHAR] = {0x00, 0x3C, 0x66, 0x66, 0x66, 0x66, 0x3C, 0x00},
+    ['p' - MACH_FONT_FIRST_CHAR] = {0x00, 0x7C, 0x66, 0x66, 0x7C, 0x60, 0x60, 0x00},
+    ['q' - MACH_FONT_FIRST_CHAR] = {0x00, 0x3E, 0x66, 0x66, 0x3E, 0x06, 0x06, 0x00},
+    ['r' - MACH_FONT_FIRST_CHAR] = {0x00, 0x7C, 0x66, 0x60, 0x60, 0x60, 0x60, 0x00},
+    ['s' - MACH_FONT_FIRST_CHAR] = {0x00, 0x3C, 0x60, 0x3C, 0x06, 0x06, 0x3C, 0x00},
+    ['t' - MACH_FONT_FIRST_CHAR] = {0x30, 0x7E, 0x30, 0x30, 0x30, 0x30, 0x1C, 0x00},
+    ['u' - MACH_FONT_FIRST_CHAR] = {0x00, 0x66, 0x66, 0x66, 0x66, 0x66, 0x3E, 0x00},
+    ['v' - MACH_FONT_FIRST_CHAR] = {0x00, 0x66, 0x66, 0x66, 0x3C, 0x3C, 0x18, 0x00},
+    ['w' - MACH_FONT_FIRST_CHAR] = {0x00, 0x63, 0x63, 0x6B, 0x7F, 0x37, 0x63, 0x00},
+    ['x' - MACH_FONT_FIRST_CHAR] = {0x00, 0x66, 0x3C, 0x18, 0x3C, 0x66, 0x66, 0x00},
+    ['y' - MACH_FONT_FIRST_CHAR] = {0x00, 0x66, 0x66, 0x3E, 0x06, 0x06, 0x3C, 0x00},
+    ['z' - MACH_FONT_FIRST_CHAR] = {0x00, 0x7E, 0x0C, 0x18, 0x30, 0x60, 0x7E, 0x00},
 };
 
 // Expand the bit table into an RGBA pixel buffer (caller frees). Set bits become
 // opaque white; everything else is transparent.
-static u32 *font_build_pixels(void) {
-    u32 *px = (u32 *)calloc(ATLAS_W * ATLAS_H, sizeof(u32));
+static u32 *mach_font_build_pixels(void) {
+    u32 *px = (u32 *)calloc(MACH_ATLAS_W * MACH_ATLAS_H, sizeof(u32));
     if (!px) return NULL;
 
-    for (i32 idx = 0; idx < FONT_GLYPH_COUNT; idx++) {
-        i32 cx = (idx % ATLAS_COLS) * CELL;
-        i32 cy = (idx / ATLAS_COLS) * CELL;
-        for (i32 r = 0; r < CELL; r++) {
+    for (i32 idx = 0; idx < MACH_FONT_GLYPH_COUNT; idx++) {
+        i32 cx = (idx % MACH_ATLAS_COLS) * MACH_CELL;
+        i32 cy = (idx / MACH_ATLAS_COLS) * MACH_CELL;
+        for (i32 r = 0; r < MACH_CELL; r++) {
             u8 bits = GLYPHS[idx][r];
-            for (i32 c = 0; c < CELL; c++) {
-                if (bits & (0x80 >> c)) px[(cy + r) * ATLAS_W + (cx + c)] = 0xFFFFFFFFu;
+            for (i32 c = 0; c < MACH_CELL; c++) {
+                if (bits & (0x80 >> c)) px[(cy + r) * MACH_ATLAS_W + (cx + c)] = 0xFFFFFFFFu;
             }
         }
     }
     return px;
 }
 
-Mach_Font *font_create(struct Mach_Renderer *r) {
+Mach_Font *mach_font_create(struct Mach_Renderer *r) {
     Mach_Font *font = (Mach_Font *)calloc(1, sizeof(Mach_Font));
     if (!font) return NULL;
 
-    font->glyph_w = CELL;
-    font->glyph_h = CELL;
-    font->advance = CELL + 1;
+    font->glyph_w = MACH_CELL;
+    font->glyph_h = MACH_CELL;
+    font->advance = MACH_CELL + 1;
 
-    u32 *px = font_build_pixels();
+    u32 *px = mach_font_build_pixels();
     if (!px) { free(font); return NULL; }
 
-    font->atlas = r2d_texture_from_pixels((Mach_Renderer *)r, px, ATLAS_W, ATLAS_H, MACH_TRUE);
+    font->atlas = mach_r2d_texture_from_pixels((Mach_Renderer *)r, px, MACH_ATLAS_W, MACH_ATLAS_H, MACH_TRUE);
     free(px);
     if (!font->atlas.id) {
-        LOG_ERROR("font_create: atlas texture creation failed");
+        MACH_LOG_ERROR("mach_font_create: atlas texture creation failed");
         free(font);
         return NULL;
     }
 
-    LOG_INFO("font atlas created (%dx%d RGBA, %d glyphs)", ATLAS_W, ATLAS_H, FONT_GLYPH_COUNT);
+    MACH_LOG_INFO("font atlas created (%dx%d RGBA, %d glyphs)", MACH_ATLAS_W, MACH_ATLAS_H, MACH_FONT_GLYPH_COUNT);
     return font;
 }
 
-void font_destroy(struct Mach_Renderer *r, Mach_Font *font) {
+void mach_font_destroy(struct Mach_Renderer *r, Mach_Font *font) {
     if (!font) return;
-    r2d_destroy_texture((Mach_Renderer *)r, &font->atlas);
+    mach_r2d_destroy_texture((Mach_Renderer *)r, &font->atlas);
     free(font);
 }
 
-b32 font_glyph_uv(const Mach_Font *font, char ch, f32 *u0, f32 *v0, f32 *u1, f32 *v1) {
+b32 mach_font_glyph_uv(const Mach_Font *font, char ch, f32 *u0, f32 *v0, f32 *u1, f32 *v1) {
     (void)font;
     u8 c = (u8)ch;
-    if (c < FONT_FIRST_CHAR || c > FONT_LAST_CHAR) return MACH_FALSE;
-    i32 idx = c - FONT_FIRST_CHAR;
-    f32 x = (f32)((idx % ATLAS_COLS) * CELL);
-    f32 y = (f32)((idx / ATLAS_COLS) * CELL);
-    *u0 = x / (f32)ATLAS_W;
-    *v0 = y / (f32)ATLAS_H;
-    *u1 = (x + (f32)CELL) / (f32)ATLAS_W;
-    *v1 = (y + (f32)CELL) / (f32)ATLAS_H;
+    if (c < MACH_FONT_FIRST_CHAR || c > MACH_FONT_LAST_CHAR) return MACH_FALSE;
+    i32 idx = c - MACH_FONT_FIRST_CHAR;
+    f32 x = (f32)((idx % MACH_ATLAS_COLS) * MACH_CELL);
+    f32 y = (f32)((idx / MACH_ATLAS_COLS) * MACH_CELL);
+    *u0 = x / (f32)MACH_ATLAS_W;
+    *v0 = y / (f32)MACH_ATLAS_H;
+    *u1 = (x + (f32)MACH_CELL) / (f32)MACH_ATLAS_W;
+    *v1 = (y + (f32)MACH_CELL) / (f32)MACH_ATLAS_H;
     return MACH_TRUE;
 }
 
@@ -1101,59 +1101,59 @@ static const char *R2D_FRAG_SRC =
 
 // --- GL loading ---------------------------------------------------------------
 
-static b32 r2d_gl_load(Mach_GLApi *gl) {
+static b32 mach_r2d_gl_load(Mach_GLApi *gl) {
     b32 ok = MACH_TRUE;
-#define GL_LOAD(name) do { \
+#define MACH_GL_LOAD(name) do { \
         *(void **)(&gl->name) = (void *)RGFW_getProcAddress_OpenGL("gl" #name); \
-        if (!gl->name) { LOG_ERROR("gl load: missing gl%s", #name); ok = MACH_FALSE; } \
+        if (!gl->name) { MACH_LOG_ERROR("gl load: missing gl%s", #name); ok = MACH_FALSE; } \
     } while (0)
-    GL_LOAD(ActiveTexture);
-    GL_LOAD(AttachShader);
-    GL_LOAD(BindBuffer);
-    GL_LOAD(BindTexture);
-    GL_LOAD(BindVertexArray);
-    GL_LOAD(BlendFunc);
-    GL_LOAD(BufferData);
-    GL_LOAD(BufferSubData);
-    GL_LOAD(Clear);
-    GL_LOAD(ClearColor);
-    GL_LOAD(CompileShader);
-    GL_LOAD(CreateProgram);
-    GL_LOAD(CreateShader);
-    GL_LOAD(DeleteBuffers);
-    GL_LOAD(DeleteProgram);
-    GL_LOAD(DeleteShader);
-    GL_LOAD(DeleteTextures);
-    GL_LOAD(DeleteVertexArrays);
-    GL_LOAD(Disable);
-    GL_LOAD(DrawElements);
-    GL_LOAD(Enable);
-    GL_LOAD(EnableVertexAttribArray);
-    GL_LOAD(GenBuffers);
-    GL_LOAD(GenTextures);
-    GL_LOAD(GenVertexArrays);
-    GL_LOAD(GetProgramInfoLog);
-    GL_LOAD(GetProgramiv);
-    GL_LOAD(GetShaderInfoLog);
-    GL_LOAD(GetShaderiv);
-    GL_LOAD(GetString);
-    GL_LOAD(GetUniformLocation);
-    GL_LOAD(LinkProgram);
-    GL_LOAD(PixelStorei);
-    GL_LOAD(Scissor);
-    GL_LOAD(ShaderSource);
-    GL_LOAD(TexImage2D);
-    GL_LOAD(TexParameteri);
-    GL_LOAD(Uniform1i);
-    GL_LOAD(Uniform2f);
-    GL_LOAD(UseProgram);
-    GL_LOAD(VertexAttribPointer);
-    GL_LOAD(Viewport);
-#undef GL_LOAD
+    MACH_GL_LOAD(ActiveTexture);
+    MACH_GL_LOAD(AttachShader);
+    MACH_GL_LOAD(BindBuffer);
+    MACH_GL_LOAD(BindTexture);
+    MACH_GL_LOAD(BindVertexArray);
+    MACH_GL_LOAD(BlendFunc);
+    MACH_GL_LOAD(BufferData);
+    MACH_GL_LOAD(BufferSubData);
+    MACH_GL_LOAD(Clear);
+    MACH_GL_LOAD(ClearColor);
+    MACH_GL_LOAD(CompileShader);
+    MACH_GL_LOAD(CreateProgram);
+    MACH_GL_LOAD(CreateShader);
+    MACH_GL_LOAD(DeleteBuffers);
+    MACH_GL_LOAD(DeleteProgram);
+    MACH_GL_LOAD(DeleteShader);
+    MACH_GL_LOAD(DeleteTextures);
+    MACH_GL_LOAD(DeleteVertexArrays);
+    MACH_GL_LOAD(Disable);
+    MACH_GL_LOAD(DrawElements);
+    MACH_GL_LOAD(Enable);
+    MACH_GL_LOAD(EnableVertexAttribArray);
+    MACH_GL_LOAD(GenBuffers);
+    MACH_GL_LOAD(GenTextures);
+    MACH_GL_LOAD(GenVertexArrays);
+    MACH_GL_LOAD(GetProgramInfoLog);
+    MACH_GL_LOAD(GetProgramiv);
+    MACH_GL_LOAD(GetShaderInfoLog);
+    MACH_GL_LOAD(GetShaderiv);
+    MACH_GL_LOAD(GetString);
+    MACH_GL_LOAD(GetUniformLocation);
+    MACH_GL_LOAD(LinkProgram);
+    MACH_GL_LOAD(PixelStorei);
+    MACH_GL_LOAD(Scissor);
+    MACH_GL_LOAD(ShaderSource);
+    MACH_GL_LOAD(TexImage2D);
+    MACH_GL_LOAD(TexParameteri);
+    MACH_GL_LOAD(Uniform1i);
+    MACH_GL_LOAD(Uniform2f);
+    MACH_GL_LOAD(UseProgram);
+    MACH_GL_LOAD(VertexAttribPointer);
+    MACH_GL_LOAD(Viewport);
+#undef MACH_GL_LOAD
     return ok;
 }
 
-static u32 r2d_compile_shader(const Mach_GLApi *gl, u32 type, const char *src) {
+static u32 mach_r2d_compile_shader(const Mach_GLApi *gl, u32 type, const char *src) {
     u32 shader = gl->CreateShader(type);
     gl->ShaderSource(shader, 1, &src, NULL);
     gl->CompileShader(shader);
@@ -1162,7 +1162,7 @@ static u32 r2d_compile_shader(const Mach_GLApi *gl, u32 type, const char *src) {
     if (!status) {
         char log[512];
         gl->GetShaderInfoLog(shader, sizeof(log), NULL, log);
-        LOG_ERROR("shader compile failed: %s", log);
+        MACH_LOG_ERROR("shader compile failed: %s", log);
         gl->DeleteShader(shader);
         return 0;
     }
@@ -1174,7 +1174,7 @@ static u32 r2d_compile_shader(const Mach_GLApi *gl, u32 type, const char *src) {
 // Cache the window size (points) and framebuffer size (pixels), and point the
 // viewport at the full framebuffer. Render and mouse coordinates share the
 // window-point space; GL scales to the HiDPI framebuffer via the viewport.
-static void r2d_apply_window_size(Mach_Renderer *r) {
+static void mach_r2d_apply_window_size(Mach_Renderer *r) {
     RGFW_window_getSize(r->window, &r->width, &r->height);
     r->fb_width = r->width;
     r->fb_height = r->height;
@@ -1182,14 +1182,14 @@ static void r2d_apply_window_size(Mach_Renderer *r) {
     r->gl.Viewport(0, 0, r->fb_width, r->fb_height);
 }
 
-b32 r2d_init(Mach_Renderer *r, RGFW_window *window) {
+b32 mach_r2d_init(Mach_Renderer *r, RGFW_window *window) {
     r->window = window;
 
-    if (!r2d_gl_load(&r->gl)) return MACH_FALSE;
+    if (!mach_r2d_gl_load(&r->gl)) return MACH_FALSE;
     const Mach_GLApi *gl = &r->gl;
 
-    u32 vs = r2d_compile_shader(gl, GL_VERTEX_SHADER, R2D_VERT_SRC);
-    u32 fs = r2d_compile_shader(gl, GL_FRAGMENT_SHADER, R2D_FRAG_SRC);
+    u32 vs = mach_r2d_compile_shader(gl, GL_VERTEX_SHADER, R2D_VERT_SRC);
+    u32 fs = mach_r2d_compile_shader(gl, GL_FRAGMENT_SHADER, R2D_FRAG_SRC);
     if (!vs || !fs) return MACH_FALSE;
     r->program = gl->CreateProgram();
     gl->AttachShader(r->program, vs);
@@ -1202,7 +1202,7 @@ b32 r2d_init(Mach_Renderer *r, RGFW_window *window) {
     if (!status) {
         char log[512];
         gl->GetProgramInfoLog(r->program, sizeof(log), NULL, log);
-        LOG_ERROR("program link failed: %s", log);
+        MACH_LOG_ERROR("program link failed: %s", log);
         return MACH_FALSE;
     }
     r->u_screen = gl->GetUniformLocation(r->program, "u_screen");
@@ -1233,39 +1233,39 @@ b32 r2d_init(Mach_Renderer *r, RGFW_window *window) {
     gl->ActiveTexture(GL_TEXTURE0);
 
     u32 white_px = 0xFFFFFFFFu;
-    r->white = r2d_texture_from_pixels(r, &white_px, 1, 1, MACH_TRUE);
+    r->white = mach_r2d_texture_from_pixels(r, &white_px, 1, 1, MACH_TRUE);
     if (!r->white.id) return MACH_FALSE;
     r->batch_tex = r->white.id;
 
-    r2d_apply_window_size(r);
+    mach_r2d_apply_window_size(r);
 
-    r->font = font_create(r);
+    r->font = mach_font_create(r);
     if (!r->font) return MACH_FALSE;
 
-    LOG_INFO("2D renderer ready (%dx%d points, %dx%d px, GL %s)", r->width, r->height,
+    MACH_LOG_INFO("2D renderer ready (%dx%d points, %dx%d px, GL %s)", r->width, r->height,
              r->fb_width, r->fb_height, (const char *)gl->GetString(GL_VERSION));
     return MACH_TRUE;
 }
 
-void r2d_shutdown(Mach_Renderer *r) {
+void mach_r2d_shutdown(Mach_Renderer *r) {
     const Mach_GLApi *gl = &r->gl;
-    if (r->font) { font_destroy(r, r->font); r->font = NULL; }
-    if (r->white.id) r2d_destroy_texture(r, &r->white);
+    if (r->font) { mach_font_destroy(r, r->font); r->font = NULL; }
+    if (r->white.id) mach_r2d_destroy_texture(r, &r->white);
     if (r->program) { gl->DeleteProgram(r->program); r->program = 0; }
     if (r->vbo) { gl->DeleteBuffers(1, &r->vbo); r->vbo = 0; }
     if (r->ibo) { gl->DeleteBuffers(1, &r->ibo); r->ibo = 0; }
     if (r->vao) { gl->DeleteVertexArrays(1, &r->vao); r->vao = 0; }
-    LOG_INFO("2D renderer shut down");
+    MACH_LOG_INFO("2D renderer shut down");
 }
 
-void r2d_resized(Mach_Renderer *r) {
-    r2d_apply_window_size(r);
-    LOG_DEBUG("window resized to %dx%d", r->width, r->height);
+void mach_r2d_resized(Mach_Renderer *r) {
+    mach_r2d_apply_window_size(r);
+    MACH_LOG_DEBUG("window resized to %dx%d", r->width, r->height);
 }
 
 // --- Batch ----------------------------------------------------------------------
 
-static void r2d_flush(Mach_Renderer *r) {
+static void mach_r2d_flush(Mach_Renderer *r) {
     if (r->index_count == 0) return;
     const Mach_GLApi *gl = &r->gl;
     gl->BufferSubData(GL_ARRAY_BUFFER, 0,
@@ -1281,16 +1281,16 @@ static void r2d_flush(Mach_Renderer *r) {
 // Reserve batch space for nverts/nindices drawing with `tex`, flushing first if
 // the texture changes or the batch would overflow. Returns the base vertex
 // index; the caller writes verts at verts[base + i] and absolute indices.
-static i32 r2d_reserve(Mach_Renderer *r, u32 tex, i32 nverts, i32 nindices) {
-    if (tex != r->batch_tex || r->vert_count + nverts > R2D_MAX_VERTS ||
-        r->index_count + nindices > R2D_MAX_INDICES) {
-        r2d_flush(r);
+static i32 mach_r2d_reserve(Mach_Renderer *r, u32 tex, i32 nverts, i32 nindices) {
+    if (tex != r->batch_tex || r->vert_count + nverts > MACH_R2D_MAX_VERTS ||
+        r->index_count + nindices > MACH_R2D_MAX_INDICES) {
+        mach_r2d_flush(r);
         r->batch_tex = tex;
     }
     return r->vert_count;
 }
 
-static Mach_R2D_Vertex r2d_vertex(f32 x, f32 y, f32 u, f32 v, Mach_Color c) {
+static Mach_R2D_Vertex mach_r2d_vertex(f32 x, f32 y, f32 u, f32 v, Mach_Color c) {
     Mach_R2D_Vertex vert;
     vert.x = x; vert.y = y;
     vert.u = u; vert.v = v;
@@ -1299,13 +1299,13 @@ static Mach_R2D_Vertex r2d_vertex(f32 x, f32 y, f32 u, f32 v, Mach_Color c) {
 }
 
 // Append one textured axis-aligned quad.
-static void r2d_quad(Mach_Renderer *r, u32 tex, f32 x, f32 y, f32 w, f32 h,
+static void mach_r2d_quad(Mach_Renderer *r, u32 tex, f32 x, f32 y, f32 w, f32 h,
                      f32 u0, f32 v0, f32 u1, f32 v1, Mach_Color c) {
-    i32 base = r2d_reserve(r, tex, 4, 6);
-    r->verts[base + 0] = r2d_vertex(x,     y,     u0, v0, c);
-    r->verts[base + 1] = r2d_vertex(x + w, y,     u1, v0, c);
-    r->verts[base + 2] = r2d_vertex(x + w, y + h, u1, v1, c);
-    r->verts[base + 3] = r2d_vertex(x,     y + h, u0, v1, c);
+    i32 base = mach_r2d_reserve(r, tex, 4, 6);
+    r->verts[base + 0] = mach_r2d_vertex(x,     y,     u0, v0, c);
+    r->verts[base + 1] = mach_r2d_vertex(x + w, y,     u1, v0, c);
+    r->verts[base + 2] = mach_r2d_vertex(x + w, y + h, u1, v1, c);
+    r->verts[base + 3] = mach_r2d_vertex(x,     y + h, u0, v1, c);
     u16 b = (u16)base;
     u16 *ix = r->indices + r->index_count;
     ix[0] = b; ix[1] = (u16)(b + 1); ix[2] = (u16)(b + 2);
@@ -1316,7 +1316,7 @@ static void r2d_quad(Mach_Renderer *r, u32 tex, f32 x, f32 y, f32 w, f32 h,
 
 // --- Frame ------------------------------------------------------------------
 
-void r2d_begin(Mach_Renderer *r, Mach_Color clear) {
+void mach_r2d_begin(Mach_Renderer *r, Mach_Color clear) {
     const Mach_GLApi *gl = &r->gl;
     gl->ClearColor(clear.x, clear.y, clear.z, clear.w);
     gl->Clear(GL_COLOR_BUFFER_BIT);
@@ -1329,23 +1329,23 @@ void r2d_begin(Mach_Renderer *r, Mach_Color clear) {
     r->batch_tex = r->white.id;
 }
 
-void r2d_present(Mach_Renderer *r) {
-    r2d_flush(r);
+void mach_r2d_present(Mach_Renderer *r) {
+    mach_r2d_flush(r);
     RGFW_window_swapBuffers_OpenGL(r->window);
 }
 
 // --- Primitives -------------------------------------------------------------
 
-void r2d_fill_rect(Mach_Renderer *r, f32 x, f32 y, f32 w, f32 h, Mach_Color color) {
-    r2d_quad(r, r->white.id, x, y, w, h, 0.0f, 0.0f, 1.0f, 1.0f, color);
+void mach_r2d_fill_rect(Mach_Renderer *r, f32 x, f32 y, f32 w, f32 h, Mach_Color color) {
+    mach_r2d_quad(r, r->white.id, x, y, w, h, 0.0f, 0.0f, 1.0f, 1.0f, color);
 }
 
 // Fill a convex polygon as a triangle fan.
-void r2d_fill_poly(Mach_Renderer *r, const Mach_Vec2 *pts, i32 n, Mach_Color color) {
+void mach_r2d_fill_poly(Mach_Renderer *r, const Mach_Vec2 *pts, i32 n, Mach_Color color) {
     if (n < 3 || n > 16) return;
-    i32 base = r2d_reserve(r, r->white.id, n, (n - 2) * 3);
+    i32 base = mach_r2d_reserve(r, r->white.id, n, (n - 2) * 3);
     for (i32 i = 0; i < n; i++) {
-        r->verts[base + i] = r2d_vertex(pts[i].x, pts[i].y, 0.0f, 0.0f, color);
+        r->verts[base + i] = mach_r2d_vertex(pts[i].x, pts[i].y, 0.0f, 0.0f, color);
     }
     u16 *ix = r->indices + r->index_count;
     for (i32 i = 1; i < n - 1; i++) {
@@ -1359,22 +1359,22 @@ void r2d_fill_poly(Mach_Renderer *r, const Mach_Vec2 *pts, i32 n, Mach_Color col
 
 // Stroke a closed polygon with 1-point-thick edge quads (core GL has no
 // reliable line width, so edges are geometry like everything else).
-void r2d_poly_outline(Mach_Renderer *r, const Mach_Vec2 *pts, i32 n, Mach_Color color) {
+void mach_r2d_poly_outline(Mach_Renderer *r, const Mach_Vec2 *pts, i32 n, Mach_Color color) {
     if (n < 2 || n > 16) return;
     for (i32 i = 0; i < n; i++) {
         Mach_Vec2 p = pts[i];
         Mach_Vec2 q = pts[(i + 1) % n];
-        Mach_Vec2 d = vec2_sub(q, p);
-        f32 len = vec2_length(d);
+        Mach_Vec2 d = mach_vec2_sub(q, p);
+        f32 len = mach_vec2_length(d);
         if (len < 0.0001f) continue;
         // Half-thickness normal on each side of the edge.
         f32 nx = -d.y / len * 0.5f;
         f32 ny = d.x / len * 0.5f;
-        i32 base = r2d_reserve(r, r->white.id, 4, 6);
-        r->verts[base + 0] = r2d_vertex(p.x + nx, p.y + ny, 0.0f, 0.0f, color);
-        r->verts[base + 1] = r2d_vertex(q.x + nx, q.y + ny, 0.0f, 0.0f, color);
-        r->verts[base + 2] = r2d_vertex(q.x - nx, q.y - ny, 0.0f, 0.0f, color);
-        r->verts[base + 3] = r2d_vertex(p.x - nx, p.y - ny, 0.0f, 0.0f, color);
+        i32 base = mach_r2d_reserve(r, r->white.id, 4, 6);
+        r->verts[base + 0] = mach_r2d_vertex(p.x + nx, p.y + ny, 0.0f, 0.0f, color);
+        r->verts[base + 1] = mach_r2d_vertex(q.x + nx, q.y + ny, 0.0f, 0.0f, color);
+        r->verts[base + 2] = mach_r2d_vertex(q.x - nx, q.y - ny, 0.0f, 0.0f, color);
+        r->verts[base + 3] = mach_r2d_vertex(p.x - nx, p.y - ny, 0.0f, 0.0f, color);
         u16 b = (u16)base;
         u16 *ix = r->indices + r->index_count;
         ix[0] = b; ix[1] = (u16)(b + 1); ix[2] = (u16)(b + 2);
@@ -1384,7 +1384,7 @@ void r2d_poly_outline(Mach_Renderer *r, const Mach_Vec2 *pts, i32 n, Mach_Color 
     }
 }
 
-void r2d_text(Mach_Renderer *r, f32 x, f32 y, f32 scale, const char *text, Mach_Color color) {
+void mach_r2d_text(Mach_Renderer *r, f32 x, f32 y, f32 scale, const char *text, Mach_Color color) {
     if (!text) return;
     Mach_Font *font = r->font;
     f32 gw = (f32)font->glyph_w * scale;
@@ -1393,8 +1393,8 @@ void r2d_text(Mach_Renderer *r, f32 x, f32 y, f32 scale, const char *text, Mach_
     f32 cur_x = x;
     for (const char *c = text; *c; c++) {
         f32 u0, v0, u1, v1;
-        if (font_glyph_uv(font, *c, &u0, &v0, &u1, &v1)) {
-            r2d_quad(r, font->atlas.id, cur_x, y, gw, gh, u0, v0, u1, v1, color);
+        if (mach_font_glyph_uv(font, *c, &u0, &v0, &u1, &v1)) {
+            mach_r2d_quad(r, font->atlas.id, cur_x, y, gw, gh, u0, v0, u1, v1, color);
         }
         cur_x += adv;
     }
@@ -1404,8 +1404,8 @@ void r2d_text(Mach_Renderer *r, f32 x, f32 y, f32 scale, const char *text, Mach_
 
 // glScissor works in framebuffer pixels with a bottom-left origin, so convert
 // from window points (y down) and scale for HiDPI.
-void r2d_clip_begin(Mach_Renderer *r, f32 x, f32 y, f32 w, f32 h) {
-    r2d_flush(r);
+void mach_r2d_clip_begin(Mach_Renderer *r, f32 x, f32 y, f32 w, f32 h) {
+    mach_r2d_flush(r);
     f32 sx = (f32)r->fb_width / (f32)r->width;
     f32 sy = (f32)r->fb_height / (f32)r->height;
     i32 px = (i32)(x * sx);
@@ -1418,19 +1418,19 @@ void r2d_clip_begin(Mach_Renderer *r, f32 x, f32 y, f32 w, f32 h) {
     r->gl.Scissor(px, py, pw, ph);
 }
 
-void r2d_clip_end(Mach_Renderer *r) {
-    r2d_flush(r);
+void mach_r2d_clip_end(Mach_Renderer *r) {
+    mach_r2d_flush(r);
     r->gl.Disable(GL_SCISSOR_TEST);
 }
 
 // --- Textures and sprites -----------------------------------------------------
 
-Mach_R2D_Texture r2d_texture_from_pixels(Mach_Renderer *r, const void *rgba, i32 w, i32 h, b32 nearest) {
+Mach_R2D_Texture mach_r2d_texture_from_pixels(Mach_Renderer *r, const void *rgba, i32 w, i32 h, b32 nearest) {
     const Mach_GLApi *gl = &r->gl;
     Mach_R2D_Texture tex = {0};
     gl->GenTextures(1, &tex.id);
     if (!tex.id) {
-        LOG_ERROR("r2d_texture_from_pixels: glGenTextures failed");
+        MACH_LOG_ERROR("mach_r2d_texture_from_pixels: glGenTextures failed");
         return tex;
     }
     tex.w = (f32)w;
@@ -1446,48 +1446,48 @@ Mach_R2D_Texture r2d_texture_from_pixels(Mach_Renderer *r, const void *rgba, i32
     return tex;
 }
 
-Mach_R2D_Texture r2d_load_texture(Mach_Renderer *r, const char *path) {
+Mach_R2D_Texture mach_r2d_load_texture(Mach_Renderer *r, const char *path) {
     Mach_R2D_Texture tex = {0};
-    Mach_Image img = image_load(path);
+    Mach_Image img = mach_image_load(path);
     if (!img.data) {
-        LOG_ERROR("r2d_load_texture: failed to load %s", path);
+        MACH_LOG_ERROR("mach_r2d_load_texture: failed to load %s", path);
         return tex;
     }
-    tex = r2d_texture_from_pixels(r, img.data, img.width, img.height, MACH_FALSE);
-    image_free(&img);
+    tex = mach_r2d_texture_from_pixels(r, img.data, img.width, img.height, MACH_FALSE);
+    mach_image_free(&img);
     return tex;
 }
 
-void r2d_destroy_texture(Mach_Renderer *r, Mach_R2D_Texture *tex) {
+void mach_r2d_destroy_texture(Mach_Renderer *r, Mach_R2D_Texture *tex) {
     if (!tex->id) return;
     r->gl.DeleteTextures(1, &tex->id);
     tex->id = 0;
 }
 
-void r2d_sprite(Mach_Renderer *r, Mach_R2D_Texture tex, f32 x, f32 y, f32 scale, Mach_Color tint) {
+void mach_r2d_sprite(Mach_Renderer *r, Mach_R2D_Texture tex, f32 x, f32 y, f32 scale, Mach_Color tint) {
     if (!tex.id) return;
-    r2d_quad(r, tex.id, x, y, tex.w * scale, tex.h * scale, 0.0f, 0.0f, 1.0f, 1.0f, tint);
+    mach_r2d_quad(r, tex.id, x, y, tex.w * scale, tex.h * scale, 0.0f, 0.0f, 1.0f, 1.0f, tint);
 }
 
 // --- Isometric projection ---------------------------------------------------
 
-Mach_Vec2 iso_to_screen(const Mach_Camera2D *cam, f32 screen_w, f32 screen_h,
+Mach_Vec2 mach_iso_to_screen(const Mach_Camera2D *cam, f32 screen_w, f32 screen_h,
                    f32 grid_x, f32 grid_y, f32 elev) {
-    f32 iso_x = (grid_x - grid_y) * (ISO_TILE_W * 0.5f);
-    f32 iso_y = (grid_x + grid_y) * (ISO_TILE_H * 0.5f) - elev * ISO_ELEV;
+    f32 iso_x = (grid_x - grid_y) * (MACH_ISO_TILE_W * 0.5f);
+    f32 iso_y = (grid_x + grid_y) * (MACH_ISO_TILE_H * 0.5f) - elev * MACH_ISO_ELEV;
     return (Mach_Vec2){
         (iso_x - cam->pan.x) * cam->zoom + screen_w * 0.5f,
         (iso_y - cam->pan.y) * cam->zoom + screen_h * 0.5f,
     };
 }
 
-Mach_Vec2 screen_to_iso(const Mach_Camera2D *cam, f32 screen_w, f32 screen_h,
+Mach_Vec2 mach_screen_to_iso(const Mach_Camera2D *cam, f32 screen_w, f32 screen_h,
                    f32 screen_x, f32 screen_y) {
     f32 iso_x = (screen_x - screen_w * 0.5f) / cam->zoom + cam->pan.x;
     f32 iso_y = (screen_y - screen_h * 0.5f) / cam->zoom + cam->pan.y;
     // Invert the elev-0 projection: a = gx-gy, b = gx+gy.
-    f32 a = iso_x / (ISO_TILE_W * 0.5f);
-    f32 b = iso_y / (ISO_TILE_H * 0.5f);
+    f32 a = iso_x / (MACH_ISO_TILE_W * 0.5f);
+    f32 b = iso_y / (MACH_ISO_TILE_H * 0.5f);
     return (Mach_Vec2){(a + b) * 0.5f, (b - a) * 0.5f};
 }
 
@@ -1517,13 +1517,13 @@ Mach_Vec2 screen_to_iso(const Mach_Camera2D *cam, f32 screen_w, f32 screen_h,
 
 #include <stdlib.h>
 
-static Mach_Color clay_color(Clay_Color c) {
+static Mach_Color mach_clay_color(Clay_Color c) {
     return (Mach_Color){ c.r / 255.0f, c.g / 255.0f, c.b / 255.0f, c.a / 255.0f };
 }
 
 // Clay measures text through this; our bitmap font is a fixed 8x8 glyph advanced by
 // font->advance, scaled uniformly. fontSize is treated as the target pixel height.
-static Clay_Dimensions clay_measure_text(Clay_StringSlice text, Clay_TextElementConfig *config, void *userData) {
+static Clay_Dimensions mach_clay_measure_text(Clay_StringSlice text, Clay_TextElementConfig *config, void *userData) {
     Mach_Renderer *r = (Mach_Renderer *)userData;
     f32 scale = (f32)config->fontSize / (f32)r->font->glyph_h;
     return (Clay_Dimensions){
@@ -1532,28 +1532,28 @@ static Clay_Dimensions clay_measure_text(Clay_StringSlice text, Clay_TextElement
     };
 }
 
-static void clay_on_error(Clay_ErrorData e) {
-    LOG_ERROR("clay: %.*s", (int)e.errorText.length, e.errorText.chars);
+static void mach_clay_on_error(Clay_ErrorData e) {
+    MACH_LOG_ERROR("clay: %.*s", (int)e.errorText.length, e.errorText.chars);
 }
 
-b32 clay_ui_init(Mach_ClayUI *ui, Mach_Renderer *r) {
+b32 mach_clay_ui_init(Mach_ClayUI *ui, Mach_Renderer *r) {
     if (!ui || !r) return MACH_FALSE;
     uint32_t need = Clay_MinMemorySize();
     ui->memory = malloc(need);
     if (!ui->memory) {
-        LOG_ERROR("clay_ui_init: failed to allocate %u bytes", need);
+        MACH_LOG_ERROR("mach_clay_ui_init: failed to allocate %u bytes", need);
         return MACH_FALSE;
     }
     Clay_Arena arena = Clay_CreateArenaWithCapacityAndMemory(need, ui->memory);
     Clay_Dimensions dims = { (f32)r->width, (f32)r->height };
-    ui->ctx = Clay_Initialize(arena, dims, (Clay_ErrorHandler){ clay_on_error, NULL });
-    Clay_SetMeasureTextFunction(clay_measure_text, r);
+    ui->ctx = Clay_Initialize(arena, dims, (Clay_ErrorHandler){ mach_clay_on_error, NULL });
+    Clay_SetMeasureTextFunction(mach_clay_measure_text, r);
     ui->ready = MACH_TRUE;
-    LOG_INFO("clay ui initialized (%u bytes)", need);
+    MACH_LOG_INFO("clay ui initialized (%u bytes)", need);
     return MACH_TRUE;
 }
 
-void clay_ui_shutdown(Mach_ClayUI *ui) {
+void mach_clay_ui_shutdown(Mach_ClayUI *ui) {
     if (!ui) return;
     free(ui->memory);
     ui->memory = NULL;
@@ -1561,18 +1561,18 @@ void clay_ui_shutdown(Mach_ClayUI *ui) {
     ui->ready = MACH_FALSE;
 }
 
-void clay_ui_begin(Mach_ClayUI *ui, Mach_Renderer *r, Clay_Vector2 mouse, b32 mouse_down) {
+void mach_clay_ui_begin(Mach_ClayUI *ui, Mach_Renderer *r, Clay_Vector2 mouse, b32 mouse_down) {
     if (!ui || !ui->ready) return;
     // Re-point Clay's globals every frame: after a hot reload the new library's copy
     // of Clay starts with an empty context and a dangling measure-fn pointer.
     Clay_SetCurrentContext(ui->ctx);
-    Clay_SetMeasureTextFunction(clay_measure_text, r);
+    Clay_SetMeasureTextFunction(mach_clay_measure_text, r);
     Clay_SetLayoutDimensions((Clay_Dimensions){ (f32)r->width, (f32)r->height });
     Clay_SetPointerState(mouse, mouse_down);
     Clay_BeginLayout();
 }
 
-void clay_ui_render(Mach_ClayUI *ui, Mach_Renderer *r) {
+void mach_clay_ui_render(Mach_ClayUI *ui, Mach_Renderer *r) {
     if (!ui || !ui->ready) return;
     // deltaTime is only used by Clay's animation/transition features, which we don't
     // use yet, so 0 is fine.
@@ -1582,8 +1582,8 @@ void clay_ui_render(Mach_ClayUI *ui, Mach_Renderer *r) {
         Clay_BoundingBox b = cmd->boundingBox;
         switch (cmd->commandType) {
         case CLAY_RENDER_COMMAND_TYPE_RECTANGLE:
-            r2d_fill_rect(r, b.x, b.y, b.width, b.height,
-                          clay_color(cmd->renderData.rectangle.backgroundColor));
+            mach_r2d_fill_rect(r, b.x, b.y, b.width, b.height,
+                          mach_clay_color(cmd->renderData.rectangle.backgroundColor));
             break;
         case CLAY_RENDER_COMMAND_TYPE_TEXT: {
             Clay_TextRenderData *t = &cmd->renderData.text;
@@ -1593,21 +1593,21 @@ void clay_ui_render(Mach_ClayUI *ui, Mach_Renderer *r) {
             memcpy(buf, t->stringContents.chars, (size_t)n);
             buf[n] = '\0';
             f32 scale = (f32)t->fontSize / (f32)r->font->glyph_h;
-            r2d_text(r, b.x, b.y, scale, buf, clay_color(t->textColor));
+            mach_r2d_text(r, b.x, b.y, scale, buf, mach_clay_color(t->textColor));
         } break;
         case CLAY_RENDER_COMMAND_TYPE_BORDER: {
             Clay_BorderRenderData *bd = &cmd->renderData.border;
-            Mach_Vec4 col = clay_color(bd->color);
-            if (bd->width.top)    r2d_fill_rect(r, b.x, b.y, b.width, (f32)bd->width.top, col);
-            if (bd->width.bottom) r2d_fill_rect(r, b.x, b.y + b.height - (f32)bd->width.bottom, b.width, (f32)bd->width.bottom, col);
-            if (bd->width.left)   r2d_fill_rect(r, b.x, b.y, (f32)bd->width.left, b.height, col);
-            if (bd->width.right)  r2d_fill_rect(r, b.x + b.width - (f32)bd->width.right, b.y, (f32)bd->width.right, b.height, col);
+            Mach_Vec4 col = mach_clay_color(bd->color);
+            if (bd->width.top)    mach_r2d_fill_rect(r, b.x, b.y, b.width, (f32)bd->width.top, col);
+            if (bd->width.bottom) mach_r2d_fill_rect(r, b.x, b.y + b.height - (f32)bd->width.bottom, b.width, (f32)bd->width.bottom, col);
+            if (bd->width.left)   mach_r2d_fill_rect(r, b.x, b.y, (f32)bd->width.left, b.height, col);
+            if (bd->width.right)  mach_r2d_fill_rect(r, b.x + b.width - (f32)bd->width.right, b.y, (f32)bd->width.right, b.height, col);
         } break;
         case CLAY_RENDER_COMMAND_TYPE_SCISSOR_START:
-            r2d_clip_begin(r, b.x, b.y, b.width, b.height);
+            mach_r2d_clip_begin(r, b.x, b.y, b.width, b.height);
             break;
         case CLAY_RENDER_COMMAND_TYPE_SCISSOR_END:
-            r2d_clip_end(r);
+            mach_r2d_clip_end(r);
             break;
         default:
             break;  // images, custom, overlays: unused by our HUD for now
@@ -1650,7 +1650,7 @@ void clay_ui_render(Mach_ClayUI *ui, Mach_Renderer *r) {
 #pragma clang diagnostic pop
 
 // Clamp dt to prevent large simulation jumps after a stall.
-#define MAX_DT 0.1f
+#define MACH_MAX_DT 0.1f
 
 // (npt): The Win32 branches lean on RGFW's implementation include above already
 // having pulled in windows.h; QPC/Sleep are core kernel32 so WIN32_LEAN_AND_MEAN
@@ -1683,7 +1683,7 @@ static void mach_sleep_ms(u32 ms) {
 // Initialize RGFW, create the window from the config (zeroed fields defaulted)
 // with a GL 3.3 core context, bring up the 2D renderer, and start the clocks.
 b32 mach_init(Mach *m, Mach_Config cfg) {
-    LOG_INFO("mach v%d.%d.%d starting up",
+    MACH_LOG_INFO("mach v%d.%d.%d starting up",
              MACH_VERSION_MAJOR, MACH_VERSION_MINOR, MACH_VERSION_PATCH);
 
     if (!cfg.title) cfg.title = "mach";
@@ -1692,7 +1692,7 @@ b32 mach_init(Mach *m, Mach_Config cfg) {
     if (cfg.clear_color.w == 0.0f) cfg.clear_color = (Mach_Color){0, 0, 0, 1};
 
     if (RGFW_init("mach", RGFW_initOpenGL) < 0) {
-        LOG_ERROR("RGFW_init failed");
+        MACH_LOG_ERROR("RGFW_init failed");
         return MACH_FALSE;
     }
 
@@ -1710,7 +1710,7 @@ b32 mach_init(Mach *m, Mach_Config cfg) {
     if (cfg.fixed_size)  flags |= RGFW_windowNoResize;
     m->window = RGFW_createWindow(cfg.title, 0, 0, cfg.width, cfg.height, flags);
     if (!m->window) {
-        LOG_ERROR("RGFW_createWindow failed");
+        MACH_LOG_ERROR("RGFW_createWindow failed");
         RGFW_deinit();
         return MACH_FALSE;
     }
@@ -1718,7 +1718,7 @@ b32 mach_init(Mach *m, Mach_Config cfg) {
     // Our loop has its own frame cap, so disable vsync and let it govern.
     RGFW_window_swapInterval_OpenGL(m->window, 0);
 
-    if (!r2d_init(&m->r2d, m->window)) {
+    if (!mach_r2d_init(&m->r2d, m->window)) {
         RGFW_window_close(m->window);
         m->window = NULL;
         RGFW_deinit();
@@ -1742,14 +1742,14 @@ b32 mach_init(Mach *m, Mach_Config cfg) {
 
 // Clean up renderer resources and close the window.
 void mach_shutdown(Mach *m) {
-    arena_free(&m->frame_arena);
-    r2d_shutdown(&m->r2d);
+    mach_arena_free(&m->frame_arena);
+    mach_r2d_shutdown(&m->r2d);
     if (m->window) {
         RGFW_window_close(m->window);
         m->window = NULL;
     }
     RGFW_deinit();
-    LOG_INFO("shutdown complete");
+    MACH_LOG_INFO("shutdown complete");
 }
 
 b32 mach_running(const Mach *m) {
@@ -1763,35 +1763,35 @@ b32 mach_running(const Mach *m) {
 void mach_frame_begin(Mach *m) {
     m->frame_start = mach_ticks_ms();
     f32 dt = (f32)(m->frame_start - m->last_frame_time) / 1000.0f;
-    if (dt > MAX_DT) dt = MAX_DT;
+    if (dt > MACH_MAX_DT) dt = MACH_MAX_DT;
     m->dt = dt;
     m->last_frame_time = m->frame_start;
 
-    arena_reset(&m->frame_arena);
-    input_frame_begin(&m->input);
+    mach_arena_reset(&m->frame_arena);
+    mach_input_frame_begin(&m->input);
     RGFW_event ev;
     while (RGFW_window_checkEvent(m->window, &ev)) {
         if (ev.type == RGFW_windowClose) {
-            LOG_INFO("quit requested");
+            MACH_LOG_INFO("quit requested");
             m->running = MACH_FALSE;
         } else if (m->escape_quits && ev.type == RGFW_keyPressed &&
                    ev.key.value == RGFW_keyEscape) {
-            LOG_INFO("escape pressed, exiting");
+            MACH_LOG_INFO("escape pressed, exiting");
             m->running = MACH_FALSE;
         } else if (ev.type == RGFW_windowResized) {
-            r2d_resized(&m->r2d);
+            mach_r2d_resized(&m->r2d);
         } else {
-            input_handle_event(&m->input, &ev);
+            mach_input_handle_event(&m->input, &ev);
         }
     }
 
-    r2d_begin(&m->r2d, m->clear_color);
+    mach_r2d_begin(&m->r2d, m->clear_color);
 }
 
 // Finish a frame: present whatever the game rendered, update the 1s FPS sample
 // (read it at m->fps), and sleep to honor the soft frame cap.
 void mach_frame_end(Mach *m) {
-    r2d_present(&m->r2d);
+    mach_r2d_present(&m->r2d);
 
     m->frame_count++;
     u32 now = mach_ticks_ms();
@@ -1815,16 +1815,16 @@ void mach_frame_end(Mach *m) {
 
 
 // Map an RGFW button to Mach_Mouse_Button, or -1 for buttons we don't model.
-static i32 mouse_button_index(u8 rgfw_button) {
+static i32 mach_mouse_button_index(u8 rgfw_button) {
     switch (rgfw_button) {
-    case RGFW_mouseLeft:   return MOUSE_LEFT;
-    case RGFW_mouseRight:  return MOUSE_RIGHT;
-    case RGFW_mouseMiddle: return MOUSE_MIDDLE;
+    case RGFW_mouseLeft:   return MACH_MOUSE_LEFT;
+    case RGFW_mouseRight:  return MACH_MOUSE_RIGHT;
+    case RGFW_mouseMiddle: return MACH_MOUSE_MIDDLE;
     default:               return -1;
     }
 }
 
-void input_frame_begin(Mach_Input *in) {
+void mach_input_frame_begin(Mach_Input *in) {
     memset(in->key_pressed, 0, sizeof(in->key_pressed));
     memset(in->mouse_pressed, 0, sizeof(in->mouse_pressed));
     memset(in->mouse_released, 0, sizeof(in->mouse_released));
@@ -1832,7 +1832,7 @@ void input_frame_begin(Mach_Input *in) {
     in->wheel = 0.0f;
 }
 
-void input_handle_event(Mach_Input *in, const RGFW_event *ev) {
+void mach_input_handle_event(Mach_Input *in, const RGFW_event *ev) {
     switch (ev->type) {
     case RGFW_keyPressed:
         if (!ev->key.repeat) in->key_pressed[ev->key.value] = 1;
@@ -1853,7 +1853,7 @@ void input_handle_event(Mach_Input *in, const RGFW_event *ev) {
     } break;
     case RGFW_mouseButtonPressed:
     case RGFW_mouseButtonReleased: {
-        i32 b = mouse_button_index(ev->button.value);
+        i32 b = mach_mouse_button_index(ev->button.value);
         if (b < 0) break;
         if (ev->type == RGFW_mouseButtonPressed) {
             in->mouse_down[b] = 1;

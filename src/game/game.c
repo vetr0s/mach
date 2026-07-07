@@ -16,8 +16,8 @@
 
 // Center the 2D iso camera on grid cell (cx, cy) at a default zoom.
 static void setup_camera(Mach_Camera2D *c, f32 cx, f32 cy) {
-    c->pan.x = (cx - cy) * (ISO_TILE_W * 0.5f);
-    c->pan.y = (cx + cy) * (ISO_TILE_H * 0.5f);
+    c->pan.x = (cx - cy) * (MACH_ISO_TILE_W * 0.5f);
+    c->pan.y = (cx + cy) * (MACH_ISO_TILE_H * 0.5f);
     c->zoom = 2.0f;
 }
 
@@ -27,7 +27,7 @@ Mach_Config game_config(void) {
         .title = "mach",
         .width = 1280,
         .height = 720,
-        .clear_color = COLOR_BG_MAIN,   // modus-vivendi: true black beyond the grid
+        .clear_color = MACH_COLOR_BG_MAIN,   // modus-vivendi: true black beyond the grid
         .escape_quits = MACH_TRUE,      // dev convenience, for now
         .target_fps = 120,
     };
@@ -39,7 +39,7 @@ Mach_Config game_config(void) {
 void game_init(Game_State *g, Mach *m) {
     g->arena = (Mach_Arena){0};
     g->world = world_create(&g->arena);
-    clay_ui_init(&g->clay, &m->r2d);
+    mach_clay_ui_init(&g->clay, &m->r2d);
     g->selected_tool = TOOL_NONE;
     g->place_dir = DIR_E;
     g->hover_grid_x = 0;
@@ -61,13 +61,13 @@ void game_init(Game_State *g, Mach *m) {
         world_spawn_collector(g->world, 9, 5);
     }
 
-    LOG_INFO("game initialized (value-loop sim)");
+    MACH_LOG_INFO("game initialized (value-loop sim)");
 }
 
 // Update the hovered grid cell by inverse-projecting the mouse onto the ground
 // plane. Grid cell (x,y) is the tile centered at iso coordinate (x, y).
 static void update_hover(Game_State *g, f32 screen_w, f32 screen_h, f32 mouse_x, f32 mouse_y) {
-    Mach_Vec2 grid = screen_to_iso(&g->camera, screen_w, screen_h, mouse_x, mouse_y);
+    Mach_Vec2 grid = mach_screen_to_iso(&g->camera, screen_w, screen_h, mouse_x, mouse_y);
     g->hover_grid_x = (i32)floorf(grid.x + 0.5f);
     g->hover_grid_y = (i32)floorf(grid.y + 0.5f);
     g->hover_valid = (g->hover_grid_x >= 0 && g->hover_grid_x < WORLD_GRID_SIZE &&
@@ -106,13 +106,13 @@ void game_frame(Game_State *g, Mach *m) {
 // Clean up game state and free resources.
 void game_shutdown(Game_State *g) {
     if (!g) return;
-    clay_ui_shutdown(&g->clay);
+    mach_clay_ui_shutdown(&g->clay);
     if (g->world) {
-        LOG_INFO("world torn down (%d entities, tick %d)", g->world->entity_count, g->world->tick);
+        MACH_LOG_INFO("world torn down (%d entities, tick %d)", g->world->entity_count, g->world->tick);
         g->world = NULL;
     }
-    arena_free(&g->arena);
-    LOG_INFO("game shut down");
+    mach_arena_free(&g->arena);
+    MACH_LOG_INFO("game shut down");
 }
 
 // Place (or delete) with the selected tool at the hovered cell.
@@ -138,7 +138,7 @@ static void place_at_hover(Game_State *g) {
 // Toggle the given tool: selecting the active tool again clears it.
 static void toggle_tool(Game_State *g, Tool tool) {
     g->selected_tool = (g->selected_tool == (i32)tool) ? TOOL_NONE : (i32)tool;
-    LOG_DEBUG("selected tool: %d", g->selected_tool);
+    MACH_LOG_DEBUG("selected tool: %d", g->selected_tool);
 }
 
 // Pan the camera. (dx, dy) is screen-space motion in pixels; divide by zoom to
@@ -151,7 +151,7 @@ static void camera_pan(Game_State *g, f32 dx, f32 dy) {
 // Zoom the camera. Positive delta zooms in (larger tiles).
 static void camera_zoom(Game_State *g, f32 zoom_delta) {
     g->camera.zoom *= (1.0f + zoom_delta);
-    g->camera.zoom = math_clamp(g->camera.zoom, ZOOM_MIN, ZOOM_MAX);
+    g->camera.zoom = mach_clamp(g->camera.zoom, ZOOM_MIN, ZOOM_MAX);
 }
 
 // All of the game's input, one place: read this frame's snapshot and apply it.
@@ -165,7 +165,7 @@ void game_process_input(Game_State *g, const Mach_Input *in, f32 screen_w, f32 s
     if (in->key_pressed[RGFW_key5]) toggle_tool(g, TOOL_DELETE);
     if (in->key_pressed[RGFW_keySpace]) {
         g->paused = !g->paused;
-        LOG_DEBUG("simulation %s", g->paused ? "paused" : "resumed");
+        MACH_LOG_DEBUG("simulation %s", g->paused ? "paused" : "resumed");
     }
     if (in->key_pressed[RGFW_keyF3]) g->show_debug = !g->show_debug;
 
@@ -187,14 +187,14 @@ void game_process_input(Game_State *g, const Mach_Input *in, f32 screen_w, f32 s
         // collector, which has no facing), rotate the facing for the next placement.
         i32 id = g->hover_valid ? world_get_entity_at(g->world, g->hover_grid_x, g->hover_grid_y) : 0;
         if (id != 0 && world_rotate_entity(g->world, id)) {
-            LOG_DEBUG("rotated entity %d at (%d,%d)", id, g->hover_grid_x, g->hover_grid_y);
+            MACH_LOG_DEBUG("rotated entity %d at (%d,%d)", id, g->hover_grid_x, g->hover_grid_y);
         } else {
             g->place_dir = (Direction)((g->place_dir + 1) % DIR_COUNT);
-            LOG_DEBUG("place direction: %d", g->place_dir);
+            MACH_LOG_DEBUG("place direction: %d", g->place_dir);
         }
     }
 
-    if (in->mouse_pressed[MOUSE_LEFT]) place_at_hover(g);
+    if (in->mouse_pressed[MACH_MOUSE_LEFT]) place_at_hover(g);
 }
 
 void game_format_value(i64 v, char *buf, usize n) {

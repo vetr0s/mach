@@ -29,13 +29,13 @@ int main(int argc, char **argv) {
     Game_State game = {0};
     game_init(&game, &m);
 
-    LOG_INFO("entering main loop");
+    MACH_LOG_INFO("entering main loop");
     while (mach_running(&m)) {
         mach_frame_begin(&m);
         game_frame(&game, &m);
         mach_frame_end(&m);
     }
-    LOG_INFO("exited main loop");
+    MACH_LOG_INFO("exited main loop");
 
     game_shutdown(&game);
     mach_shutdown(&m);

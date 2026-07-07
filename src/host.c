@@ -81,13 +81,13 @@ static b32 game_api_reload(Game_Api *api) {
     char next[512];
     snprintf(next, sizeof next, "%s.reload%u", GAME_LIB_PATH, g_reload_counter + 1);
     if (!copy_file(GAME_LIB_PATH, next)) {
-        LOG_ERROR("hot reload: could not copy %s", GAME_LIB_PATH);
+        MACH_LOG_ERROR("hot reload: could not copy %s", GAME_LIB_PATH);
         return MACH_FALSE;
     }
 
     void *h = dlopen(next, RTLD_NOW | RTLD_LOCAL);
     if (!h) {
-        LOG_ERROR("hot reload: dlopen failed: %s", dlerror());
+        MACH_LOG_ERROR("hot reload: dlopen failed: %s", dlerror());
         unlink(next);
         return MACH_FALSE;
     }
@@ -97,7 +97,7 @@ static b32 game_api_reload(Game_Api *api) {
     b32 ok = MACH_TRUE;
 #define LOAD(field, sym) do { \
         *(void **)(&n.field) = dlsym(h, sym); \
-        if (!n.field) { LOG_ERROR("hot reload: missing symbol %s", sym); ok = MACH_FALSE; } \
+        if (!n.field) { MACH_LOG_ERROR("hot reload: missing symbol %s", sym); ok = MACH_FALSE; } \
     } while (0)
     LOAD(config,   "game_config");
     LOAD(init,     "game_init");
@@ -122,7 +122,7 @@ int main(int argc, char **argv) {
 
     Game_Api api;
     if (!game_api_reload(&api)) {
-        LOG_ERROR("failed to load game library %s", GAME_LIB_PATH);
+        MACH_LOG_ERROR("failed to load game library %s", GAME_LIB_PATH);
         return 1;
     }
 
@@ -139,7 +139,7 @@ int main(int argc, char **argv) {
     time_t last_mtime = lib_mtime();
     u32    pending_at = 0;   // engine ticks when a change was first seen; 0 = none
 
-    LOG_INFO("entering main loop (hot reload watching %s)", GAME_LIB_PATH);
+    MACH_LOG_INFO("entering main loop (hot reload watching %s)", GAME_LIB_PATH);
     while (mach_running(&m)) {
         // Watch the library; reload once it has settled after a change.
         time_t mt = lib_mtime();
@@ -149,15 +149,15 @@ int main(int argc, char **argv) {
         if (pending_at != 0 && mach_ticks_ms() - pending_at >= RELOAD_SETTLE_MS) {
             last_mtime = lib_mtime();
             pending_at = 0;
-            if (game_api_reload(&api)) LOG_INFO("game hot-reloaded");
-            else LOG_ERROR("hot reload failed; keeping previous build");
+            if (game_api_reload(&api)) MACH_LOG_INFO("game hot-reloaded");
+            else MACH_LOG_ERROR("hot reload failed; keeping previous build");
         }
 
         mach_frame_begin(&m);
         api.frame(game, &m);
         mach_frame_end(&m);
     }
-    LOG_INFO("exited main loop");
+    MACH_LOG_INFO("exited main loop");
 
     api.shutdown(game);
     free(game);

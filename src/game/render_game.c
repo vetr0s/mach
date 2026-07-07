@@ -10,11 +10,11 @@
 // a near-black ground, machines in the theme's accent colors.
 
 // Ground tile colors (subtle checker so the grid reads).
-#define GROUND_A COLOR_BG_DIM
-#define GROUND_B COLOR_HEX(0x252525)   // between bg-dim and bg-inactive: a quiet checker
+#define GROUND_A MACH_COLOR_BG_DIM
+#define GROUND_B MACH_COLOR_HEX(0x252525)   // between bg-dim and bg-inactive: a quiet checker
 
 // Grid line: darker than the tiles so the diamonds separate cleanly.
-#define GROUND_LINE COLOR_HEX(0x0f0f0f)
+#define GROUND_LINE MACH_COLOR_HEX(0x0f0f0f)
 
 // Per-piece block heights (elevation units) and base colors.
 #define DROPPER_H    0.80f
@@ -22,14 +22,14 @@
 #define UPGRADER_H   0.50f
 #define COLLECTOR_H  0.85f
 
-#define DROPPER_COL   COLOR_GREEN
-#define CONVEYOR_COL  COLOR_BG_POPUP
-#define UPGRADER_COL  COLOR_MAGENTA_COOLER
-#define COLLECTOR_COL COLOR_YELLOW_WARMER
+#define DROPPER_COL   MACH_COLOR_GREEN
+#define CONVEYOR_COL  MACH_COLOR_BG_POPUP
+#define UPGRADER_COL  MACH_COLOR_MAGENTA_COOLER
+#define COLLECTOR_COL MACH_COLOR_YELLOW_WARMER
 
 // Belt surface: gray chevrons that scroll toward the flow direction so the
 // black belt reads as running even when it's empty.
-#define BELT_CHEVRON_COL  COLOR_BG_ACTIVE
+#define BELT_CHEVRON_COL  MACH_COLOR_BG_ACTIVE
 #define BELT_CHEVRONS     3
 #define BELT_SCROLL_SPEED 1.5f   // chevron cycles/sec; kept below belt speed so 3 packed
                                  // chevrons read as a calm crawl, not a fast flicker
@@ -45,10 +45,10 @@ static f32 maxf4(f32 a, f32 b, f32 c, f32 d) {
 static void tile_corners(Mach_Renderer *r, const Mach_Camera2D *cam, f32 gx, f32 gy, f32 elev,
                          Mach_Vec2 *n, Mach_Vec2 *e, Mach_Vec2 *s, Mach_Vec2 *w) {
     f32 sw = (f32)r->width, sh = (f32)r->height;
-    *n = iso_to_screen(cam, sw, sh, gx - 0.5f, gy - 0.5f, elev);
-    *e = iso_to_screen(cam, sw, sh, gx + 0.5f, gy - 0.5f, elev);
-    *s = iso_to_screen(cam, sw, sh, gx + 0.5f, gy + 0.5f, elev);
-    *w = iso_to_screen(cam, sw, sh, gx - 0.5f, gy + 0.5f, elev);
+    *n = mach_iso_to_screen(cam, sw, sh, gx - 0.5f, gy - 0.5f, elev);
+    *e = mach_iso_to_screen(cam, sw, sh, gx + 0.5f, gy - 0.5f, elev);
+    *s = mach_iso_to_screen(cam, sw, sh, gx + 0.5f, gy + 0.5f, elev);
+    *w = mach_iso_to_screen(cam, sw, sh, gx - 0.5f, gy + 0.5f, elev);
 }
 
 // Flat diamond on the ground (elev 0).
@@ -56,7 +56,7 @@ static void draw_tile(Mach_Renderer *r, const Mach_Camera2D *cam, f32 gx, f32 gy
     Mach_Vec2 n, e, s, w;
     tile_corners(r, cam, gx, gy, 0.0f, &n, &e, &s, &w);
     Mach_Vec2 pts[4] = {n, e, s, w};
-    r2d_fill_poly(r, pts, 4, color);
+    mach_r2d_fill_poly(r, pts, 4, color);
 }
 
 // Stroke the outline of a ground-level diamond (grid line, hover highlight).
@@ -64,7 +64,7 @@ static void draw_tile_edges(Mach_Renderer *r, const Mach_Camera2D *cam, f32 gx, 
     Mach_Vec2 n, e, s, w;
     tile_corners(r, cam, gx, gy, 0.0f, &n, &e, &s, &w);
     Mach_Vec2 pts[4] = {n, e, s, w};
-    r2d_poly_outline(r, pts, 4, color);
+    mach_r2d_poly_outline(r, pts, 4, color);
 }
 
 // A shaded box: two visible front faces plus a top diamond, with outlined seams.
@@ -79,14 +79,14 @@ static void draw_block(Mach_Renderer *r, const Mach_Camera2D *cam, f32 gx, f32 g
     Mach_Vec2 left[4]  = {tw, ts, bs, bw};   // S-W face
     Mach_Vec2 right[4] = {ts, te, be, bs};   // S-E face
     Mach_Vec2 top[4]   = {tn, te, ts, tw};
-    r2d_fill_poly(r, left,  4, color_shade(base, 0.62f));
-    r2d_fill_poly(r, right, 4, color_shade(base, 0.46f));
-    r2d_fill_poly(r, top,   4, base);
+    mach_r2d_fill_poly(r, left,  4, mach_color_shade(base, 0.62f));
+    mach_r2d_fill_poly(r, right, 4, mach_color_shade(base, 0.46f));
+    mach_r2d_fill_poly(r, top,   4, base);
 
-    Mach_Color line = color_shade(base, 0.30f);
-    r2d_poly_outline(r, top,   4, line);
-    r2d_poly_outline(r, left,  4, line);
-    r2d_poly_outline(r, right, 4, line);
+    Mach_Color line = mach_color_shade(base, 0.30f);
+    mach_r2d_poly_outline(r, top,   4, line);
+    mach_r2d_poly_outline(r, left,  4, line);
+    mach_r2d_poly_outline(r, right, 4, line);
 }
 
 // A flat triangle on a piece's top face, pointing the way it moves items. Built
@@ -99,14 +99,14 @@ static void draw_arrow(Mach_Renderer *r, const Mach_Camera2D *cam, f32 gx, f32 g
     f32 px = -dy, py = dx;                  // perpendicular in grid space
     f32 fwd = 0.34f, back = 0.18f, halfw = 0.22f;
 
-    Mach_Vec2 tip = iso_to_screen(cam, sw, sh, gx + dx * fwd, gy + dy * fwd, elev);
-    Mach_Vec2 b1  = iso_to_screen(cam, sw, sh, gx - dx * back + px * halfw,
+    Mach_Vec2 tip = mach_iso_to_screen(cam, sw, sh, gx + dx * fwd, gy + dy * fwd, elev);
+    Mach_Vec2 b1  = mach_iso_to_screen(cam, sw, sh, gx - dx * back + px * halfw,
                                           gy - dy * back + py * halfw, elev);
-    Mach_Vec2 b2  = iso_to_screen(cam, sw, sh, gx - dx * back - px * halfw,
+    Mach_Vec2 b2  = mach_iso_to_screen(cam, sw, sh, gx - dx * back - px * halfw,
                                           gy - dy * back - py * halfw, elev);
     Mach_Vec2 pts[3] = {tip, b1, b2};
-    r2d_fill_poly(r, pts, 3, color);
-    r2d_poly_outline(r, pts, 3, color_shade(color, 0.45f));
+    mach_r2d_fill_poly(r, pts, 3, color);
+    mach_r2d_poly_outline(r, pts, 3, mach_color_shade(color, 0.45f));
 }
 
 // A thick line between two grid-space points, drawn as a filled quad on the belt's
@@ -119,12 +119,12 @@ static void draw_belt_tread(Mach_Renderer *r, const Mach_Camera2D *cam, f32 ax, 
     if (len < 1e-5f) return;
     f32 nx = -vy / len * half_thick;   // perpendicular offset in grid units
     f32 ny =  vx / len * half_thick;
-    Mach_Vec2 p0 = iso_to_screen(cam, sw, sh, ax + nx, ay + ny, CONVEYOR_H);
-    Mach_Vec2 p1 = iso_to_screen(cam, sw, sh, bx + nx, by + ny, CONVEYOR_H);
-    Mach_Vec2 p2 = iso_to_screen(cam, sw, sh, bx - nx, by - ny, CONVEYOR_H);
-    Mach_Vec2 p3 = iso_to_screen(cam, sw, sh, ax - nx, ay - ny, CONVEYOR_H);
+    Mach_Vec2 p0 = mach_iso_to_screen(cam, sw, sh, ax + nx, ay + ny, CONVEYOR_H);
+    Mach_Vec2 p1 = mach_iso_to_screen(cam, sw, sh, bx + nx, by + ny, CONVEYOR_H);
+    Mach_Vec2 p2 = mach_iso_to_screen(cam, sw, sh, bx - nx, by - ny, CONVEYOR_H);
+    Mach_Vec2 p3 = mach_iso_to_screen(cam, sw, sh, ax - nx, ay - ny, CONVEYOR_H);
     Mach_Vec2 pts[4] = {p0, p1, p2, p3};
-    r2d_fill_poly(r, pts, 4, color);
+    mach_r2d_fill_poly(r, pts, 4, color);
 }
 
 // Scrolling chevrons on a conveyor's top face. `phase` in [0,1) advances over real
@@ -172,7 +172,7 @@ static i32 popcount_u64(u64 x) {
 static Mach_Color item_color(const Item *it) {
     f32 t = (f32)popcount_u64(it->upgraded_mask) / 6.0f;
     if (t > 1.0f) t = 1.0f;
-    return color_lerp(COLOR_YELLOW_FAINT, COLOR_YELLOW_WARMER, t);
+    return mach_color_lerp(MACH_COLOR_YELLOW_FAINT, MACH_COLOR_YELLOW_WARMER, t);
 }
 
 // A small diamond floating just above the belt at the item's cell, with the ore's
@@ -196,13 +196,13 @@ static void draw_item(Mach_Renderer *r, const Mach_Camera2D *cam, const Item *it
         col.w = 1.0f - p;          // fade to nothing
     }
 
-    Mach_Vec2 n  = iso_to_screen(cam, sw, sh, gx,     gy - s, e);
-    Mach_Vec2 ee = iso_to_screen(cam, sw, sh, gx + s, gy,     e);
-    Mach_Vec2 ss = iso_to_screen(cam, sw, sh, gx,     gy + s, e);
-    Mach_Vec2 ww = iso_to_screen(cam, sw, sh, gx - s, gy,     e);
+    Mach_Vec2 n  = mach_iso_to_screen(cam, sw, sh, gx,     gy - s, e);
+    Mach_Vec2 ee = mach_iso_to_screen(cam, sw, sh, gx + s, gy,     e);
+    Mach_Vec2 ss = mach_iso_to_screen(cam, sw, sh, gx,     gy + s, e);
+    Mach_Vec2 ww = mach_iso_to_screen(cam, sw, sh, gx - s, gy,     e);
     Mach_Vec2 pts[4] = {n, ee, ss, ww};
-    r2d_fill_poly(r, pts, 4, col);
-    r2d_poly_outline(r, pts, 4, color_shade(col, 0.45f));
+    mach_r2d_fill_poly(r, pts, 4, col);
+    mach_r2d_poly_outline(r, pts, 4, mach_color_shade(col, 0.45f));
 
     if (it->fall > 0) return;   // no value label on ore that's dropping out
 
@@ -212,11 +212,11 @@ static void draw_item(Mach_Renderer *r, const Mach_Camera2D *cam, const Item *it
     f32 tscale = 1.0f;
     f32 adv = (f32)r->font->advance * tscale;
     f32 gh  = (f32)r->font->glyph_h * tscale;
-    Mach_Vec2 c  = iso_to_screen(cam, sw, sh, gx, gy, e);
+    Mach_Vec2 c  = mach_iso_to_screen(cam, sw, sh, gx, gy, e);
     f32 tx = c.x - adv * (f32)strlen(buf) * 0.5f;
     f32 ty = n.y - gh - 4.0f;
-    r2d_text(r, tx + 1.0f, ty + 1.0f, tscale, buf, color_alpha(COLOR_BG_MAIN, 0.7f));  // shadow
-    r2d_text(r, tx, ty, tscale, buf, COLOR_FG_MAIN);
+    mach_r2d_text(r, tx + 1.0f, ty + 1.0f, tscale, buf, mach_color_alpha(MACH_COLOR_BG_MAIN, 0.7f));  // shadow
+    mach_r2d_text(r, tx, ty, tscale, buf, MACH_COLOR_FG_MAIN);
 }
 
 static void draw_entity(Mach_Renderer *r, const Mach_Camera2D *cam, const Entity *e, f32 belt_phase) {
@@ -224,7 +224,7 @@ static void draw_entity(Mach_Renderer *r, const Mach_Camera2D *cam, const Entity
     switch (e->type) {
     case ENTITY_DROPPER:
         draw_block(r, cam, gx, gy, DROPPER_H, DROPPER_COL);
-        draw_arrow(r, cam, gx, gy, DROPPER_H, e->dir, color_lighten(DROPPER_COL, 0.55f));
+        draw_arrow(r, cam, gx, gy, DROPPER_H, e->dir, mach_color_lighten(DROPPER_COL, 0.55f));
         break;
     case ENTITY_CONVEYOR:
         draw_block(r, cam, gx, gy, CONVEYOR_H, CONVEYOR_COL);
@@ -232,7 +232,7 @@ static void draw_entity(Mach_Renderer *r, const Mach_Camera2D *cam, const Entity
         break;
     case ENTITY_UPGRADER:
         draw_block(r, cam, gx, gy, UPGRADER_H, UPGRADER_COL);
-        draw_arrow(r, cam, gx, gy, UPGRADER_H, e->dir, color_lighten(UPGRADER_COL, 0.55f));
+        draw_arrow(r, cam, gx, gy, UPGRADER_H, e->dir, mach_color_lighten(UPGRADER_COL, 0.55f));
         break;
     case ENTITY_COLLECTOR:
         draw_block(r, cam, gx, gy, COLLECTOR_H, COLLECTOR_COL);
@@ -256,10 +256,10 @@ void game_render_draw(Mach_Renderer *r, const Game_State *game, Mach_Arena *scra
     f32 sw = (f32)r->width, sh = (f32)r->height;
 
     // Visible ground range: unproject the screen corners, take the grid bbox.
-    Mach_Vec2 c0 = screen_to_iso(cam, sw, sh, 0.0f, 0.0f);
-    Mach_Vec2 c1 = screen_to_iso(cam, sw, sh, sw, 0.0f);
-    Mach_Vec2 c2 = screen_to_iso(cam, sw, sh, 0.0f, sh);
-    Mach_Vec2 c3 = screen_to_iso(cam, sw, sh, sw, sh);
+    Mach_Vec2 c0 = mach_screen_to_iso(cam, sw, sh, 0.0f, 0.0f);
+    Mach_Vec2 c1 = mach_screen_to_iso(cam, sw, sh, sw, 0.0f);
+    Mach_Vec2 c2 = mach_screen_to_iso(cam, sw, sh, 0.0f, sh);
+    Mach_Vec2 c3 = mach_screen_to_iso(cam, sw, sh, sw, sh);
     i32 gx0 = (i32)minf4(c0.x, c1.x, c2.x, c3.x) - 1;
     i32 gx1 = (i32)maxf4(c0.x, c1.x, c2.x, c3.x) + 1;
     i32 gy0 = (i32)minf4(c0.y, c1.y, c2.y, c3.y) - 1;
@@ -279,19 +279,19 @@ void game_render_draw(Mach_Renderer *r, const Game_State *game, Mach_Arena *scra
     // Hover preview: a highlighted tile over the ground, under everything else.
     if (game->hover_valid) {
         Mach_Color color;
-        if (!game->hover_can_place)                     color = COLOR_RED;
-        else if (game->selected_tool == TOOL_COLLECTOR) color = COLOR_YELLOW_WARMER;
-        else                                            color = COLOR_GREEN;
+        if (!game->hover_can_place)                     color = MACH_COLOR_RED;
+        else if (game->selected_tool == TOOL_COLLECTOR) color = MACH_COLOR_YELLOW_WARMER;
+        else                                            color = MACH_COLOR_GREEN;
         draw_tile(r, cam, (f32)game->hover_grid_x, (f32)game->hover_grid_y, color);
         draw_tile_edges(r, cam, (f32)game->hover_grid_x, (f32)game->hover_grid_y,
-                        color_lighten(color, 0.5f));
+                        mach_color_lighten(color, 0.5f));
     }
 
     if (!w) return;
 
     // Machines, back-to-front by (gx+gy) so nearer blocks overdraw farther ones.
     // Sort buffers come from the frame arena: sized to what's alive, gone next frame.
-    DrawItem *ents = (DrawItem *)arena_alloc(scratch, (usize)w->entity_count * sizeof(DrawItem));
+    DrawItem *ents = (DrawItem *)mach_arena_alloc(scratch, (usize)w->entity_count * sizeof(DrawItem));
     if (w->entity_count > 0 && !ents) return;
     i32 ne = 0;
     for (i32 i = 0; i < w->entity_count; i++) {
@@ -312,7 +312,7 @@ void game_render_draw(Mach_Renderer *r, const Game_State *game, Mach_Arena *scra
     if (alpha < 0.0f) alpha = 0.0f;
     if (alpha > 1.0f) alpha = 1.0f;
 
-    DrawItem *items = (DrawItem *)arena_alloc(scratch, (usize)w->item_count * sizeof(DrawItem));
+    DrawItem *items = (DrawItem *)mach_arena_alloc(scratch, (usize)w->item_count * sizeof(DrawItem));
     if (w->item_count > 0 && !items) return;
     i32 ni = 0;
     for (i32 i = 0; i < MAX_ITEMS && ni < w->item_count; i++) {
@@ -330,14 +330,14 @@ void game_render_draw(Mach_Renderer *r, const Game_State *game, Mach_Arena *scra
 // HUD: Clay floating panels pinned to the screen edges.
 // ---------------------------------------------------------------------------
 
-// HUD colors, from the engine palette (clay_color_of converts to Clay's 0-255).
-#define HUD_PANEL   clay_color_of(color_alpha(COLOR_BG_DIM, 0.86f))
-#define HUD_GOLD    clay_color_of(COLOR_YELLOW_WARMER)
-#define HUD_GREEN   clay_color_of(COLOR_GREEN)
-#define HUD_AMBER   clay_color_of(COLOR_YELLOW)
-#define HUD_GREY    clay_color_of(COLOR_FG_DIM)
-#define HUD_WHITE   clay_color_of(COLOR_FG_MAIN)
-#define HUD_PURPLE  clay_color_of(COLOR_MAGENTA_COOLER)
+// HUD colors, from the engine palette (mach_clay_color_of converts to Clay's 0-255).
+#define HUD_PANEL   mach_clay_color_of(mach_color_alpha(MACH_COLOR_BG_DIM, 0.86f))
+#define HUD_GOLD    mach_clay_color_of(MACH_COLOR_YELLOW_WARMER)
+#define HUD_GREEN   mach_clay_color_of(MACH_COLOR_GREEN)
+#define HUD_AMBER   mach_clay_color_of(MACH_COLOR_YELLOW)
+#define HUD_GREY    mach_clay_color_of(MACH_COLOR_FG_DIM)
+#define HUD_WHITE   mach_clay_color_of(MACH_COLOR_FG_MAIN)
+#define HUD_PURPLE  mach_clay_color_of(MACH_COLOR_MAGENTA_COOLER)
 
 // A floating HUD panel pinned to a screen corner/edge: the same attach point on
 // the element and the root, nudged inward by (ox, oy). Follow with a block of
@@ -360,12 +360,12 @@ void game_render_hud(Game_State *g, Mach *m) {
                                        "Collector", "Delete"};
     static const char *dir_names[]  = {"N", "E", "S", "W"};
     static const char *entity_names[] = {"", "Dropper", "Conveyor", "Upgrader", "Collector"};
-    const char *tool = (g->selected_tool >= 0 && g->selected_tool < (i32)ARRAY_COUNT(tool_names))
+    const char *tool = (g->selected_tool >= 0 && g->selected_tool < (i32)MACH_ARRAY_COUNT(tool_names))
                            ? tool_names[g->selected_tool] : "?";
-    const char *facing = (g->place_dir >= 0 && g->place_dir < (i32)ARRAY_COUNT(dir_names))
+    const char *facing = (g->place_dir >= 0 && g->place_dir < (i32)MACH_ARRAY_COUNT(dir_names))
                              ? dir_names[g->place_dir] : "?";
 
-    // HUD strings. These buffers must outlive clay_ui_render (Clay keeps the char
+    // HUD strings. These buffers must outlive mach_clay_ui_render (Clay keeps the char
     // pointers, not copies), so they stay in scope for the whole function.
     char money_s[32], tool_s[48], fps_s[24], counts_s[64], hover_s[48], cam_s[48];
     char val_a[24], val_b[24], banked_s[24];
@@ -430,13 +430,13 @@ void game_render_hud(Game_State *g, Mach *m) {
     // Floating panels around the screen edges. Font sizes are multiples of the 8px
     // bitmap glyph (16 -> 2x, 8 -> 1x) so the text stays crisp.
     const Mach_Input *in = &m->input;
-    clay_ui_begin(&g->clay, r, (Clay_Vector2){in->mouse.x, in->mouse.y},
-                  in->mouse_down[MOUSE_LEFT]);
+    mach_clay_ui_begin(&g->clay, r, (Clay_Vector2){in->mouse.x, in->mouse.y},
+                  in->mouse_down[MACH_MOUSE_LEFT]);
 
     // Top-left: the always-on status.
     HUD_PANEL_AT("hud-status", CLAY_ATTACH_POINT_LEFT_TOP, 10, 10) {
-        CLAY_TEXT(clay_string(money_s), CLAY_TEXT_CONFIG({ .fontSize = 16, .textColor = HUD_GOLD }));
-        CLAY_TEXT(clay_string(tool_s),  CLAY_TEXT_CONFIG({ .fontSize = 8,  .textColor = HUD_GREEN }));
+        CLAY_TEXT(mach_clay_string(money_s), CLAY_TEXT_CONFIG({ .fontSize = 16, .textColor = HUD_GOLD }));
+        CLAY_TEXT(mach_clay_string(tool_s),  CLAY_TEXT_CONFIG({ .fontSize = 8,  .textColor = HUD_GREEN }));
         if (g->paused)
             CLAY_TEXT(CLAY_STRING("PAUSED"), CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_AMBER }));
     }
@@ -444,23 +444,23 @@ void game_render_hud(Game_State *g, Mach *m) {
     // Top-center: what the cursor is pointing at.
     if (ins || ore) {
         HUD_PANEL_AT("hud-inspect", CLAY_ATTACH_POINT_CENTER_TOP, 0, 10) {
-            CLAY_TEXT(clay_string(insp_title), CLAY_TEXT_CONFIG({ .fontSize = 16, .textColor = insp_title_col }));
+            CLAY_TEXT(mach_clay_string(insp_title), CLAY_TEXT_CONFIG({ .fontSize = 16, .textColor = insp_title_col }));
             if (insp_sub_s[0])
-                CLAY_TEXT(clay_string(insp_sub_s), CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_GREY }));
+                CLAY_TEXT(mach_clay_string(insp_sub_s), CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_GREY }));
             if (insp_extra_s[0])
-                CLAY_TEXT(clay_string(insp_extra_s), CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_GOLD }));
+                CLAY_TEXT(mach_clay_string(insp_extra_s), CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_GOLD }));
             if (insp_item_s[0])
-                CLAY_TEXT(clay_string(insp_item_s), CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_WHITE }));
+                CLAY_TEXT(mach_clay_string(insp_item_s), CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_WHITE }));
         }
     }
 
     // Bottom-left: the F3 diagnostics.
     if (g->show_debug) {
         HUD_PANEL_AT("hud-debug", CLAY_ATTACH_POINT_LEFT_BOTTOM, 10, -10) {
-            CLAY_TEXT(clay_string(fps_s),    CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_GREY }));
-            CLAY_TEXT(clay_string(counts_s), CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_GREY }));
-            CLAY_TEXT(clay_string(hover_s),  CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_GREY }));
-            CLAY_TEXT(clay_string(cam_s),    CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_GREY }));
+            CLAY_TEXT(mach_clay_string(fps_s),    CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_GREY }));
+            CLAY_TEXT(mach_clay_string(counts_s), CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_GREY }));
+            CLAY_TEXT(mach_clay_string(hover_s),  CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_GREY }));
+            CLAY_TEXT(mach_clay_string(cam_s),    CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_GREY }));
         }
     }
 
@@ -470,5 +470,5 @@ void game_render_hud(Game_State *g, Mach *m) {
                   CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_GREY }));
     }
 
-    clay_ui_render(&g->clay, r);
+    mach_clay_ui_render(&g->clay, r);
 }

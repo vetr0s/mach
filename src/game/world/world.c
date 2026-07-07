@@ -42,17 +42,17 @@ static b32 entity_flow_dir(const Entity *e, Direction *out) {
 }
 
 World* world_create(Mach_Arena *arena) {
-    World *w = (World *)arena_alloc(arena, sizeof(World));
+    World *w = (World *)mach_arena_alloc(arena, sizeof(World));
     if (!w) {
-        LOG_ERROR("world_create: arena allocation failed (%zu bytes)", sizeof(World));
+        MACH_LOG_ERROR("world_create: arena allocation failed (%zu bytes)", sizeof(World));
         return NULL;
     }
 
-    // (npt): arena_alloc doesn't zero, and the sim leans on cleared grids,
+    // (npt): mach_arena_alloc doesn't zero, and the sim leans on cleared grids,
     // counts, and bitmaps, so wipe the whole struct.
     memset(w, 0, sizeof(*w));
 
-    LOG_INFO("world created (%d entity cap, %d item cap, %dx%d grid)",
+    MACH_LOG_INFO("world created (%d entity cap, %d item cap, %dx%d grid)",
              MAX_ENTITIES, MAX_ITEMS, WORLD_GRID_SIZE, WORLD_GRID_SIZE);
     return w;
 }
@@ -65,15 +65,15 @@ World* world_create(Mach_Arena *arena) {
 // their union variant; the common fields are covered here.
 static Entity* world_spawn(World *w, i32 x, i32 y, Direction dir, Entity_Type type) {
     if (!w || w->entity_count >= MAX_ENTITIES) {
-        LOG_DEBUG("spawn rejected: world full");
+        MACH_LOG_DEBUG("spawn rejected: world full");
         return NULL;
     }
     if (!in_bounds(x, y)) {
-        LOG_DEBUG("spawn rejected: out of bounds (%d,%d)", x, y);
+        MACH_LOG_DEBUG("spawn rejected: out of bounds (%d,%d)", x, y);
         return NULL;
     }
     if (w->grid[x][y] != 0) {
-        LOG_DEBUG("spawn rejected: cell occupied (%d,%d)", x, y);
+        MACH_LOG_DEBUG("spawn rejected: cell occupied (%d,%d)", x, y);
         return NULL;
     }
 
@@ -91,7 +91,7 @@ i32 world_spawn_dropper(World *w, i32 x, i32 y, Direction dir) {
     Entity *e = world_spawn(w, x, y, dir, ENTITY_DROPPER);
     if (!e) return 0;
     e->data.dropper = (Entity_Dropper){ .drop_cooldown = 0 };
-    LOG_DEBUG("spawned dropper at (%d,%d) facing %d", x, y, dir);
+    MACH_LOG_DEBUG("spawned dropper at (%d,%d) facing %d", x, y, dir);
     return w->grid[x][y];
 }
 
@@ -121,7 +121,7 @@ i32 world_spawn_upgrader(World *w, i32 x, i32 y, Direction dir) {
     // leaves no half-built upgrader and no leaked id.
     i32 uid = upgrader_id_alloc(w);
     if (uid < 0) {
-        LOG_DEBUG("upgrader rejected: %d-upgrader limit reached", MAX_UPGRADERS);
+        MACH_LOG_DEBUG("upgrader rejected: %d-upgrader limit reached", MAX_UPGRADERS);
         return 0;
     }
     Entity *e = world_spawn(w, x, y, dir, ENTITY_UPGRADER);
@@ -164,7 +164,7 @@ void world_despawn(World *w, i32 entity_id) {
         w->grid[w->entities[idx].grid_x][w->entities[idx].grid_y] = entity_id_from_index(idx);
     }
     w->entity_count--;
-    LOG_DEBUG("despawned entity %d at (%d,%d), %d remaining", entity_id, ex, ey, w->entity_count);
+    MACH_LOG_DEBUG("despawned entity %d at (%d,%d), %d remaining", entity_id, ex, ey, w->entity_count);
 }
 
 b32 world_rotate_entity(World *w, i32 entity_id) {

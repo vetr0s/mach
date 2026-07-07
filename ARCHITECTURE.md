@@ -65,56 +65,58 @@ outlined edges) drawn back-to-front by `gx+gy`. That's the oldest trick in the
 
 ## The engine ÷ game boundary
 
-The game owns control flow. The engine is a library it calls into. Here's the whole
-loop:
+The game owns control flow. The engine is a library it calls into, and the whole
+engine surface a loop touches is five functions on one struct:
 
 ```c
 int main(void) {
-    Mach_Engine engine = {0}; engine_init(&engine, game_engine_config());  // game sets window + policy
-    App    app    = {0}; app_init(&app, &engine);
+    Mach m = {0};
+    if (!mach_init(&m, game_config())) return 1;   // game sets window + policy
+    Game_State game = {0};
+    game_init(&game, &m);
 
-    while (engine_running(&engine)) {
-        f32 dt = engine_frame_begin(&engine);      // drain events into engine.input, return dt
-        app_update(&app, &engine, dt);             // game reads engine.input, steps the sim
-        if (engine_render_begin(&engine)) {        // clear
-            app_render(&app, &engine);             // game draws via r2d
-            engine_render_end(&engine);            // present
-        }
-        engine_frame_end(&engine);                 // FPS + frame cap
+    while (mach_running(&m)) {
+        mach_frame_begin(&m);     // drain events into m.input, set m.dt, clear
+        game_frame(&game, &m);    // game: input -> sim -> draw via &m.r2d
+        mach_frame_end(&m);       // present, count fps, apply the frame cap
     }
-    app_shutdown(&app, &engine);
-    engine_shutdown(&engine);
+    game_shutdown(&game);
+    mach_shutdown(&m);
 }
 ```
 
-What actually enforces the separation isn't the shape of that loop. It's one rule:
-**`mach.h` never names a type from `src/game/`.** That's it.
+Everything a frame produces is read off the `Mach` struct — `m.input`, `m.dt`,
+`m.fps` — instead of being threaded through return values, and a zeroed
+`Mach_Config` is a working window (defaults fill in). A brand-new game is
+`mach_init`, the three-line loop, `mach_shutdown`, and nothing else.
+
+What actually enforces the engine ÷ game separation isn't the shape of that
+loop. It's one rule: **`mach.h` never names a type from `src/game/`.** That's it.
 
 Input follows the same toolbox shape. The game never sees an `RGFW_event`: the
-engine drains the queue in `engine_frame_begin` (consuming window lifecycle —
-quit, Escape, resize) and folds the rest into `Mach_Engine.input`, a per-frame
+engine drains the queue in `mach_frame_begin` (consuming window lifecycle —
+quit, Escape, resize) and folds the rest into `Mach.input`, a per-frame
 snapshot (the `input` section of `mach.h`). The game reads state — `key_pressed[RGFW_key1]`,
 `mouse_pressed[MOUSE_LEFT]`, `wheel` — in one place, `game_process_input`.
 "Pressed"/"released" are this frame's edges (key repeats excluded); "down"
 persists while held.
 
 Policy the engine applies each frame is the game's to set, not the engine's to
-hardcode: `Mach_Engine_Config` carries the window setup plus the clear color, whether
+hardcode: `Mach_Config` carries the window setup plus the clear color, whether
 Escape quits (a dev convenience the game can turn off once Escape means "close
 menu"), and the soft frame cap (`target_fps`, `<= 0` for uncapped).
 
 ## Hot reload (dev builds)
 
-That five-function boundary (`game_engine_config` + the four `app_*` calls) doubles
-as a reload seam. `./build.sh hot` splits the same code into two artifacts instead
-of the monolith:
+The four `game_*` functions double as a reload seam. `./build.sh hot` splits the
+same code into two artifacts instead of the monolith:
 
 - **`build/mach_hot`** (`src/host.c`) — the host. Owns the window, the engine, and
-  the `App` memory, and runs the loop by calling the five functions through pointers
-  resolved from a shared library. Never reloaded.
+  the `Game_State` memory, and runs the loop by calling the four functions through
+  pointers resolved from a shared library. Never reloaded.
 - **`build/libmach_game.{dylib,so}`** (`src/game_lib.c`) — the game logic, plus its
   own copy of the engine. The host watches this file; when it changes, it reloads it
-  and keeps running against the same `App` memory.
+  and keeps running against the same `Game_State` memory.
 
 `./build.sh hot` is the whole dev loop in one command: it builds both artifacts,
 launches `mach_hot`, then turns into a watcher over `mach.h` and `src/` that rebuilds the
@@ -126,22 +128,22 @@ one-shot rebuild.
 
 Two facts make this work with zero linker tricks:
 
-- **The engine has no mutable global state.** Everything lives in `Mach_Engine` /
-  `Mach_Renderer` / `Mach_Arena` / `App`, all owned by the host and passed in by pointer. So
-  the host and the library can each carry their own copy of the engine *code* and
-  still operate on the same *data*. (Keep it that way: no mutable file-scope state.)
-  This is also why the GL function pointers live *inside* `Mach_Renderer`: the library's
-  copy of the draw code batches and flushes through the pointers the host loaded.
-  RGFW itself does keep internal globals, but only the host ever calls it — the
+- **The engine has no mutable global state.** Everything lives in `Mach` /
+  `Game_State`, all owned by the host and passed in by pointer. So the host and
+  the library can each carry their own copy of the engine *code* and still operate
+  on the same *data*. (Keep it that way: no mutable file-scope state.) This is also
+  why the GL function pointers live *inside* `Mach_Renderer`: the library's copy of
+  the draw code batches and flushes through the pointers the host loaded. RGFW
+  itself does keep internal globals, but only the host ever calls it — the
   library's engine copy stops at `r2d_*`, and the frame lifecycle (events, swap)
   runs host-side.
-- **State is host-owned.** `App` sits in host memory the reload never touches, and
-  the arena's regions are plain `malloc` (process-global), so every pointer survives
-  a code swap.
+- **State is host-owned.** `Game_State` sits in host memory the reload never
+  touches, and the arena's regions are plain `malloc` (process-global), so every
+  pointer survives a code swap.
 
-The one limit: reload swaps **code, not layout**. Change a field in `App`,
-`Game_State`, or `World` and you need a normal restart — the persistent memory would
-be reinterpreted wrong otherwise. `src/mach.c` stays the release monolith (no
+The one limit: reload swaps **code, not layout**. Change a field in `Game_State`
+or `World` and you need a normal restart — the persistent memory would be
+reinterpreted wrong otherwise. `src/mach.c` stays the release monolith (no
 `dlopen`), so shipping is unaffected.
 
 ## The modules
@@ -170,9 +172,8 @@ mach.h
 
 src/game/
   world                             # entity sim (fat structs + grid)
-  game                              # state, input, 2D iso camera, hover-pick
-  render_game                       # draws the world as iso tiles + shaded blocks
-  app                               # glue: bridges engine API and game internals
+  game                              # state, config, input, sim, the four loop entry points
+  render_game                       # draws the world (iso tiles + shaded blocks) and the HUD
 ```
 
 The single-header deps (`RGFW.h`, `stb_image.h`, `clay.h`) sit on the include
@@ -187,8 +188,8 @@ rather than one allocation at a time. Two arenas exist today:
 
 - **The world arena** (game-owned): the entire `World` is a single block, and
   shutdown just frees the arena.
-- **The frame arena** (`Mach_Engine.frame_arena`): per-frame scratch, reset at every
-  `engine_frame_begin`. Anything allocated from it lives exactly one frame — the
+- **The frame arena** (`Mach.frame_arena`): per-frame scratch, reset at every
+  `mach_frame_begin`. Anything allocated from it lives exactly one frame — the
   render depth-sort buffers come from here, sized to what's actually alive. The
   regions are reused across frames, so steady state allocates nothing.
 
@@ -229,6 +230,10 @@ are actually tracked over time.
 9. **Single-header engine** (this document) — done. The whole engine is `mach.h`,
    edited directly, nob.h-style. Groundwork for splitting engine and game into
    their own repos.
+10. **Straightforward user API** (this document) — done. `Mach_Engine` became
+   `Mach`, the four per-frame steps became `mach_frame_begin`/`mach_frame_end`
+   with dt/fps read off the struct, zeroed config fields get defaults, and the
+   game-side `app` bridge dissolved into the four `game_*` entry points.
 
 Next up: machine tiers and special upgraders, and real sprite art dropped onto the
 loader that's already sitting there wired and waiting.

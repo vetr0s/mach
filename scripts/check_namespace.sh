@@ -64,7 +64,8 @@ int Polygon(void *hdc, const void *pts, int n);
 int Ellipse(void *hdc, int l, int t, int r, int b);
 
 #include "mach.h"
-#include "game/app.h"
+#include "game/game.h"
+#include "game/render_game.h"
 
 int main(void) { return 0; }
 EOF

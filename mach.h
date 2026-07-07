@@ -13,7 +13,7 @@
 // The single-header dependencies must be on the include path (they are vendored
 // in third_party/):  RGFW.h  stb_image.h  clay.h
 //
-// The engine holds no mutable global state: everything lives in the Mach_Engine /
+// The engine holds no mutable global state: everything lives in the Mach /
 // Mach_Renderer / Mach_Arena structs the caller owns and passes by pointer. That is what
 // makes the hot-reload dev loop work; keep it that way.
 //
@@ -587,8 +587,8 @@ Mach_Vec2 screen_to_iso(const Mach_Camera2D *cam, f32 screen_w, f32 screen_h,
 // Per-frame input snapshot: keyboard and mouse state the game reads directly,
 // instead of draining window events itself.
 //
-// The engine owns one of these (Mach_Engine.input) and fills it while draining the
-// event queue in engine_frame_begin. "down" persists while a key or button is
+// The engine owns one of these (Mach.input) and fills it while draining the
+// event queue in mach_frame_begin. "down" persists while a key or button is
 // held; "pressed"/"released" mark this frame's edges and are cleared at the top
 // of the next frame. Read fields directly: in->key_pressed[RGFW_key1].
 
@@ -671,80 +671,77 @@ static inline Clay_Color clay_color_of(Mach_Color c) {
 // core: engine lifecycle and the frame loop
 // =============================================================================
 
-// Core engine lifecycle and the per-frame steps of the loop.
+// Core engine lifecycle and the frame loop. The game owns the loop and calls
+// three functions; everything a frame produces — input, dt, fps — is read off
+// the Mach struct. This is the whole program:
 //
-// The game owns the loop (in main()) and calls these steps directly. The engine
-// owns window lifecycle — engine_frame_begin drains the event queue, consuming
-// quit/Escape/resize and folding everything else into the Mach_Input snapshot — and
-// keeps the frame timing and soft frame cap.
+//     Mach m = {0};
+//     if (!mach_init(&m, (Mach_Config){ .title = "game" })) return 1;
+//     while (mach_running(&m)) {
+//         mach_frame_begin(&m);      // drain events into m.input, set m.dt, clear
+//         ...update from m.input / m.dt, draw through &m.r2d...
+//         mach_frame_end(&m);        // present, count fps, apply the frame cap
+//     }
+//     mach_shutdown(&m);
 
 
-// How the game wants the engine set up: the window, plus the policy the engine
-// applies each frame. The game fills all of it — the engine has no defaults of
-// its own — and passes it to engine_init.
+// Window setup plus the per-frame policy. Zeroed fields get defaults, so
+// (Mach_Config){0} is a valid 1280x720 resizable window titled "mach" with a
+// black clear, Escape reaching the game, and no frame cap.
 typedef struct {
-    const char *title;
-    i32  width, height;
+    const char *title;   // NULL: "mach"
+    i32  width, height;  // <= 0: 1280x720
     b32  fullscreen;
-    b32  resizable;
+    b32  fixed_size;     // window can't be resized (default: resizable)
 
-    Mach_Color clear_color;   // frame clear color (see render/color.h for the palette)
+    Mach_Color clear_color;   // frame clear color; zero alpha means opaque black
     b32   escape_quits;  // Escape closes the window (dev convenience); otherwise
                          // Escape reaches the game through the input snapshot
     i32   target_fps;    // soft frame cap; <= 0 leaves the frame rate uncapped
-} Mach_Engine_Config;
+} Mach_Config;
 
 typedef struct {
-    RGFW_window *window;
-    Mach_Renderer     r2d;    // 2D renderer (GL batch renderer + bitmap font)
-    Mach_Input        input;  // per-frame input snapshot, filled by engine_frame_begin
+    // What a frame is made of. The game reads these directly.
+    Mach_Renderer r2d;    // draw through this: r2d_fill_rect(&m.r2d, ...)
+    Mach_Input    input;  // this frame's input snapshot, filled by mach_frame_begin
+    f32           dt;     // seconds since the previous frame (clamped, so a stall
+                          // can't produce a giant simulation step)
+    i32           fps;    // frames counted over the last completed 1s window
 
-    // Per-frame scratch: reset at every engine_frame_begin, so anything allocated
+    // Per-frame scratch: reset at every mach_frame_begin, so anything allocated
     // from it lives exactly one frame (sort buffers, transient strings). The
     // regions are reused, not freed, so steady-state allocation is malloc-free.
-    Mach_Arena        frame_arena;
+    Mach_Arena frame_arena;
 
-    i32          running;
-
-    // Per-frame policy, copied out of Mach_Engine_Config at init.
+    // Internals: window handle, policy copied out of Mach_Config, frame timing.
+    RGFW_window *window;
+    b32 running;
     Mach_Color clear_color;
     b32   escape_quits;
-    u32   frame_cap_ms;  // 0 = uncapped
-
-    // Frame timing, persisted across loop iterations (the game owns the loop).
+    u32   frame_cap_ms;    // 0 = uncapped
     u32 frame_start;       // tick at the current frame's start (for the cap)
     u32 last_frame_time;   // tick at the previous frame's start (for dt)
     u32 fps_timer;         // start of the current 1s FPS sampling window
     i32 frame_count;       // frames seen in the current window
-    i32 fps;               // last completed window's frame count
-} Mach_Engine;
+} Mach;
 
-// Lifecycle. The game supplies the configuration.
-b32  engine_init(Mach_Engine *e, Mach_Engine_Config cfg);
-void engine_shutdown(Mach_Engine *e);
+// Open the window with a GL 3.3 core context and bring up the renderer.
+b32  mach_init(Mach *m, Mach_Config cfg);
+void mach_shutdown(Mach *m);
 
-// True until a quit is requested (window close or Escape).
-b32  engine_running(Mach_Engine *e);
+// True until a quit is requested (window close, or Escape with escape_quits).
+b32  mach_running(const Mach *m);
 
-// Per-frame steps, called in order by the game's loop:
-//   f32 dt = engine_frame_begin(e);   // drain events into e->input, return delta time
-//   ... game update (dt, reads e->input) ...
-//   if (engine_render_begin(e)) {     // clear the frame (false => skip)
-//       ... game render ...
-//       engine_render_end(e);         // present
-//   }
-//   engine_frame_end(e);              // FPS bookkeeping + frame cap
-f32  engine_frame_begin(Mach_Engine *e);
-b32  engine_render_begin(Mach_Engine *e);
-void engine_render_end(Mach_Engine *e);
-void engine_frame_end(Mach_Engine *e);
+// Start a frame: reset the frame arena, drain events into m->input (consuming
+// window lifecycle — quit, Escape, resize), set m->dt, clear the screen.
+void mach_frame_begin(Mach *m);
 
-// Frames per second over the last completed 1-second window, for the game to display.
-i32  engine_fps(const Mach_Engine *e);
+// Finish a frame: present, update the FPS sample, sleep off the frame cap.
+void mach_frame_end(Mach *m);
 
 // Monotonic milliseconds from an arbitrary origin; wraps every ~49 days, so
 // only differences are meaningful.
-u32  engine_ticks_ms(void);
+u32  mach_ticks_ms(void);
 
 
 #endif // MACH_H
@@ -1659,7 +1656,7 @@ void clay_ui_render(Mach_ClayUI *ui, Mach_Renderer *r) {
 // having pulled in windows.h; QPC/Sleep are core kernel32 so WIN32_LEAN_AND_MEAN
 // doesn't hide them. RGFW also calls timeBeginPeriod(1), which makes Sleep
 // 1ms-granular — good enough for the soft frame cap.
-u32 engine_ticks_ms(void) {
+u32 mach_ticks_ms(void) {
 #if defined(_WIN32)
     LARGE_INTEGER freq, count;
     QueryPerformanceFrequency(&freq);
@@ -1672,7 +1669,7 @@ u32 engine_ticks_ms(void) {
 #endif
 }
 
-static void engine_sleep_ms(u32 ms) {
+static void mach_sleep_ms(u32 ms) {
 #if defined(_WIN32)
     Sleep(ms);
 #else
@@ -1683,11 +1680,16 @@ static void engine_sleep_ms(u32 ms) {
 #endif
 }
 
-// Initialize RGFW, create the window from the game's config with a GL 3.3 core
-// context, bring up the 2D renderer, and start the frame-timing clocks.
-b32 engine_init(Mach_Engine *e, Mach_Engine_Config cfg) {
+// Initialize RGFW, create the window from the config (zeroed fields defaulted)
+// with a GL 3.3 core context, bring up the 2D renderer, and start the clocks.
+b32 mach_init(Mach *m, Mach_Config cfg) {
     LOG_INFO("mach v%d.%d.%d starting up",
              MACH_VERSION_MAJOR, MACH_VERSION_MINOR, MACH_VERSION_PATCH);
+
+    if (!cfg.title) cfg.title = "mach";
+    if (cfg.width  <= 0) cfg.width  = 1280;
+    if (cfg.height <= 0) cfg.height = 720;
+    if (cfg.clear_color.w == 0.0f) cfg.clear_color = (Mach_Color){0, 0, 0, 1};
 
     if (RGFW_init("mach", RGFW_initOpenGL) < 0) {
         LOG_ERROR("RGFW_init failed");
@@ -1704,115 +1706,104 @@ b32 engine_init(Mach_Engine *e, Mach_Engine_Config cfg) {
     RGFW_setGlobalHints_OpenGL(&gl_hints);
 
     RGFW_windowFlags flags = RGFW_windowCenter | RGFW_windowOpenGL;
-    if (cfg.fullscreen) flags |= RGFW_windowFullscreen;
-    if (!cfg.resizable) flags |= RGFW_windowNoResize;
-    e->window = RGFW_createWindow(cfg.title, 0, 0, cfg.width, cfg.height, flags);
-    if (!e->window) {
+    if (cfg.fullscreen)  flags |= RGFW_windowFullscreen;
+    if (cfg.fixed_size)  flags |= RGFW_windowNoResize;
+    m->window = RGFW_createWindow(cfg.title, 0, 0, cfg.width, cfg.height, flags);
+    if (!m->window) {
         LOG_ERROR("RGFW_createWindow failed");
         RGFW_deinit();
         return MACH_FALSE;
     }
 
     // Our loop has its own frame cap, so disable vsync and let it govern.
-    RGFW_window_swapInterval_OpenGL(e->window, 0);
+    RGFW_window_swapInterval_OpenGL(m->window, 0);
 
-    if (!r2d_init(&e->r2d, e->window)) {
-        RGFW_window_close(e->window);
-        e->window = NULL;
+    if (!r2d_init(&m->r2d, m->window)) {
+        RGFW_window_close(m->window);
+        m->window = NULL;
         RGFW_deinit();
         return MACH_FALSE;
     }
 
-    e->clear_color = cfg.clear_color;
-    e->escape_quits = cfg.escape_quits;
-    e->frame_cap_ms = cfg.target_fps > 0 ? 1000u / (u32)cfg.target_fps : 0;
+    m->clear_color = cfg.clear_color;
+    m->escape_quits = cfg.escape_quits;
+    m->frame_cap_ms = cfg.target_fps > 0 ? 1000u / (u32)cfg.target_fps : 0;
 
-    u32 now = engine_ticks_ms();
-    e->running = 1;
-    e->frame_start = now;
-    e->last_frame_time = now;
-    e->fps_timer = now;
-    e->frame_count = 0;
-    e->fps = 0;
+    u32 now = mach_ticks_ms();
+    m->running = MACH_TRUE;
+    m->dt = 0.0f;
+    m->fps = 0;
+    m->frame_start = now;
+    m->last_frame_time = now;
+    m->fps_timer = now;
+    m->frame_count = 0;
     return MACH_TRUE;
 }
 
 // Clean up renderer resources and close the window.
-void engine_shutdown(Mach_Engine *e) {
-    arena_free(&e->frame_arena);
-    r2d_shutdown(&e->r2d);
-    if (e->window) {
-        RGFW_window_close(e->window);
-        e->window = NULL;
+void mach_shutdown(Mach *m) {
+    arena_free(&m->frame_arena);
+    r2d_shutdown(&m->r2d);
+    if (m->window) {
+        RGFW_window_close(m->window);
+        m->window = NULL;
     }
     RGFW_deinit();
     LOG_INFO("shutdown complete");
 }
 
-b32 engine_running(Mach_Engine *e) {
-    return e->running;
+b32 mach_running(const Mach *m) {
+    return m->running;
 }
 
-// Start a frame: compute delta time since the previous frame (clamped), then
-// drain the event queue. Window lifecycle events (quit, Escape, resize) are
-// consumed here; everything else folds into e->input for the game to read.
-f32 engine_frame_begin(Mach_Engine *e) {
-    e->frame_start = engine_ticks_ms();
-    f32 dt = (f32)(e->frame_start - e->last_frame_time) / 1000.0f;
+// Start a frame: compute m->dt since the previous frame (clamped), reset the
+// frame arena, drain the event queue, and clear the screen. Window lifecycle
+// events (quit, Escape, resize) are consumed here; everything else folds into
+// m->input for the game to read.
+void mach_frame_begin(Mach *m) {
+    m->frame_start = mach_ticks_ms();
+    f32 dt = (f32)(m->frame_start - m->last_frame_time) / 1000.0f;
     if (dt > MAX_DT) dt = MAX_DT;
-    e->last_frame_time = e->frame_start;
+    m->dt = dt;
+    m->last_frame_time = m->frame_start;
 
-    arena_reset(&e->frame_arena);
-    input_frame_begin(&e->input);
+    arena_reset(&m->frame_arena);
+    input_frame_begin(&m->input);
     RGFW_event ev;
-    while (RGFW_window_checkEvent(e->window, &ev)) {
+    while (RGFW_window_checkEvent(m->window, &ev)) {
         if (ev.type == RGFW_windowClose) {
             LOG_INFO("quit requested");
-            e->running = 0;
-        } else if (e->escape_quits && ev.type == RGFW_keyPressed &&
+            m->running = MACH_FALSE;
+        } else if (m->escape_quits && ev.type == RGFW_keyPressed &&
                    ev.key.value == RGFW_keyEscape) {
             LOG_INFO("escape pressed, exiting");
-            e->running = 0;
+            m->running = MACH_FALSE;
         } else if (ev.type == RGFW_windowResized) {
-            r2d_resized(&e->r2d);
+            r2d_resized(&m->r2d);
         } else {
-            input_handle_event(&e->input, &ev);
+            input_handle_event(&m->input, &ev);
         }
     }
-    return dt;
+
+    r2d_begin(&m->r2d, m->clear_color);
 }
 
-// Begin the frame: clear to the game's background color. Always succeeds, but
-// keeps the bool shape of the loop.
-b32 engine_render_begin(Mach_Engine *e) {
-    r2d_begin(&e->r2d, e->clear_color);
-    return MACH_TRUE;
-}
+// Finish a frame: present whatever the game rendered, update the 1s FPS sample
+// (read it at m->fps), and sleep to honor the soft frame cap.
+void mach_frame_end(Mach *m) {
+    r2d_present(&m->r2d);
 
-// Finish the frame: present whatever the game rendered. The engine no longer draws
-// its own overlay — FPS is exposed via engine_fps() for the game to display however
-// it likes.
-void engine_render_end(Mach_Engine *e) {
-    r2d_present(&e->r2d);
-}
-
-// Frames per second over the last completed 1-second sampling window.
-i32 engine_fps(const Mach_Engine *e) { return e ? e->fps : 0; }
-
-// End-of-frame bookkeeping: update the 1s FPS sample and sleep to honor the soft
-// frame cap.
-void engine_frame_end(Mach_Engine *e) {
-    e->frame_count++;
-    u32 now = engine_ticks_ms();
-    if (now - e->fps_timer >= 1000) {
-        e->fps = e->frame_count;
-        e->frame_count = 0;
-        e->fps_timer = now;
+    m->frame_count++;
+    u32 now = mach_ticks_ms();
+    if (now - m->fps_timer >= 1000) {
+        m->fps = m->frame_count;
+        m->frame_count = 0;
+        m->fps_timer = now;
     }
 
-    u32 frame_time = engine_ticks_ms() - e->frame_start;
-    if (e->frame_cap_ms && frame_time < e->frame_cap_ms) {
-        engine_sleep_ms(e->frame_cap_ms - frame_time);
+    u32 frame_time = mach_ticks_ms() - m->frame_start;
+    if (m->frame_cap_ms && frame_time < m->frame_cap_ms) {
+        mach_sleep_ms(m->frame_cap_ms - frame_time);
     }
 }
 

@@ -21,6 +21,7 @@
 typedef struct {
     Mach_Arena arena;          // backs the world; freed whole at shutdown
     World *world;
+    Mach_ClayUI clay;          // HUD layout/draw; in host memory so it survives hot reload
     i32 selected_tool;
     Direction place_dir;  // facing applied to directional pieces on placement
 
@@ -49,9 +50,15 @@ typedef enum {
     TOOL_COUNT,
 } Tool;
 
-void game_init(Game_State *g);
-void game_tick(Game_State *g, f32 dt);
+// The four functions the loop (main or the hot-reload host) calls. They are the
+// game's whole surface — and the hot-reload seam, so they keep external linkage.
+Mach_Config game_config(void);                    // window + engine policy
+void game_init(Game_State *g, Mach *m);
+void game_frame(Game_State *g, Mach *m);          // input + sim + draw, one frame
 void game_shutdown(Game_State *g);
+
+// Internals of game_frame, split for readability.
+void game_tick(Game_State *g, f32 dt);
 
 // Consume this frame's input snapshot: tool keys, rotate, pause, placement
 // clicks, camera pan/zoom, and hover tracking. screen_w/h are the current render

@@ -117,9 +117,8 @@ mach.h                    # the engine: one header, stb-style, C99
 
 src/
   game/                   # the factory sim
-    app.c                 # glue: the one file that knows both the engine and the game
-    game.h/.c             # game state, input, the 2D iso camera, hover-picking
-    render_game.h/.c      # draws the world as iso tiles and shaded blocks
+    game.h/.c             # game state, input, the sim, and the four loop entry points
+    render_game.h/.c      # draws the world (iso tiles, shaded blocks) and the HUD
     world/                # entities and the grid simulation
 
   mach.c                  # unity root: MACH_IMPLEMENTATION + game sources + main()

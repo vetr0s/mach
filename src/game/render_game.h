@@ -11,8 +11,11 @@
 #include "game.h"
 
 // Draw the world (ground tiles, machines, hover preview) for the given frame.
-// Call between r2d_begin and r2d_present. `scratch` backs this frame's sort
-// buffers; pass the engine's frame arena.
+// `scratch` backs this frame's sort buffers; pass the engine's frame arena.
 void game_render_draw(Mach_Renderer *r, const Game_State *game, Mach_Arena *scratch);
+
+// Draw the HUD (Clay floating panels: status, inspect, debug, controls) over the
+// world. Non-const g: Clay's per-frame context lives in g->clay.
+void game_render_hud(Game_State *g, Mach *m);
 
 #endif

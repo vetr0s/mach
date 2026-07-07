@@ -5,7 +5,7 @@
 - RESOLVED (2026-07-06): the void linux build errors. Two separate problems:
   - `Font` collided with X11's `typedef XID Font` (RGFW pulls Xlib.h into the
     implementation TU). Every engine typedef now carries a `Mach_` prefix
-    (`Mach_Font`, `Mach_Vec2`, `Mach_Engine`, ...), so no engine name can shadow
+    (`Mach_Font`, `Mach_Vec2`, `Mach_Renderer`, ...), so no engine name can shadow
     an OS-header name on any platform. `scripts/check_namespace.sh` compile-checks
     the engine + game declarations against faked X11/Win32 names so this can't
     regress without a Linux box in the loop.
@@ -24,17 +24,18 @@
 - [x] Fixed simulation timestep: world steps at a constant rate (3/s) decoupled
       from the render framerate, so the sim plays identically on any monitor
 - [x] Input system: keyboard, mouse
-- [x] Input layer: engine-owned per-frame snapshot (Engine.input, engine/input).
-      engine_frame_begin drains the event queue; the game reads state (down/pressed/
+- [x] Input layer: engine-owned per-frame snapshot (Mach.input).
+      mach_frame_begin drains the event queue; the game reads state (down/pressed/
       released, mouse, wheel) in game_process_input instead of handling events.
-      Reload seam shrank to five functions (app_handle_event deleted).
+      Reload seam is four functions (game_config / game_init / game_frame /
+      game_shutdown); the app glue layer is gone.
 - [ ] Event system: collision, game events (input is covered by the snapshot)
 - [x] Memory: arena allocator (Tsoding-style region list); the world is one
       arena block, freed whole at shutdown. `arena_reset` for reuse is in place.
-- [x] Frame-scratch arena (Engine.frame_arena): reset each engine_frame_begin;
+- [x] Frame-scratch arena (Mach.frame_arena): reset each mach_frame_begin;
       backs the render depth-sort buffers (which were 176KB of file-scope statics).
 - [x] Hot reload (dev): game logic compiles to a shared lib the host (src/host.c)
-      dlopen's and swaps on rebuild, keeping App state across reloads. `./build.sh hot`
+      dlopen's and swaps on rebuild, keeping Game_State across reloads. `./build.sh hot`
       is the whole loop: it builds, runs the game, and watches src/ — every save
       rebuilds the lib and the running game swaps it in (compile errors keep the
       last good code). Release stays the src/mach.c monolith. See ARCHITECTURE.md.
@@ -109,17 +110,17 @@ mechanics the GDD calls for that the code hasn't caught up to yet, in priority o
 - [x] Clay adopted for UI (third_party/clay, vendored zlib). Bound to render2d in
       engine/ui/clay_ui.{h,c}: bitmap-font text-measure hook + render-command
       translation (rects, text, borders, scissor). Hot-reload-safe: context lives in
-      host App memory, re-pointed each frame. Reach for Clay for all new UI.
+      host-owned Game_State memory, re-pointed each frame. Reach for Clay for all new UI.
 - [x] HUD as a Clay panel: money always on, selected tool/facing under it, pause marker.
 - [x] F3 debug/info overlay (fps, tick/entity/item counts, hover cell, camera, controls),
       toggled and small so it stays out of the way.
-- [x] Engine exposes FPS via engine_fps(); the game owns all HUD drawing (engine no
+- [x] Engine exposes FPS as Mach.fps; the game owns all HUD drawing (engine no
       longer draws its own overlay).
 - [x] Pause / resume the simulation (Space): freezes sim ticks and animation; build and
       pan still work while frozen.
 - [x] Rotate the hovered piece in place (R); over an empty tile it rotates the facing the
       next placed piece will use.
-- [x] Feed real mouse position/button into clay_ui_begin (from Engine.input).
+- [x] Feed real mouse position/button into clay_ui_begin (from Mach.input).
 - [x] Color type + stock palette (engine/render/color.h): Color aliases Vec4, palette
       is modus-vivendi with the theme's own names, helpers (shade/lighten/lerp/alpha)
       moved up from render_game statics. Game rethemed onto it.

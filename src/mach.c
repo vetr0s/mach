@@ -6,7 +6,7 @@
 // owns the loop in main() and drives the engine through its public API. See
 // ARCHITECTURE.md for the design and TODO.md for the roadmap.
 
-// Mach_Engine
+// Engine
 #define MACH_IMPLEMENTATION
 #include "mach.h"
 
@@ -14,7 +14,6 @@
 #include "game/world/world.c"
 #include "game/game.c"
 #include "game/render_game.c"
-#include "game/app.c"
 
 // Application entry point. The game owns the frame loop and calls into the engine
 // through its public API; the engine keeps window lifecycle and frame timing.
@@ -22,30 +21,23 @@ int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
 
-    Mach_Engine engine = {0};
-    if (!engine_init(&engine, game_engine_config())) {
+    Mach m = {0};
+    if (!mach_init(&m, game_config())) {
         return 1;
     }
 
-    App app = {0};
-    app_init(&app, &engine);
+    Game_State game = {0};
+    game_init(&game, &m);
 
     LOG_INFO("entering main loop");
-    while (engine_running(&engine)) {
-        f32 dt = engine_frame_begin(&engine);
-
-        app_update(&app, &engine, dt);
-
-        if (engine_render_begin(&engine)) {
-            app_render(&app, &engine);
-            engine_render_end(&engine);
-        }
-
-        engine_frame_end(&engine);
+    while (mach_running(&m)) {
+        mach_frame_begin(&m);
+        game_frame(&game, &m);
+        mach_frame_end(&m);
     }
     LOG_INFO("exited main loop");
 
-    app_shutdown(&app, &engine);
-    engine_shutdown(&engine);
+    game_shutdown(&game);
+    mach_shutdown(&m);
     return 0;
 }

@@ -1,6 +1,7 @@
 // Game implementation (included into mach.c).
 
 #include "game.h"
+#include "render_game.h"
 #include <math.h>
 #include <stdio.h>
 
@@ -20,12 +21,25 @@ static void setup_camera(Mach_Camera2D *c, f32 cx, f32 cy) {
     c->zoom = 2.0f;
 }
 
+// The window and engine policy the game wants.
+Mach_Config game_config(void) {
+    return (Mach_Config){
+        .title = "mach",
+        .width = 1280,
+        .height = 720,
+        .clear_color = COLOR_BG_MAIN,   // modus-vivendi: true black beyond the grid
+        .escape_quits = MACH_TRUE,      // dev convenience, for now
+        .target_fps = 120,
+    };
+}
+
 // Initialize game state with a world and a short starter chain so there's a value
 // loop running on first launch: dropper -> conveyor -> upgrader -> conveyor ->
 // collector, all facing east.
-void game_init(Game_State *g) {
+void game_init(Game_State *g, Mach *m) {
     g->arena = (Mach_Arena){0};
     g->world = world_create(&g->arena);
+    clay_ui_init(&g->clay, &m->r2d);
     g->selected_tool = TOOL_NONE;
     g->place_dir = DIR_E;
     g->hover_grid_x = 0;
@@ -78,9 +92,21 @@ void game_tick(Game_State *g, f32 dt) {
     }
 }
 
+// One whole game frame: consume input, advance the sim, draw the world and HUD.
+// Runs between mach_frame_begin and mach_frame_end.
+void game_frame(Game_State *g, Mach *m) {
+    // Input works in the renderer's current pixel space, which may differ from
+    // the requested size (fullscreen, or a resized window).
+    game_process_input(g, &m->input, (f32)m->r2d.width, (f32)m->r2d.height, m->dt);
+    game_tick(g, m->dt);
+    game_render_draw(&m->r2d, g, &m->frame_arena);
+    game_render_hud(g, m);
+}
+
 // Clean up game state and free resources.
 void game_shutdown(Game_State *g) {
     if (!g) return;
+    clay_ui_shutdown(&g->clay);
     if (g->world) {
         LOG_INFO("world torn down (%d entities, tick %d)", g->world->entity_count, g->world->tick);
         g->world = NULL;

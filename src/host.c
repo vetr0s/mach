@@ -1,14 +1,14 @@
 // Dev host with hot reload (dev builds only).
 //
-// Owns the window, the engine, and the persistent App memory, and never gets
-// reloaded. The game logic lives in a shared library (game_lib.c) that this host
-// dlopen's; when the library changes on disk, the host swaps in the new code while
-// keeping the same App memory, so state survives the reload. Layout changes to any
-// persistent struct still need a full restart.
+// Owns the window, the engine, and the persistent Game_State memory, and never
+// gets reloaded. The game logic lives in a shared library (game_lib.c) that this
+// host dlopen's; when the library changes on disk, the host swaps in the new code
+// while keeping the same Game_State memory, so state survives the reload. Layout
+// changes to any persistent struct still need a full restart.
 //
 // The library reaches its own copy of the engine (see game_lib.c); the host's copy
 // here is what creates the window and drives the frame lifecycle. Both operate on
-// the one host-owned Mach_Engine, passed into the game by pointer.
+// the one host-owned Mach, passed into the game by pointer.
 //
 // GAME_LIB_PATH is defined by build.sh (platform-specific extension).
 
@@ -19,14 +19,14 @@
 #include <time.h>
 #include <unistd.h>
 
-// Mach_Engine (own copy; state is all pointer-passed, so the library's copy and this
-// one share the same Mach_Engine/App data).
+// Engine (own copy; state is all pointer-passed, so the library's copy and this
+// one share the same Mach/Game_State data).
 #define MACH_IMPLEMENTATION
 #include "mach.h"
 
 // Game types and the reload-interface signatures (NOT the game .c sources: those
 // are compiled into the library and reached only through the pointers below).
-#include "game/app.h"
+#include "game/game.h"
 
 #ifndef GAME_LIB_PATH
 #error "GAME_LIB_PATH must be defined by the build (path to the game shared library)"
@@ -36,13 +36,12 @@
 // never catches a half-written file mid-build.
 #define RELOAD_SETTLE_MS 150
 
-// The five game entry points, resolved from the shared library each reload.
+// The four game entry points, resolved from the shared library each reload.
 typedef struct {
-    Mach_Engine_Config (*engine_config)(void);
-    void (*init)(App *, Mach_Engine *);
-    void (*update)(App *, Mach_Engine *, f32);
-    void (*render)(App *, Mach_Engine *);
-    void (*shutdown)(App *, Mach_Engine *);
+    Mach_Config (*config)(void);
+    void (*init)(Game_State *, Mach *);
+    void (*frame)(Game_State *, Mach *);
+    void (*shutdown)(Game_State *);
 } Game_Api;
 
 static void *g_handle = NULL;       // current dlopen handle
@@ -100,11 +99,10 @@ static b32 game_api_reload(Game_Api *api) {
         *(void **)(&n.field) = dlsym(h, sym); \
         if (!n.field) { LOG_ERROR("hot reload: missing symbol %s", sym); ok = MACH_FALSE; } \
     } while (0)
-    LOAD(engine_config, "game_engine_config");
-    LOAD(init,          "app_init");
-    LOAD(update,        "app_update");
-    LOAD(render,        "app_render");
-    LOAD(shutdown,      "app_shutdown");
+    LOAD(config,   "game_config");
+    LOAD(init,     "game_init");
+    LOAD(frame,    "game_frame");
+    LOAD(shutdown, "game_shutdown");
 #undef LOAD
 
     if (!ok) { dlclose(h); unlink(next); return MACH_FALSE; }
@@ -128,49 +126,42 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    Mach_Engine engine = {0};
-    if (!engine_init(&engine, api.engine_config())) {
+    Mach m = {0};
+    if (!mach_init(&m, api.config())) {
         return 1;
     }
 
-    // App lives in host-owned memory so it survives library reloads.
-    App *app = (App *)calloc(1, sizeof(App));
-    if (!app) { engine_shutdown(&engine); return 1; }
-    api.init(app, &engine);
+    // Game_State lives in host-owned memory so it survives library reloads.
+    Game_State *game = (Game_State *)calloc(1, sizeof(Game_State));
+    if (!game) { mach_shutdown(&m); return 1; }
+    api.init(game, &m);
 
     time_t last_mtime = lib_mtime();
     u32    pending_at = 0;   // engine ticks when a change was first seen; 0 = none
 
     LOG_INFO("entering main loop (hot reload watching %s)", GAME_LIB_PATH);
-    while (engine_running(&engine)) {
+    while (mach_running(&m)) {
         // Watch the library; reload once it has settled after a change.
-        time_t m = lib_mtime();
-        if (m != 0 && m != last_mtime && pending_at == 0) {
-            pending_at = engine_ticks_ms();
+        time_t mt = lib_mtime();
+        if (mt != 0 && mt != last_mtime && pending_at == 0) {
+            pending_at = mach_ticks_ms();
         }
-        if (pending_at != 0 && engine_ticks_ms() - pending_at >= RELOAD_SETTLE_MS) {
+        if (pending_at != 0 && mach_ticks_ms() - pending_at >= RELOAD_SETTLE_MS) {
             last_mtime = lib_mtime();
             pending_at = 0;
             if (game_api_reload(&api)) LOG_INFO("game hot-reloaded");
             else LOG_ERROR("hot reload failed; keeping previous build");
         }
 
-        f32 dt = engine_frame_begin(&engine);
-
-        api.update(app, &engine, dt);
-
-        if (engine_render_begin(&engine)) {
-            api.render(app, &engine);
-            engine_render_end(&engine);
-        }
-
-        engine_frame_end(&engine);
+        mach_frame_begin(&m);
+        api.frame(game, &m);
+        mach_frame_end(&m);
     }
     LOG_INFO("exited main loop");
 
-    api.shutdown(app, &engine);
-    free(app);
-    engine_shutdown(&engine);
+    api.shutdown(game);
+    free(game);
+    mach_shutdown(&m);
     if (g_handle) { dlclose(g_handle); unlink(g_loaded_path); }
     return 0;
 }

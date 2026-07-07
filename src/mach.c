@@ -6,7 +6,7 @@
 // owns the loop in main() and drives the engine through its public API. See
 // ARCHITECTURE.md for the design and TODO.md for the roadmap.
 
-// Engine
+// Mach_Engine
 #define MACH_IMPLEMENTATION
 #include "mach.h"
 
@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
 
-    Engine engine = {0};
+    Mach_Engine engine = {0};
     if (!engine_init(&engine, game_engine_config())) {
         return 1;
     }

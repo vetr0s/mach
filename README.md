@@ -167,10 +167,10 @@ It's all **2D on a small GL batch renderer**, the render sections of `mach.h`:
 - **`render2d`** — the actual render layer: one shader, one stream of
   textured vertex-colored triangles, flushed per texture/scissor change. Filled
   rects, convex polygons, outlines, text, sprite loading and drawing, and a 2D
-  pan/zoom `Camera2D`. Plus the isometric transforms, `iso_to_screen` and
+  pan/zoom `Mach_Camera2D`. Plus the isometric transforms, `iso_to_screen` and
   `screen_to_iso`.
 - **`gl`** — the ~40 GL 3.3 core entry points the renderer uses, declared by
-  hand and loaded at runtime into the `Renderer` struct. No system GL headers.
+  hand and loaded at runtime into the `Mach_Renderer` struct. No system GL headers.
 - **`font`** — an 8×8 bitmap font baked into a GL texture atlas, tinted
   per vertex.
 - **`image`** — the `stb_image` loader for sprite art.

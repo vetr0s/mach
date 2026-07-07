@@ -19,12 +19,12 @@
 #define SIM_TICK_DT       (1.0f / (f32)SIM_TICKS_PER_SEC)
 
 typedef struct {
-    Arena arena;          // backs the world; freed whole at shutdown
+    Mach_Arena arena;          // backs the world; freed whole at shutdown
     World *world;
     i32 selected_tool;
     Direction place_dir;  // facing applied to directional pieces on placement
 
-    Camera2D camera;
+    Mach_Camera2D camera;
 
     f32 sim_accumulator;  // real seconds carried toward the next fixed sim tick
     f32 anim_time;        // real seconds elapsed, for continuous visual animation
@@ -56,7 +56,7 @@ void game_shutdown(Game_State *g);
 // Consume this frame's input snapshot: tool keys, rotate, pause, placement
 // clicks, camera pan/zoom, and hover tracking. screen_w/h are the current render
 // size, used to unproject the mouse onto the grid.
-void game_process_input(Game_State *g, const Input *in, f32 screen_w, f32 screen_h, f32 dt);
+void game_process_input(Game_State *g, const Mach_Input *in, f32 screen_w, f32 screen_h, f32 dt);
 
 // Compact money-style value: "25", "1.5K", "3.2M", up to quintillions (an i64
 // tops out at ~9.2 Qi). Keeps labels short as values run away.

@@ -41,7 +41,7 @@ static b32 entity_flow_dir(const Entity *e, Direction *out) {
     return MACH_FALSE;
 }
 
-World* world_create(Arena *arena) {
+World* world_create(Mach_Arena *arena) {
     World *w = (World *)arena_alloc(arena, sizeof(World));
     if (!w) {
         LOG_ERROR("world_create: arena allocation failed (%zu bytes)", sizeof(World));

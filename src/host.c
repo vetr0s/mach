@@ -8,7 +8,7 @@
 //
 // The library reaches its own copy of the engine (see game_lib.c); the host's copy
 // here is what creates the window and drives the frame lifecycle. Both operate on
-// the one host-owned Engine, passed into the game by pointer.
+// the one host-owned Mach_Engine, passed into the game by pointer.
 //
 // GAME_LIB_PATH is defined by build.sh (platform-specific extension).
 
@@ -19,8 +19,8 @@
 #include <time.h>
 #include <unistd.h>
 
-// Engine (own copy; state is all pointer-passed, so the library's copy and this
-// one share the same Engine/App data).
+// Mach_Engine (own copy; state is all pointer-passed, so the library's copy and this
+// one share the same Mach_Engine/App data).
 #define MACH_IMPLEMENTATION
 #include "mach.h"
 
@@ -38,11 +38,11 @@
 
 // The five game entry points, resolved from the shared library each reload.
 typedef struct {
-    Engine_Config (*engine_config)(void);
-    void (*init)(App *, Engine *);
-    void (*update)(App *, Engine *, f32);
-    void (*render)(App *, Engine *);
-    void (*shutdown)(App *, Engine *);
+    Mach_Engine_Config (*engine_config)(void);
+    void (*init)(App *, Mach_Engine *);
+    void (*update)(App *, Mach_Engine *, f32);
+    void (*render)(App *, Mach_Engine *);
+    void (*shutdown)(App *, Mach_Engine *);
 } Game_Api;
 
 static void *g_handle = NULL;       // current dlopen handle
@@ -128,7 +128,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    Engine engine = {0};
+    Mach_Engine engine = {0};
     if (!engine_init(&engine, api.engine_config())) {
         return 1;
     }

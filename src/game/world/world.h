@@ -94,7 +94,7 @@ typedef struct {
 
 // The world is a single arena allocation; its lifetime is the arena's, so there
 // is no world_destroy. Free (or reset) the owning arena instead.
-World* world_create(Arena *arena);
+World* world_create(Mach_Arena *arena);
 
 void world_tick(World *w);
 

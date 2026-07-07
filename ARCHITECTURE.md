@@ -35,7 +35,7 @@ CPU-side batch; the batch flushes to a single `glDrawElements` when the texture
 or scissor changes, the batch fills, or the frame presents. Solid fills sample a
 1×1 white texture, so everything — fills, outlines, text, sprites — goes through
 the same shader. The `gl` section declares the ~40 GL entry points by hand and `r2d_init`
-loads them at runtime through RGFW's proc loader into the `Renderer` struct
+loads them at runtime through RGFW's proc loader into the `Mach_Renderer` struct
 (pointer-passed like all engine state, which is what keeps hot reload honest —
 see below). No system GL headers.
 
@@ -44,12 +44,12 @@ see below). No system GL headers.
   has no reliable line width), `r2d_text`, a clip rect for the UI
   (`r2d_clip_begin`/`end`), and sprite load/draw
   (`r2d_load_texture` / `r2d_sprite`) for real art when it shows up.
-- **Camera2D:** pan and zoom over the isometric plane.
+- **Mach_Camera2D:** pan and zoom over the isometric plane.
 - **Isometric is a pure coordinate transform**, not a 3D projection. `iso_to_screen`
   and `screen_to_iso` map grid to pixels and back (2:1 diamond tiles). Want a
   top-down or free 2D camera instead? Swap the transform. Nothing downstream cares.
 
-Colors are the `Color` type (the `color` section) — a `Vec4` alias, RGBA in [0,1] —
+Colors are the `Mach_Color` type (the `color` section) — a `Mach_Vec4` alias, RGBA in [0,1] —
 plus a stock palette and small helpers (`color_shade`, `color_lighten`,
 `color_lerp`, `color_alpha`). The palette is **modus-vivendi** (Protesilaos
 Stavrou's Emacs theme): accessibility-grade contrast on a black background, with
@@ -70,7 +70,7 @@ loop:
 
 ```c
 int main(void) {
-    Engine engine = {0}; engine_init(&engine, game_engine_config());  // game sets window + policy
+    Mach_Engine engine = {0}; engine_init(&engine, game_engine_config());  // game sets window + policy
     App    app    = {0}; app_init(&app, &engine);
 
     while (engine_running(&engine)) {
@@ -92,14 +92,14 @@ What actually enforces the separation isn't the shape of that loop. It's one rul
 
 Input follows the same toolbox shape. The game never sees an `RGFW_event`: the
 engine drains the queue in `engine_frame_begin` (consuming window lifecycle —
-quit, Escape, resize) and folds the rest into `Engine.input`, a per-frame
+quit, Escape, resize) and folds the rest into `Mach_Engine.input`, a per-frame
 snapshot (the `input` section of `mach.h`). The game reads state — `key_pressed[RGFW_key1]`,
 `mouse_pressed[MOUSE_LEFT]`, `wheel` — in one place, `game_process_input`.
 "Pressed"/"released" are this frame's edges (key repeats excluded); "down"
 persists while held.
 
 Policy the engine applies each frame is the game's to set, not the engine's to
-hardcode: `Engine_Config` carries the window setup plus the clear color, whether
+hardcode: `Mach_Engine_Config` carries the window setup plus the clear color, whether
 Escape quits (a dev convenience the game can turn off once Escape means "close
 menu"), and the soft frame cap (`target_fps`, `<= 0` for uncapped).
 
@@ -126,11 +126,11 @@ one-shot rebuild.
 
 Two facts make this work with zero linker tricks:
 
-- **The engine has no mutable global state.** Everything lives in `Engine` /
-  `Renderer` / `Arena` / `App`, all owned by the host and passed in by pointer. So
+- **The engine has no mutable global state.** Everything lives in `Mach_Engine` /
+  `Mach_Renderer` / `Mach_Arena` / `App`, all owned by the host and passed in by pointer. So
   the host and the library can each carry their own copy of the engine *code* and
   still operate on the same *data*. (Keep it that way: no mutable file-scope state.)
-  This is also why the GL function pointers live *inside* `Renderer`: the library's
+  This is also why the GL function pointers live *inside* `Mach_Renderer`: the library's
   copy of the draw code batches and flushes through the pointers the host loaded.
   RGFW itself does keep internal globals, but only the host ever calls it — the
   library's engine copy stops at `r2d_*`, and the frame lifecycle (events, swap)
@@ -157,8 +157,8 @@ mach.h
   base, debug                       # types, logging/assertions
   RGFW declarations                 # windowing/input/GL context (impl in core)
   mem                               # arena allocator (region list, whole-arena free/reset)
-  math                              # Vec2 + scalar helpers
-  color                             # Color type, helpers, stock palette (modus-vivendi)
+  math                              # Mach_Vec2 + scalar helpers
+  color                             # Mach_Color type, helpers, stock palette (modus-vivendi)
   gl                                # hand-declared GL 3.3 core surface, runtime-loaded
   font                              # 8x8 bitmap font as a GL texture atlas
   image                             # stb_image loader (for sprite art)
@@ -187,7 +187,7 @@ rather than one allocation at a time. Two arenas exist today:
 
 - **The world arena** (game-owned): the entire `World` is a single block, and
   shutdown just frees the arena.
-- **The frame arena** (`Engine.frame_arena`): per-frame scratch, reset at every
+- **The frame arena** (`Mach_Engine.frame_arena`): per-frame scratch, reset at every
   `engine_frame_begin`. Anything allocated from it lives exactly one frame — the
   render depth-sort buffers come from here, sized to what's actually alive. The
   regions are reused across frames, so steady state allocates nothing.

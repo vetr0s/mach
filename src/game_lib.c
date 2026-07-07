@@ -3,7 +3,7 @@
 // Compiled to a shared library that the dev host (host.c) dlopen's and reloads
 // whenever it changes on disk. It carries its own copy of the engine, which is
 // safe because the engine holds no mutable global state: everything lives in the
-// Engine / Renderer / Arena / App structs, all owned by the host and passed in by
+// Mach_Engine / Mach_Renderer / Mach_Arena / App structs, all owned by the host and passed in by
 // pointer. So the host's engine copy and this one operate on the same data.
 //
 // The reload interface is the five functions app.c exports (game_engine_config,
@@ -13,7 +13,7 @@
 // The release build does NOT use this file; src/mach.c stays a single static
 // monolith. See build.sh and ARCHITECTURE.md.
 
-// Engine (own copy; state is all pointer-passed, see above).
+// Mach_Engine (own copy; state is all pointer-passed, see above).
 #define MACH_IMPLEMENTATION
 #include "mach.h"
 

@@ -14,7 +14,7 @@
 // SIM_TICKS_PER_SEC / SIM_TICK_DT live in game.h so the renderer can read them.
 
 // Center the 2D iso camera on grid cell (cx, cy) at a default zoom.
-static void setup_camera(Camera2D *c, f32 cx, f32 cy) {
+static void setup_camera(Mach_Camera2D *c, f32 cx, f32 cy) {
     c->pan.x = (cx - cy) * (ISO_TILE_W * 0.5f);
     c->pan.y = (cx + cy) * (ISO_TILE_H * 0.5f);
     c->zoom = 2.0f;
@@ -24,7 +24,7 @@ static void setup_camera(Camera2D *c, f32 cx, f32 cy) {
 // loop running on first launch: dropper -> conveyor -> upgrader -> conveyor ->
 // collector, all facing east.
 void game_init(Game_State *g) {
-    g->arena = (Arena){0};
+    g->arena = (Mach_Arena){0};
     g->world = world_create(&g->arena);
     g->selected_tool = TOOL_NONE;
     g->place_dir = DIR_E;
@@ -53,7 +53,7 @@ void game_init(Game_State *g) {
 // Update the hovered grid cell by inverse-projecting the mouse onto the ground
 // plane. Grid cell (x,y) is the tile centered at iso coordinate (x, y).
 static void update_hover(Game_State *g, f32 screen_w, f32 screen_h, f32 mouse_x, f32 mouse_y) {
-    Vec2 grid = screen_to_iso(&g->camera, screen_w, screen_h, mouse_x, mouse_y);
+    Mach_Vec2 grid = screen_to_iso(&g->camera, screen_w, screen_h, mouse_x, mouse_y);
     g->hover_grid_x = (i32)floorf(grid.x + 0.5f);
     g->hover_grid_y = (i32)floorf(grid.y + 0.5f);
     g->hover_valid = (g->hover_grid_x >= 0 && g->hover_grid_x < WORLD_GRID_SIZE &&
@@ -129,7 +129,7 @@ static void camera_zoom(Game_State *g, f32 zoom_delta) {
 }
 
 // All of the game's input, one place: read this frame's snapshot and apply it.
-void game_process_input(Game_State *g, const Input *in, f32 screen_w, f32 screen_h, f32 dt) {
+void game_process_input(Game_State *g, const Mach_Input *in, f32 screen_w, f32 screen_h, f32 dt) {
     if (!g || !g->world || !in) return;
 
     if (in->key_pressed[RGFW_key1]) toggle_tool(g, TOOL_DROPPER);

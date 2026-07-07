@@ -12,16 +12,16 @@
 
 typedef struct {
     Game_State game;
-    ClayUI     clay;   // UI layout/draw; lives in host memory so it survives hot reload
+    Mach_ClayUI     clay;   // UI layout/draw; lives in host memory so it survives hot reload
 } App;
 
 // The window and engine policy the game wants (clear color, Escape behavior,
 // frame cap).
-Engine_Config game_engine_config(void);
+Mach_Engine_Config game_engine_config(void);
 
-void app_init(App *a, Engine *e);
-void app_update(App *a, Engine *e, f32 dt);
-void app_render(App *a, Engine *e);
-void app_shutdown(App *a, Engine *e);
+void app_init(App *a, Mach_Engine *e);
+void app_update(App *a, Mach_Engine *e, f32 dt);
+void app_render(App *a, Mach_Engine *e);
+void app_shutdown(App *a, Mach_Engine *e);
 
 #endif

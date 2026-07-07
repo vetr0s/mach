@@ -7,8 +7,8 @@
 #include <stdio.h>
 
 // The game defines its window and engine policy here.
-Engine_Config game_engine_config(void) {
-    return (Engine_Config){
+Mach_Engine_Config game_engine_config(void) {
+    return (Mach_Engine_Config){
         .title = "mach",
         .width = 1280,
         .height = 720,
@@ -20,13 +20,13 @@ Engine_Config game_engine_config(void) {
     };
 }
 
-void app_init(App *a, Engine *e) {
+void app_init(App *a, Mach_Engine *e) {
     game_init(&a->game);
     clay_ui_init(&a->clay, &e->r2d);
 }
 
-void app_update(App *a, Engine *e, f32 dt) {
-    // Input works in the renderer's current pixel space, which may differ from
+void app_update(App *a, Mach_Engine *e, f32 dt) {
+    // Mach_Input works in the renderer's current pixel space, which may differ from
     // the requested size (fullscreen, or a resized window).
     game_process_input(&a->game, &e->input, (f32)e->r2d.width, (f32)e->r2d.height, dt);
     game_tick(&a->game, dt);
@@ -55,8 +55,8 @@ void app_update(App *a, Engine *e, f32 dt) {
                       .attachPoints = { .element = attach, .parent = attach }, \
                       .offset = { ox, oy } } })
 
-void app_render(App *a, Engine *e) {
-    Renderer *r = &e->r2d;
+void app_render(App *a, Mach_Engine *e) {
+    Mach_Renderer *r = &e->r2d;
     const Game_State *g = &a->game;
     game_render_draw(r, g, &e->frame_arena);
 
@@ -131,9 +131,9 @@ void app_render(App *a, Engine *e) {
         snprintf(insp_item_s, sizeof insp_item_s, "ore $%s / max $%s", val_a, val_b);
     }
 
-    // Floating panels around the screen edges. Font sizes are multiples of the 8px
+    // Floating panels around the screen edges. Mach_Font sizes are multiples of the 8px
     // bitmap glyph (16 -> 2x, 8 -> 1x) so the text stays crisp.
-    const Input *in = &e->input;
+    const Mach_Input *in = &e->input;
     clay_ui_begin(&a->clay, r, (Clay_Vector2){in->mouse.x, in->mouse.y},
                   in->mouse_down[MOUSE_LEFT]);
 
@@ -177,7 +177,7 @@ void app_render(App *a, Engine *e) {
     clay_ui_render(&a->clay, r);
 }
 
-void app_shutdown(App *a, Engine *e) {
+void app_shutdown(App *a, Mach_Engine *e) {
     (void)e;
     clay_ui_shutdown(&a->clay);
     game_shutdown(&a->game);

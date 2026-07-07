@@ -2,30 +2,17 @@
 
 ## NOTES
 
-- Tried to compile on void linux X11 (i3wm) desktop env got this error. Cant
-    seem to find how to get this include working:
-    ```
-      [vetr0s:~/source/repos/mach]$ ./build.sh                                                          (main) 
-      Compiling: build/mach_debug
-      In file included from src/mach.c:11:
-      In file included from ./mach.h:1637:
-      In file included from third_party/rgfw/RGFW.h:2930:
-      In file included from /usr/include/X11/Xlib.h:44:
-      /usr/include/X11/X.h:100:13: error: typedef redefinition with different types ('XID'
-            (aka 'unsigned long') vs 'struct Font')
-        100 | typedef XID Font;
-            |             ^
-      ./mach.h:445:3: note: previous definition is here
-        445 | } Font;
-            |   ^
-      In file included from src/mach.c:11:
-      In file included from ./mach.h:1637:
-      third_party/rgfw/RGFW.h:6465:11: fatal error: 'GL/glx.h' file not found
-       6465 |         #include <GL/glx.h> /* GLX defs, xlib.h, gl.h */
-            |                  ^~~~~~~~~~
-      2 errors generated.
-    ```
-- Also note that in the error above we need to change our custom Font type name and more generally all custom typedefs with a MACH prefix to avoid OS name conflicts. Generally just need to do more work on making the single header true cross-platform
+- RESOLVED (2026-07-06): the void linux build errors. Two separate problems:
+  - `Font` collided with X11's `typedef XID Font` (RGFW pulls Xlib.h into the
+    implementation TU). Every engine typedef now carries a `Mach_` prefix
+    (`Mach_Font`, `Mach_Vec2`, `Mach_Engine`, ...), so no engine name can shadow
+    an OS-header name on any platform. `scripts/check_namespace.sh` compile-checks
+    the engine + game declarations against faked X11/Win32 names so this can't
+    regress without a Linux box in the loop.
+  - `GL/glx.h` not found is just missing dev headers. `./build.sh` now preflights
+    the X11/GLX headers on Linux and prints per-distro install commands; on void:
+    `sudo xbps-install -S libX11-devel libXrandr-devel libXcursor-devel libglvnd-devel`.
+  Still to verify: an actual build + run on the linux box after installing those.
 
 - RE: gdd, think city skylines mixed with miners haven and a pinch of factorio.
   The design doc (docs/gdd.typ, v0.2.0) is authoritative and now describes the
@@ -192,5 +179,6 @@ Things to make it play and look right, batched for later sessions. Not urgent.
 
 > **Note: cross-platform got even simpler with RGFW.** One vendored header
 > speaks Win32, X11, and Cocoa, and the renderer is GL 3.3 core, which all
-> three platforms ship. Linux/Windows just need a C compiler; verify on real
-> hardware when available.
+> three platforms ship. Windows just needs a C compiler; Linux additionally
+> needs the X11/GL dev headers (build.sh checks and prints the install command
+> per distro). Verify on real hardware when available.

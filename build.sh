@@ -21,6 +21,26 @@ case "$os_name" in
     libs="-lX11 -lXrandr -lGL -lm -ldl"
     lib_ext=".so"
     shared_flags="-shared -fPIC"
+
+    # Fail early with install hints when the X11/GL dev headers are missing —
+    # the usual first-run failure on a fresh box (RGFW needs Xlib, Xrandr,
+    # Xcursor, and GLX headers; the libs themselves ship with the OS).
+    if ! printf '%s\n' \
+        '#include <X11/Xlib.h>' \
+        '#include <X11/Xcursor/Xcursor.h>' \
+        '#include <X11/extensions/Xrandr.h>' \
+        '#include <X11/extensions/sync.h>' \
+        '#include <GL/glx.h>' \
+        | "$cc" -fsyntax-only -x c - 2>/dev/null; then
+      cat >&2 <<'EOF'
+Missing X11/OpenGL development headers. Install them:
+  Void:          sudo xbps-install -S libX11-devel libXrandr-devel libXcursor-devel libglvnd-devel
+  Debian/Ubuntu: sudo apt install libx11-dev libxrandr-dev libxcursor-dev libgl1-mesa-dev
+  Fedora:        sudo dnf install libX11-devel libXrandr-devel libXcursor-devel mesa-libGL-devel
+  Arch:          sudo pacman -S libx11 libxrandr libxcursor mesa
+EOF
+      exit 1
+    fi
     ;;
   *)
     echo "Unsupported platform: $os_name" >&2

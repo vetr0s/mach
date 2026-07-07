@@ -2,6 +2,31 @@
 
 ## NOTES
 
+- Tried to compile on void linux X11 (i3wm) desktop env got this error. Cant
+    seem to find how to get this include working:
+    ```
+      [vetr0s:~/source/repos/mach]$ ./build.sh                                                          (main) 
+      Compiling: build/mach_debug
+      In file included from src/mach.c:11:
+      In file included from ./mach.h:1637:
+      In file included from third_party/rgfw/RGFW.h:2930:
+      In file included from /usr/include/X11/Xlib.h:44:
+      /usr/include/X11/X.h:100:13: error: typedef redefinition with different types ('XID'
+            (aka 'unsigned long') vs 'struct Font')
+        100 | typedef XID Font;
+            |             ^
+      ./mach.h:445:3: note: previous definition is here
+        445 | } Font;
+            |   ^
+      In file included from src/mach.c:11:
+      In file included from ./mach.h:1637:
+      third_party/rgfw/RGFW.h:6465:11: fatal error: 'GL/glx.h' file not found
+       6465 |         #include <GL/glx.h> /* GLX defs, xlib.h, gl.h */
+            |                  ^~~~~~~~~~
+      2 errors generated.
+    ```
+- Also note that in the error above we need to change our custom Font type name and more generally all custom typedefs with a MACH prefix to avoid OS name conflicts. Generally just need to do more work on making the single header true cross-platform
+
 - RE: gdd, think city skylines mixed with miners haven and a pinch of factorio.
   The design doc (docs/gdd.typ, v0.2.0) is authoritative and now describes the
   value-loop builder in full; the Gameplay section below tracks catching the code

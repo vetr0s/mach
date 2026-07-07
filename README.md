@@ -1,23 +1,18 @@
 # mach
 
-A game engine and the game it exists to run, built together as one thing. Pure C99,
-three single-header libraries, and not much else.
+A factory/automation game in pure C99: droppers spit out ore, conveyors carry
+it, upgraders raise its worth, collectors bank it. Built on **mach.h**, the
+single-header 2D engine that grew out of this project and now lives in its own
+repo — a copy is vendored here, so this repo still builds with nothing but a C
+compiler.
 
 ![mach — isometric factory scene rendered by the engine](assets/mach-engine-screenshot.png)
 
-**Version:** v0.5.1
-
-It's a small **2D isometric** engine driving a factory/automation game. RGFW
-opens the window and delivers input; on top of that sits the engine's own little
-OpenGL batch renderer — one shader, one draw stream, done. No engine framework,
-no GPU pipeline, no offline shader tooling. (Real 3D comes back when there's an
-actual reason for it and not a day sooner; see `ARCHITECTURE.md` for why.)
-
 ## Building it
 
-You need a C compiler. That's the whole list — every dependency is a single
-header committed to `third_party/`, and OpenGL comes from the OS. There is no
-setup step.
+You need a C compiler. That's the whole list — the engine (with windowing, GL,
+UI, and image loading embedded) is one committed header in `third_party/mach/`,
+and OpenGL comes from the OS. There is no setup step.
 
 **macOS / Linux** (bash):
 ```bash
@@ -31,25 +26,16 @@ build.bat               :: build the game
 build\mach_debug.exe    :: run it
 ```
 
-### What you actually need
-
-- **A C compiler.** The renderer is a few hundred lines of OpenGL 3.3 core,
-  loaded at runtime. No shader toolchain to install, no GPU SDK, nothing extra.
-- **RGFW**, vendored in `third_party/rgfw/`: a single-header windowing library —
-  window, GL context, keyboard, mouse. What SDL used to do here, minus the
-  building of SDL.
-- **stb**, vendored in `third_party/stb/`: `stb_image.h` for loading sprite art.
-  Public domain, single header, nothing to build or fetch.
-- **Clay**, vendored in `third_party/clay/`: a single-header C UI layout library that
-  drives the HUD. Clay does layout; the engine walks its render commands and draws them
-  with `render2d` (the `clay_ui` section of `mach.h`). Nothing to build or fetch.
+On Linux you need the X11/GL dev headers once; `./build.sh` checks and prints
+the install command for your distro.
 
 ## Playing with it
 
-The game is a value loop: droppers spit out items, conveyors carry them through
-upgraders that raise their worth, and collectors bank it. Build a route that runs
-items past as many upgraders as you can before they get collected. Each upgrader
-only counts once per item, so the puzzle is reaching lots of different ones.
+The game is a value loop: droppers spit out ore, conveyors route it, upgraders
+raise its value toward a ceiling, and collectors bank it. Ore climbs its
+ceiling a fraction per upgrader pass, and each *distinct* upgrader it meets
+raises that ceiling — so the puzzle is routing loops past as many different
+upgraders as you can before cashing out.
 
 - **WASD / Arrows** — pan the camera
 - **Scroll wheel** — zoom
@@ -61,6 +47,10 @@ only counts once per item, so the puzzle is reaching lots of different ones.
 - **Esc** — quit
 
 ## Hacking on it
+
+`./build.sh hot` is the dev loop: it builds, runs the game, and watches the
+sources — every save rebuilds the game library and the running game swaps it in
+live, keeping its state. See `ARCHITECTURE.md` for how.
 
 If you use Emacs, generate tags:
 ```bash
@@ -76,29 +66,24 @@ and point your init at them:
 
 ## Why it's built this way
 
-**Pure C, no frameworks.** RGFW handles the window and input, OpenGL puts pixels
-on screen. Past that it's just C99.
+**Pure C, no frameworks.** mach.h handles window, input, and drawing; past that
+it's just C99.
 
 **Unity build.** The whole thing compiles in one `clang` call. `mach.c` includes
 every other `.c` file and the compiler sees it all at once. There's no build
 system to speak of; `build.sh` is the compiler invocation. If that sounds strange,
 go watch some Handmade Hero and look at how RAD Debugger builds. It's freeing.
 
-**Engine and game, kept apart.** The engine is one header, `mach.h`, in the
-stb style: declarations always, implementation in the one translation unit that
-defines `MACH_IMPLEMENTATION`. The game (entities, rules, content) lives in
-`src/game/`. The dependency only ever points one way: **`mach.h` never names a
-game type.** The game owns the loop in `main()` and calls into the engine,
-raylib-style; the engine drives nothing on its own. Swap in a different game
-and `mach.h` doesn't have to notice.
-
-**Minimal, and 2D on purpose.** Isometric is a coordinate transform, not a 3D
-projection. The "3D look" is faked with shaded, outlined blocks. The engine stays
-small and gets new capability only when something concrete actually pulls it in.
+**Engine and game, kept apart — now literally.** The engine is its own project
+(the mach.h repo) and this repo consumes it like any other vendored single
+header. The dependency only ever points one way: the engine never names a game
+type. The game owns the loop in `main()` and calls into the engine,
+raylib-style. Engine updates arrive by pasting a new release into
+`third_party/mach/`.
 
 **Fat-struct ECS.** No generic component system, no query engine. Each entity type
-is a full struct (`Entity_Miner`, `Entity_Storage`) and the game logic touches the
-data directly. The idea is lifted from Anton Mikhailov on the *Wookash Podcast*.
+is a full struct and the game logic touches the data directly. The idea is lifted
+from Anton Mikhailov on the *Wookash Podcast*.
 
 ## Where it runs
 
@@ -106,28 +91,26 @@ data directly. The idea is lifted from Anton Mikhailov on the *Wookash Podcast*.
 - Linux — toolchain's wired, needs a real run on real hardware
 - Windows — same story
 
-The cross-platform story is boring in the best way: RGFW is one header that
-speaks Win32, X11, and Cocoa; the renderer is GL 3.3 core, which all three
-platforms still ship. Bring a C compiler, go.
-
 ## How the code is laid out
 
 ```
-mach.h                    # the engine: one header, stb-style, C99
-
 src/
   game/                   # the factory sim
-    game.h/.c             # game state, input, the sim, and the four loop entry points
+    game.h/.c             # game state, config, input, the sim, and the four loop entry points
     render_game.h/.c      # draws the world (iso tiles, shaded blocks) and the HUD
     world/                # entities and the grid simulation
 
   mach.c                  # unity root: MACH_IMPLEMENTATION + game sources + main()
+  game_lib.c / host.c     # the hot-reload pair (dev builds only)
 
 build.sh / build.bat      # the compiler invocation (macOS-Linux / Windows)
-third_party/              # rgfw, clay, stb — single headers, committed
+third_party/mach/         # mach.h, the engine — vendored single header
+docs/                     # the game design doc (gdd.typ; docs/VERSION is its version)
 ```
 
 `ARCHITECTURE.md` has the longer version of why any of this is the way it is.
+Engine internals (the batch renderer, the GL loader, arenas) are documented in
+the mach.h repo, not here.
 
 ## The entity system
 
@@ -136,7 +119,7 @@ Entities are **fat structs**, not generic bags of components:
 typedef struct {
     i32 grid_x, grid_y;
     Direction dir;        // upgraders move items too
-    i32 upgrader_id;      // the bit it sets in an item's "already upgraded" mask
+    i32 upgrader_id;      // the bit it sets in an item's "distinct upgraders" mask
 } Entity_Upgrader;
 ```
 
@@ -159,30 +142,17 @@ Game code just loops over the arrays and updates things. No indirection to chase
 no query system to fight, and the performance is whatever you can read off the
 page. The whole `World` is a single allocation out of an arena.
 
-## The rendering
+## The look
 
-It's all **2D on a small GL batch renderer**, the render sections of `mach.h`:
-
-- **`render2d`** — the actual render layer: one shader, one stream of
-  textured vertex-colored triangles, flushed per texture/scissor change. Filled
-  rects, convex polygons, outlines, text, sprite loading and drawing, and a 2D
-  pan/zoom `Mach_Camera2D`. Plus the isometric transforms, `iso_to_screen` and
-  `screen_to_iso`.
-- **`gl`** — the ~40 GL 3.3 core entry points the renderer uses, declared by
-  hand and loaded at runtime into the `Mach_Renderer` struct. No system GL headers.
-- **`font`** — an 8×8 bitmap font baked into a GL texture atlas, tinted
-  per vertex.
-- **`image`** — the `stb_image` loader for sprite art.
-
-**Isometric is a coordinate transform, not a projection.** The grid maps to 2:1
-diamond tiles. Machines are **shaded blocks** (a bright top, two darker side faces,
-outlined edges) sorted back-to-front. That reads as depth without a single line of
-3D code. Want a top-down or free 2D camera instead? That's just a different
-transform; nothing here is wired to be isometric-only.
+Everything draws through mach.h's 2D batch renderer. **Isometric is a
+coordinate transform, not a projection**: the grid maps to 2:1 diamond tiles,
+and machines are **shaded blocks** (a bright top, two darker side faces,
+outlined edges) sorted back-to-front. That reads as depth without a single line
+of 3D code. `render_game.c` composes the engine's primitives into that look;
+the HUD is Clay panels drawn through the same renderer.
 
 ## Standing on other people's shoulders
 
-The ideas:
 - **RAD Debugger (raddbg)** — the minimal build system and unity compilation.
   https://github.com/EpicGames/raddebugger
 - **Handmade Hero** — pure C, simple architecture, suspicion of abstraction.
@@ -190,14 +160,9 @@ The ideas:
 - **Wookash Podcast** — Anton Mikhailov on engine design and the fat-struct ECS.
   https://www.youtube.com/channel/UC9J9u3apteD0EuFjzRpt71w
 
-The libraries:
-- **RGFW** (Riley Mabb) — https://github.com/ColleagueRiley/RGFW
-- **stb** (Sean Barrett) — https://github.com/nothings/stb
-- **Clay** (Nic Barker) — https://github.com/nicbarker/clay
-
 ## Licensing
 
-- **mach engine and game** — Zlib (see `LICENSE`)
-- **RGFW** — Zlib (see the header)
-- **stb** — public domain (see each header)
-- **Clay** — Zlib (see the header)
+- **this repo** — Zlib (see `LICENSE`)
+- **mach.h** — Zlib, with its embedded libraries' notices (RGFW zlib, Clay
+  zlib, stb_image public domain) carried inside the header and its repo's
+  LICENSE

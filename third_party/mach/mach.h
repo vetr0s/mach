@@ -38,8 +38,8 @@
 
 // Semantic versioning: MAJOR.MINOR.PATCH
 #define MACH_VERSION_MAJOR 0
-#define MACH_VERSION_MINOR 5
-#define MACH_VERSION_PATCH 1
+#define MACH_VERSION_MINOR 1
+#define MACH_VERSION_PATCH 0
 
 // Sized integer aliases. Define MACH_INT_DEFINED before including mach.h if
 // your project already typedefs these names (they must match these widths).
@@ -17068,7 +17068,7 @@ void mach_image_free(Mach_Image *img);
 
 // 2D renderer over OpenGL 3.3 core: one batched stream of textured,
 // vertex-colored triangles, plus primitives, text, sprites, and an isometric
-// camera. See ARCHITECTURE.md for the design.
+// camera. See the README for the design.
 
 
 // Isometric tile footprint in screen pixels at zoom 1 (classic 2:1 diamond), and

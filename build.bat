@@ -3,8 +3,8 @@ REM Build the mach engine with MSVC (cl.exe).
 REM Usage: build.bat [debug|release]
 REM Defaults to debug. Run from a Visual Studio "x64 Native Tools" prompt.
 REM
-REM No setup step: windowing is third_party/rgfw (single header), GL comes from
-REM the OS. MSVC has no /std:c99 switch; the code is C99 and compiles under c11.
+REM No setup step: RGFW is embedded in mach.h (windowing), GL comes from the
+REM OS. MSVC has no /std:c99 switch; the code is C99 and compiles under c11.
 
 setlocal enabledelayedexpansion
 
@@ -29,7 +29,7 @@ set OUT_FILE=build\mach%SUFFIX%.exe
 echo Compiling: %OUT_FILE%
 cl.exe /std:c11 ^
     %OPT_FLAGS% /W4 ^
-    /I. /Ithird_party\rgfw /Ithird_party\stb /Ithird_party\clay ^
+    /I. ^
     /Fe"%OUT_FILE%" ^
     src\mach.c ^
     /link opengl32.lib winmm.lib

@@ -5,8 +5,8 @@
 
 set -euo pipefail
 
-# Platform toolchain and the libs RGFW + OpenGL need. No SDL, no setup step:
-# windowing is third_party/rgfw (single header), GL comes from the OS.
+# Platform toolchain and the libs RGFW + OpenGL need. No setup step: RGFW is
+# embedded in mach.h (windowing), GL comes from the OS.
 os_name="$(uname -s)"
 
 case "$os_name" in
@@ -61,7 +61,7 @@ build_type="${1:-debug}"
 mkdir -p build
 
 game_lib="build/libmach_game${lib_ext}"
-common_flags="-std=c99 -Wall -Wextra -I. -Ithird_party/rgfw -Ithird_party/stb -Ithird_party/clay"
+common_flags="-std=c99 -Wall -Wextra -I."
 
 # Build the hot-reloadable game library from src/game_lib.c.
 build_game_lib() {

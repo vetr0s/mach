@@ -71,7 +71,7 @@ int main(void) { return 0; }
 EOF
 
 "$cc" -std=c99 -Wall -Wextra -fsyntax-only \
-  -I. -Isrc -Ithird_party/rgfw -Ithird_party/stb -Ithird_party/clay \
+  -I. -Isrc \
   "$stub"
 
 echo "namespace check OK: engine/game names don't collide with X11/Win32"

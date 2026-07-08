@@ -27,8 +27,8 @@ Mach_Config game_config(void) {
         .title = "mach",
         .width = 1280,
         .height = 720,
-        .clear_color = MACH_COLOR_BG_MAIN,   // modus-vivendi: true black beyond the grid
-        .escape_quits = MACH_TRUE,      // dev convenience, for now
+        .clear_color = MACH_COLOR_BG_MAIN, // modus-vivendi: true black beyond the grid
+        .escape_quits = MACH_TRUE,         // dev convenience, for now
         .target_fps = 144,
     };
 }
@@ -72,8 +72,8 @@ static void update_hover(Game_State *g, f32 screen_w, f32 screen_h, f32 mouse_x,
     g->hover_grid_y = (i32)floorf(grid.y + 0.5f);
     g->hover_valid = (g->hover_grid_x >= 0 && g->hover_grid_x < WORLD_GRID_SIZE &&
                       g->hover_grid_y >= 0 && g->hover_grid_y < WORLD_GRID_SIZE);
-    g->hover_can_place = g->hover_valid &&
-                         world_can_place_at(g->world, g->hover_grid_x, g->hover_grid_y);
+    g->hover_can_place =
+        g->hover_valid && world_can_place_at(g->world, g->hover_grid_x, g->hover_grid_y);
 }
 
 // Advance the simulation. Rendering runs every frame, but the world steps at a
@@ -81,8 +81,10 @@ static void update_hover(Game_State *g, f32 screen_w, f32 screen_h, f32 mouse_x,
 // miner produces the same ore per second regardless of framerate. dt is already
 // clamped engine-side, so the accumulator can't run away after a long stall.
 void game_tick(Game_State *g, f32 dt) {
-    if (!g || !g->world) return;
-    if (g->paused) return;   // frozen: no sim ticks, no animation advance
+    if (!g || !g->world)
+        return;
+    if (g->paused)
+        return; // frozen: no sim ticks, no animation advance
 
     g->anim_time += dt;
     g->sim_accumulator += dt;
@@ -105,10 +107,12 @@ void game_frame(Game_State *g, Mach *m) {
 
 // Clean up game state and free resources.
 void game_shutdown(Game_State *g) {
-    if (!g) return;
+    if (!g)
+        return;
     mach_clay_ui_shutdown(&g->clay);
     if (g->world) {
-        MACH_LOG_INFO("world torn down (%d entities, tick %d)", g->world->entity_count, g->world->tick);
+        MACH_LOG_INFO("world torn down (%d entities, tick %d)", g->world->entity_count,
+                      g->world->tick);
         g->world = NULL;
     }
     mach_arena_free(&g->arena);
@@ -117,17 +121,27 @@ void game_shutdown(Game_State *g) {
 
 // Place (or delete) with the selected tool at the hovered cell.
 static void place_at_hover(Game_State *g) {
-    if (!g->hover_valid) return;
+    if (!g->hover_valid)
+        return;
 
     i32 hx = g->hover_grid_x, hy = g->hover_grid_y;
     switch (g->selected_tool) {
-    case TOOL_DROPPER:   world_spawn_dropper(g->world, hx, hy, g->place_dir);   break;
-    case TOOL_CONVEYOR:  world_spawn_conveyor(g->world, hx, hy, g->place_dir);  break;
-    case TOOL_UPGRADER:  world_spawn_upgrader(g->world, hx, hy, g->place_dir);  break;
-    case TOOL_COLLECTOR: world_spawn_collector(g->world, hx, hy);               break;
+    case TOOL_DROPPER:
+        world_spawn_dropper(g->world, hx, hy, g->place_dir);
+        break;
+    case TOOL_CONVEYOR:
+        world_spawn_conveyor(g->world, hx, hy, g->place_dir);
+        break;
+    case TOOL_UPGRADER:
+        world_spawn_upgrader(g->world, hx, hy, g->place_dir);
+        break;
+    case TOOL_COLLECTOR:
+        world_spawn_collector(g->world, hx, hy);
+        break;
     case TOOL_DELETE: {
         i32 entity_id = world_get_entity_at(g->world, hx, hy);
-        if (entity_id != 0) world_despawn(g->world, entity_id);
+        if (entity_id != 0)
+            world_despawn(g->world, entity_id);
         break;
     }
     default:
@@ -156,27 +170,40 @@ static void camera_zoom(Game_State *g, f32 zoom_delta) {
 
 // All of the game's input, one place: read this frame's snapshot and apply it.
 void game_process_input(Game_State *g, const Mach_Input *in, f32 screen_w, f32 screen_h, f32 dt) {
-    if (!g || !g->world || !in) return;
+    if (!g || !g->world || !in)
+        return;
 
-    if (in->key_pressed[RGFW_key1]) toggle_tool(g, TOOL_DROPPER);
-    if (in->key_pressed[RGFW_key2]) toggle_tool(g, TOOL_CONVEYOR);
-    if (in->key_pressed[RGFW_key3]) toggle_tool(g, TOOL_UPGRADER);
-    if (in->key_pressed[RGFW_key4]) toggle_tool(g, TOOL_COLLECTOR);
-    if (in->key_pressed[RGFW_key5]) toggle_tool(g, TOOL_DELETE);
+    if (in->key_pressed[RGFW_key1])
+        toggle_tool(g, TOOL_DROPPER);
+    if (in->key_pressed[RGFW_key2])
+        toggle_tool(g, TOOL_CONVEYOR);
+    if (in->key_pressed[RGFW_key3])
+        toggle_tool(g, TOOL_UPGRADER);
+    if (in->key_pressed[RGFW_key4])
+        toggle_tool(g, TOOL_COLLECTOR);
+    if (in->key_pressed[RGFW_key5])
+        toggle_tool(g, TOOL_DELETE);
     if (in->key_pressed[RGFW_keySpace]) {
         g->paused = !g->paused;
         MACH_LOG_DEBUG("simulation %s", g->paused ? "paused" : "resumed");
     }
-    if (in->key_pressed[RGFW_keyBacktick]) g->show_debug = !g->show_debug;
+    if (in->key_pressed[RGFW_keyBacktick])
+        g->show_debug = !g->show_debug;
 
     // Camera: continuous pan from held keys, zoom from the wheel.
     f32 px = 0.0f, py = 0.0f;
-    if (in->key_down[RGFW_keyLeft]  || in->key_down[RGFW_keyA]) px -= CAMERA_PAN_SPEED * dt;
-    if (in->key_down[RGFW_keyRight] || in->key_down[RGFW_keyD]) px += CAMERA_PAN_SPEED * dt;
-    if (in->key_down[RGFW_keyUp]    || in->key_down[RGFW_keyW]) py -= CAMERA_PAN_SPEED * dt;
-    if (in->key_down[RGFW_keyDown]  || in->key_down[RGFW_keyS]) py += CAMERA_PAN_SPEED * dt;
-    if (px != 0.0f || py != 0.0f) camera_pan(g, px, py);
-    if (in->wheel != 0.0f) camera_zoom(g, in->wheel * 0.1f);
+    if (in->key_down[RGFW_keyLeft] || in->key_down[RGFW_keyA])
+        px -= CAMERA_PAN_SPEED * dt;
+    if (in->key_down[RGFW_keyRight] || in->key_down[RGFW_keyD])
+        px += CAMERA_PAN_SPEED * dt;
+    if (in->key_down[RGFW_keyUp] || in->key_down[RGFW_keyW])
+        py -= CAMERA_PAN_SPEED * dt;
+    if (in->key_down[RGFW_keyDown] || in->key_down[RGFW_keyS])
+        py += CAMERA_PAN_SPEED * dt;
+    if (px != 0.0f || py != 0.0f)
+        camera_pan(g, px, py);
+    if (in->wheel != 0.0f)
+        camera_zoom(g, in->wheel * 0.1f);
 
     // Hover follows the mouse every frame, after any camera motion, so panning or
     // zooming under a still cursor keeps the highlighted cell accurate.
@@ -185,7 +212,8 @@ void game_process_input(Game_State *g, const Mach_Input *in, f32 screen_w, f32 s
     if (in->key_pressed[RGFW_keyR]) {
         // Rotate the piece under the cursor in place; with no piece there (or a
         // collector, which has no facing), rotate the facing for the next placement.
-        i32 id = g->hover_valid ? world_get_entity_at(g->world, g->hover_grid_x, g->hover_grid_y) : 0;
+        i32 id =
+            g->hover_valid ? world_get_entity_at(g->world, g->hover_grid_x, g->hover_grid_y) : 0;
         if (id != 0 && world_rotate_entity(g->world, id)) {
             MACH_LOG_DEBUG("rotated entity %d at (%d,%d)", id, g->hover_grid_x, g->hover_grid_y);
         } else {
@@ -194,14 +222,21 @@ void game_process_input(Game_State *g, const Mach_Input *in, f32 screen_w, f32 s
         }
     }
 
-    if (in->mouse_pressed[MACH_MOUSE_LEFT]) place_at_hover(g);
+    if (in->mouse_pressed[MACH_MOUSE_LEFT])
+        place_at_hover(g);
 }
 
 void game_format_value(i64 v, char *buf, usize n) {
     static const char *suffix[] = {"", "K", "M", "B", "T", "Qa", "Qi"};
-    if (v < 1000) { snprintf(buf, n, "%lld", (long long)v); return; }
+    if (v < 1000) {
+        snprintf(buf, n, "%lld", (long long)v);
+        return;
+    }
     f64 d = (f64)v;
     i32 t = 0;
-    while (d >= 1000.0 && t < 6) { d /= 1000.0; t++; }
+    while (d >= 1000.0 && t < 6) {
+        d /= 1000.0;
+        t++;
+    }
     snprintf(buf, n, "%.1f%s", d, suffix[t]);
 }

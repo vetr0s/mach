@@ -44,32 +44,42 @@ typedef struct {
     void (*shutdown)(Game_State *);
 } Game_Api;
 
-static void *g_handle = NULL;       // current dlopen handle
-static char  g_loaded_path[512];    // temp copy backing g_handle (unlinked on swap)
-static u32   g_reload_counter = 0;
+static void *g_handle = NULL;   // current dlopen handle
+static char g_loaded_path[512]; // temp copy backing g_handle (unlinked on swap)
+static u32 g_reload_counter = 0;
 
 static time_t lib_mtime(void) {
     struct stat st;
-    if (stat(GAME_LIB_PATH, &st) != 0) return 0;
+    if (stat(GAME_LIB_PATH, &st) != 0)
+        return 0;
     return st.st_mtime;
 }
 
 static b32 copy_file(const char *src, const char *dst) {
     FILE *in = fopen(src, "rb");
-    if (!in) return MACH_FALSE;
+    if (!in)
+        return MACH_FALSE;
     FILE *out = fopen(dst, "wb");
-    if (!out) { fclose(in); return MACH_FALSE; }
+    if (!out) {
+        fclose(in);
+        return MACH_FALSE;
+    }
 
     char buf[1 << 16];
     size_t n;
     b32 ok = MACH_TRUE;
     while ((n = fread(buf, 1, sizeof buf, in)) > 0) {
-        if (fwrite(buf, 1, n, out) != n) { ok = MACH_FALSE; break; }
+        if (fwrite(buf, 1, n, out) != n) {
+            ok = MACH_FALSE;
+            break;
+        }
     }
-    if (ferror(in)) ok = MACH_FALSE;
+    if (ferror(in))
+        ok = MACH_FALSE;
     fclose(in);
     fclose(out);
-    if (!ok) unlink(dst);
+    if (!ok)
+        unlink(dst);
     return ok;
 }
 
@@ -95,20 +105,31 @@ static b32 game_api_reload(Game_Api *api) {
     // Object-pointer to function-pointer via &field avoids the ISO C cast warning.
     Game_Api n;
     b32 ok = MACH_TRUE;
-#define LOAD(field, sym) do { \
-        *(void **)(&n.field) = dlsym(h, sym); \
-        if (!n.field) { MACH_LOG_ERROR("hot reload: missing symbol %s", sym); ok = MACH_FALSE; } \
+#define LOAD(field, sym)                                                                           \
+    do {                                                                                           \
+        *(void **)(&n.field) = dlsym(h, sym);                                                      \
+        if (!n.field) {                                                                            \
+            MACH_LOG_ERROR("hot reload: missing symbol %s", sym);                                  \
+            ok = MACH_FALSE;                                                                       \
+        }                                                                                          \
     } while (0)
-    LOAD(config,   "game_config");
-    LOAD(init,     "game_init");
-    LOAD(frame,    "game_frame");
+    LOAD(config, "game_config");
+    LOAD(init, "game_init");
+    LOAD(frame, "game_frame");
     LOAD(shutdown, "game_shutdown");
 #undef LOAD
 
-    if (!ok) { dlclose(h); unlink(next); return MACH_FALSE; }
+    if (!ok) {
+        dlclose(h);
+        unlink(next);
+        return MACH_FALSE;
+    }
 
     // Swap in the new image and retire the old one.
-    if (g_handle) { dlclose(g_handle); unlink(g_loaded_path); }
+    if (g_handle) {
+        dlclose(g_handle);
+        unlink(g_loaded_path);
+    }
     g_handle = h;
     snprintf(g_loaded_path, sizeof g_loaded_path, "%s", next);
     g_reload_counter++;
@@ -133,11 +154,14 @@ int main(int argc, char **argv) {
 
     // Game_State lives in host-owned memory so it survives library reloads.
     Game_State *game = (Game_State *)calloc(1, sizeof(Game_State));
-    if (!game) { mach_shutdown(&m); return 1; }
+    if (!game) {
+        mach_shutdown(&m);
+        return 1;
+    }
     api.init(game, &m);
 
     time_t last_mtime = lib_mtime();
-    u32    pending_at = 0;   // engine ticks when a change was first seen; 0 = none
+    u32 pending_at = 0; // engine ticks when a change was first seen; 0 = none
 
     MACH_LOG_INFO("entering main loop (hot reload watching %s)", GAME_LIB_PATH);
     while (mach_running(&m)) {
@@ -149,8 +173,10 @@ int main(int argc, char **argv) {
         if (pending_at != 0 && mach_ticks_ms() - pending_at >= RELOAD_SETTLE_MS) {
             last_mtime = lib_mtime();
             pending_at = 0;
-            if (game_api_reload(&api)) MACH_LOG_INFO("game hot-reloaded");
-            else MACH_LOG_ERROR("hot reload failed; keeping previous build");
+            if (game_api_reload(&api))
+                MACH_LOG_INFO("game hot-reloaded");
+            else
+                MACH_LOG_ERROR("hot reload failed; keeping previous build");
         }
 
         mach_frame_begin(&m);
@@ -162,6 +188,9 @@ int main(int argc, char **argv) {
     api.shutdown(game);
     free(game);
     mach_shutdown(&m);
-    if (g_handle) { dlclose(g_handle); unlink(g_loaded_path); }
+    if (g_handle) {
+        dlclose(g_handle);
+        unlink(g_loaded_path);
+    }
     return 0;
 }

@@ -16,26 +16,26 @@
 // belt speed moves off this clock onto a per-entity ticks-per-cell cadence (and the
 // item interpolation has to span that window), leaving this as just the sim heartbeat.
 #define SIM_TICKS_PER_SEC 3
-#define SIM_TICK_DT       (1.0f / (f32)SIM_TICKS_PER_SEC)
+#define SIM_TICK_DT (1.0f / (f32)SIM_TICKS_PER_SEC)
 
 typedef struct {
-    Mach_Arena arena;          // backs the world; freed whole at shutdown
+    Mach_Arena arena; // backs the world; freed whole at shutdown
     World *world;
-    Mach_ClayUI clay;          // HUD layout/draw; in host memory so it survives hot reload
+    Mach_ClayUI clay; // HUD layout/draw; in host memory so it survives hot reload
     i32 selected_tool;
-    Direction place_dir;  // facing applied to directional pieces on placement
+    Direction place_dir; // facing applied to directional pieces on placement
 
     Mach_Camera2D camera;
 
-    f32 sim_accumulator;  // real seconds carried toward the next fixed sim tick
-    f32 anim_time;        // real seconds elapsed, for continuous visual animation
-    b32 paused;           // freeze the world: no sim ticks and no animation advance
-    b32 show_debug;        // backtick-toggled overlay: everything but money is off by default
+    f32 sim_accumulator; // real seconds carried toward the next fixed sim tick
+    f32 anim_time;       // real seconds elapsed, for continuous visual animation
+    b32 paused;          // freeze the world: no sim ticks and no animation advance
+    b32 show_debug;      // backtick-toggled overlay: everything but money is off by default
 
     // Hover: the grid cell currently under the mouse.
     i32 hover_grid_x;
     i32 hover_grid_y;
-    b32 hover_valid;      // the mouse projected onto the ground plane
+    b32 hover_valid; // the mouse projected onto the ground plane
     b32 hover_can_place;
 } Game_State;
 
@@ -52,9 +52,9 @@ typedef enum {
 
 // The four functions the loop (main or the hot-reload host) calls. They are the
 // game's whole surface, and the hot-reload seam, so they keep external linkage.
-Mach_Config game_config(void);                    // window + engine policy
+Mach_Config game_config(void); // window + engine policy
 void game_init(Game_State *g, Mach *m);
-void game_frame(Game_State *g, Mach *m);          // input + sim + draw, one frame
+void game_frame(Game_State *g, Mach *m); // input + sim + draw, one frame
 void game_shutdown(Game_State *g);
 
 // Internals of game_frame, split for readability.

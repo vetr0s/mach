@@ -6,6 +6,11 @@ single-header 2D engine that grew out of this project and now lives in its own
 repo. A copy sits in `src/mach.h`, so this repo still builds with nothing but a
 C compiler.
 
+> [!WARNING]
+> **Personal project, under active development.** This is a hobby project, not a
+> commercial or professional product. It changes frequently, isn't stable, and
+> carries no support or warranty: expect breaking changes and rough edges.
+
 ![mach: isometric factory scene rendered by the engine](assets/mach-engine-screenshot.png)
 
 ## Building it

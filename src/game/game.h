@@ -51,7 +51,7 @@ typedef enum {
 } Tool;
 
 // The four functions the loop (main or the hot-reload host) calls. They are the
-// game's whole surface — and the hot-reload seam, so they keep external linkage.
+// game's whole surface, and the hot-reload seam, so they keep external linkage.
 Mach_Config game_config(void);                    // window + engine policy
 void game_init(Game_State *g, Mach *m);
 void game_frame(Game_State *g, Mach *m);          // input + sim + draw, one frame

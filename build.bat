@@ -29,7 +29,7 @@ set OUT_FILE=build\mach%SUFFIX%.exe
 echo Compiling: %OUT_FILE%
 cl.exe /std:c11 ^
     %OPT_FLAGS% /W4 ^
-    /Ithird_party\mach ^
+    /Isrc ^
     /Fe"%OUT_FILE%" ^
     src\mach.c ^
     /link opengl32.lib winmm.lib

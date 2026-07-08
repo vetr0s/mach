@@ -252,7 +252,7 @@ static void collector_bank(World *w, Entity *e, i64 value) {
     e->data.collector.banked += value;
 }
 
-// Apply the effect of the entity on (x,y) to an item that just arrived there —
+// Apply the effect of the entity on (x,y) to an item that just arrived there;
 // today that's upgraders raising its value. Collectors never appear here: both
 // arrival paths (world_move_items, world_run_droppers) bank and consume the
 // item *before* it would land, so an item never occupies a collector's cell.

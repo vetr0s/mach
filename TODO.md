@@ -1,4 +1,4 @@
-# mach (the game) — roadmap
+# mach (the game): roadmap
 
 Game work only. Engine work lives in the mach.h repo's TODO; this repo consumes
 the engine as a vendored header in `third_party/mach/`.
@@ -39,16 +39,16 @@ mechanics the GDD calls for that the code hasn't caught up to yet, in priority o
       with a gap fully advances in one tick; a packed loop correctly jams)
 - [x] Directional placement with rotation (R), money HUD, item/arrow rendering
 - [x] Upgraders bound "once per upgrader, per item" (u64 touched-mask, 64 cap).
-      SUPERSEDED — the design now makes recirculating loops central, which the
+      SUPERSEDED: the design now makes recirculating loops central, which the
       once-per rule made pointless. Replaced by the value model rework below.
 - [x] **Value model rework (GDD Milestone 2).** "Diminishing per pass, uncapped roof":
       an ore climbs toward a value ceiling, each pass closing a fixed fraction of the gap
       so a single loop settles and looping forever asymptotes. The once-per touched-mask
-      is repurposed — each *distinct* upgrader multiplies the ceiling once, so more/stronger
+      is repurposed: each *distinct* upgrader multiplies the ceiling once, so more/stronger
       upgraders raise the (uncapped) roof. In world.{c,h} (Item.ceiling, item_apply_cell,
       UPGRADER_CEILING_MULT / UPGRADER_CLIMB_DIVISOR). Ore value now renders above its sprite.
       Tuning of the exact curve/constants is deferred (see GDD Open Questions).
-- [ ] **Money economy (GDD Milestone 3 — the progression spine).** Give money real,
+- [ ] **Money economy (GDD Milestone 3, the progression spine).** Give money real,
       competing sinks: grid expansion on a 2^n side-length cadence (2x2 -> 4x4 -> 8x8...,
       cost scaling with area, gated by a playable_extent) + buyable tiers for
       droppers/upgraders/belts. Space vs spend.
@@ -85,9 +85,9 @@ mechanics the GDD calls for that the code hasn't caught up to yet, in priority o
       pan still work while frozen.
 - [x] Rotate the hovered piece in place (R); over an empty tile it rotates the facing the
       next placed piece will use.
-- [x] F3 debug/info overlay (fps, tick/entity/item counts, hover cell, camera, controls),
-      toggled and small so it stays out of the way.
-- [ ] Interactive UI: build clickable UI on top of it — a tool palette, and the
+- [x] Debug/info overlay on the backtick key (fps, tick/entity/item counts, hover cell,
+      camera, controls), toggled and small so it stays out of the way.
+- [ ] Interactive UI: build clickable UI on top of it: a tool palette, and the
       economy's shop / grid-expansion buttons. Needs "UI consumed this click"
       priority over world placement (Clay_PointerOver before place_at_hover).
 
@@ -102,7 +102,7 @@ Things to make it play and look right, batched for later sessions. Not urgent.
       hits a dead end (off-grid edge, bare ground, or a dropper's back) tips off and drops
       out over FALL_TICKS with a sink-and-fade effect. See world_despawn, item_begin_fall,
       world_update_falls.
-- [x] Tune speed and feel: chunky tier-1 baseline — belts 3 cells/s (SIM_TICKS_PER_SEC),
+- [x] Tune speed and feel: chunky tier-1 baseline, belts 3 cells/s (SIM_TICKS_PER_SEC),
       an item every 2 cells (DROP_PERIOD), chevron scroll matched to belt speed.
       Value curve (ITEM_BASE_VALUE, UPGRADER_MULT) left as-is; revisit with the economy.
 

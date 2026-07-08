@@ -1,0 +1,3 @@
+# src/mach.h is the generated, vendored engine header. It is formatted (and
+# generated) in its own repo, never here.
+src/mach.h

@@ -22,8 +22,8 @@ case "$os_name" in
     lib_ext=".so"
     shared_flags="-shared -fPIC"
 
-    # Fail early with install hints when the X11/GL dev headers are missing —
-    # the usual first-run failure on a fresh box (RGFW needs Xlib, Xrandr,
+    # Fail early with install hints when the X11/GL dev headers are missing.
+    # The usual first-run failure on a fresh box (RGFW needs Xlib, Xrandr,
     # Xcursor, and GLX headers; the libs themselves ship with the OS).
     if ! printf '%s\n' \
         '#include <X11/Xlib.h>' \
@@ -61,7 +61,7 @@ build_type="${1:-debug}"
 mkdir -p build
 
 game_lib="build/libmach_game${lib_ext}"
-common_flags="-std=c99 -Wall -Wextra -Ithird_party/mach"
+common_flags="-std=c99 -Wall -Wextra -Isrc"
 
 # Build the hot-reloadable game library from src/game_lib.c.
 build_game_lib() {
@@ -105,12 +105,12 @@ case "$build_type" in
 
     stamp="build/.hot_stamp"
     touch "$stamp"
-    echo "Watching src/ + the vendored mach.h for changes (Ctrl-C or close the game to stop)"
+    echo "Watching src/ for changes (Ctrl-C or close the game to stop)"
     while kill -0 "$game_pid" 2>/dev/null; do
       sleep 0.5
-      # (npt): No `| head -1` here — under pipefail, find dying of SIGPIPE when
+      # (npt): No `| head -1` here. Under pipefail, find dying of SIGPIPE when
       # many files changed would kill the whole watch. Take the list, keep line 1.
-      changed_list="$(find src third_party/mach/mach.h -type f \( -name '*.c' -o -name '*.h' \) -newer "$stamp")"
+      changed_list="$(find src -type f \( -name '*.c' -o -name '*.h' \) -newer "$stamp")"
       changed="${changed_list%%$'\n'*}"
       [ -z "$changed" ] && continue
       # Re-stamp before compiling so edits made mid-build trigger another pass.

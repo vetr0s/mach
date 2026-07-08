@@ -3,16 +3,16 @@
 A factory/automation game in pure C99: droppers spit out ore, conveyors carry
 it, upgraders raise its worth, collectors bank it. Built on **mach.h**, the
 single-header 2D engine that grew out of this project and now lives in its own
-repo — a copy is vendored here, so this repo still builds with nothing but a C
-compiler.
+repo. A copy sits in `src/mach.h`, so this repo still builds with nothing but a
+C compiler.
 
-![mach — isometric factory scene rendered by the engine](assets/mach-engine-screenshot.png)
+![mach: isometric factory scene rendered by the engine](assets/mach-engine-screenshot.png)
 
 ## Building it
 
-You need a C compiler. That's the whole list — the engine (with windowing, GL,
-UI, and image loading embedded) is one committed header in `third_party/mach/`,
-and OpenGL comes from the OS. There is no setup step.
+You need a C compiler. That's the whole list. The engine (with windowing, GL,
+UI, and image loading embedded) is one committed header at `src/mach.h`, and
+OpenGL comes from the OS. There is no setup step.
 
 **macOS / Linux** (bash):
 ```bash
@@ -20,7 +20,7 @@ and OpenGL comes from the OS. There is no setup step.
 ./build/mach_debug      # run it
 ```
 
-**Windows** — from a *Visual Studio "x64 Native Tools"* `cmd` prompt:
+**Windows**, from a *Visual Studio "x64 Native Tools"* `cmd` prompt:
 ```bat
 build.bat               :: build the game
 build\mach_debug.exe    :: run it
@@ -34,22 +34,27 @@ the install command for your distro.
 The game is a value loop: droppers spit out ore, conveyors route it, upgraders
 raise its value toward a ceiling, and collectors bank it. Ore climbs its
 ceiling a fraction per upgrader pass, and each *distinct* upgrader it meets
-raises that ceiling — so the puzzle is routing loops past as many different
+raises that ceiling. The puzzle is routing loops past as many different
 upgraders as you can before cashing out.
 
-- **WASD / Arrows** — pan the camera
-- **Scroll wheel** — zoom
-- **1 / 2 / 3 / 4 / 5** — pick Dropper / Conveyor / Upgrader / Collector / Delete (hit it again to drop it)
-- **R** — rotate the piece you're hovering over in place; over an empty tile it rotates the facing of the next piece you place
-- **Left click** — place the current tool on the tile you're hovering
-- **Space** — pause / resume the simulation (freezes the world; you can still build and pan)
-- **F3** — toggle the debug/info overlay (FPS, selected tool/facing, tick + entity/item counts, hover cell, camera). Money is always on screen; everything else lives here.
-- **Esc** — quit
+| Input | Action |
+|---|---|
+| WASD / Arrows | Pan the camera |
+| Scroll wheel | Zoom |
+| 1 / 2 / 3 / 4 / 5 | Pick Dropper / Conveyor / Upgrader / Collector / Delete (press again to drop it) |
+| R | Rotate the piece under the cursor in place; over an empty tile, rotate the facing of the next piece placed |
+| Left click | Place the current tool on the hovered tile |
+| Space | Pause / resume the simulation (freezes the world; you can still build and pan) |
+| `` ` `` | Toggle the debug overlay (FPS, tool/facing, tick + entity/item counts, hover cell, camera) |
+| Esc | Quit |
+
+Money is always on screen; everything else in that list lives behind the debug
+overlay.
 
 ## Hacking on it
 
 `./build.sh hot` is the dev loop: it builds, runs the game, and watches the
-sources — every save rebuilds the game library and the running game swaps it in
+sources. Every save rebuilds the game library and the running game swaps it in
 live, keeping its state. See `ARCHITECTURE.md` for how.
 
 If you use Emacs, generate tags:
@@ -74,12 +79,11 @@ every other `.c` file and the compiler sees it all at once. There's no build
 system to speak of; `build.sh` is the compiler invocation. If that sounds strange,
 go watch some Handmade Hero and look at how RAD Debugger builds. It's freeing.
 
-**Engine and game, kept apart — now literally.** The engine is its own project
-(the mach.h repo) and this repo consumes it like any other vendored single
-header. The dependency only ever points one way: the engine never names a game
+**Engine and game, kept apart, now literally.** The engine is its own project
+(the mach.h repo) and this repo consumes it like any other single-header
+library. The dependency only ever points one way: the engine never names a game
 type. The game owns the loop in `main()` and calls into the engine,
-raylib-style. Engine updates arrive by pasting a new release into
-`third_party/mach/`.
+raylib-style. Engine updates arrive by copying a new release into `src/mach.h`.
 
 **Fat-struct ECS.** No generic component system, no query engine. Each entity type
 is a full struct and the game logic touches the data directly. The idea is lifted
@@ -87,14 +91,17 @@ from Anton Mikhailov on the *Wookash Podcast*.
 
 ## Where it runs
 
-- macOS — primary, this is where it's developed and tested
-- Linux — toolchain's wired, needs a real run on real hardware
-- Windows — same story
+| Platform | Status |
+|---|---|
+| macOS | Primary; developed and tested here |
+| Linux | Toolchain's wired, needs a real run on real hardware |
+| Windows | Same story |
 
 ## How the code is laid out
 
 ```
 src/
+  mach.h                  # the engine, one committed header (its own repo has the docs)
   game/                   # the factory sim
     game.h/.c             # game state, config, input, the sim, and the four loop entry points
     render_game.h/.c      # draws the world (iso tiles, shaded blocks) and the HUD
@@ -104,7 +111,6 @@ src/
   game_lib.c / host.c     # the hot-reload pair (dev builds only)
 
 build.sh / build.bat      # the compiler invocation (macOS-Linux / Windows)
-third_party/mach/         # mach.h, the engine — vendored single header
 docs/                     # the game design doc (gdd.typ; docs/VERSION is its version)
 ```
 
@@ -153,16 +159,15 @@ the HUD is Clay panels drawn through the same renderer.
 
 ## Standing on other people's shoulders
 
-- **RAD Debugger (raddbg)** — the minimal build system and unity compilation.
-  https://github.com/EpicGames/raddebugger
-- **Handmade Hero** — pure C, simple architecture, suspicion of abstraction.
-  https://handmadehero.org
-- **Wookash Podcast** — Anton Mikhailov on engine design and the fat-struct ECS.
-  https://www.youtube.com/channel/UC9J9u3apteD0EuFjzRpt71w
+| Source | What it gave the project | Link |
+|---|---|---|
+| RAD Debugger (raddbg) | The minimal build system and unity compilation | https://github.com/EpicGames/raddebugger |
+| Handmade Hero | Pure C, simple architecture, suspicion of abstraction | https://handmadehero.org |
+| Wookash Podcast | Anton Mikhailov on engine design and the fat-struct ECS | https://www.youtube.com/channel/UC9J9u3apteD0EuFjzRpt71w |
 
 ## Licensing
 
-- **this repo** — Zlib (see `LICENSE`)
-- **mach.h** — Zlib, with its embedded libraries' notices (RGFW zlib, Clay
-  zlib, stb_image public domain) carried inside the header and its repo's
-  LICENSE
+| Component | License |
+|---|---|
+| This repo | Zlib (see `LICENSE`) |
+| mach.h | Zlib, with its embedded libraries' notices (RGFW zlib, Clay zlib, stb_image public domain) carried inside the header and its repo's LICENSE |

@@ -10,8 +10,8 @@ If a line just explains what the syntax already says, delete it.
 
 ### What you have to comment
 
-1. **File headers** — what the file is for.
-2. **Function headers** — what the function does, its parameters, and what it
+1. **File headers**: what the file is for.
+2. **Function headers**: what the function does, its parameters, and what it
    returns when that isn't obvious from the name.
 
 ### What's worth commenting

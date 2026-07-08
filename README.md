@@ -165,6 +165,12 @@ the HUD is Clay panels drawn through the same renderer.
 | Handmade Hero | Pure C, simple architecture, suspicion of abstraction | https://handmadehero.org |
 | Wookash Podcast | Anton Mikhailov on engine design and the fat-struct ECS | https://www.youtube.com/channel/UC9J9u3apteD0EuFjzRpt71w |
 
+## Version
+
+Current version: **v0.6.0** (see `VERSION`). The game is versioned by git tag;
+`VERSION` tracks the same number in-tree. `docs/VERSION` is the design doc's own
+version, tracked separately.
+
 ## Licensing
 
 | Component | License |

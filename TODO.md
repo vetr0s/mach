@@ -1,15 +1,16 @@
 # mach (the game): roadmap
 
-Game work only. Engine work lives in the mach.h repo's TODO; this repo consumes
-the engine as a vendored header in `third_party/mach/`.
+Game work only. Engine work lives in the mach.h repo's TODO; this repo carries
+the engine as a committed header at `src/mach.h`.
 
 ## NOTES
 
 - REPO SPLIT (2026-07-06): the engine moved to its own repo, **mach.h**, with
-  its own versioning (starting 0.1.0). This repo vendors a copy; update by
-  pasting a new release into `third_party/mach/` and fixing what its changelog
-  says changed. Engine bugs found here get proven against the vendored copy,
-  then move upstream.
+  its own versioning (starting 0.1.0). This repo carries a copy at `src/mach.h`
+  (moved out of `third_party/` 2026-07-08, it's our own library, not a third
+  party); update by copying a new release in and fixing what its changelog says
+  changed. Engine bugs found here get proven against the copy here, then move
+  upstream.
 
 - RESOLVED (2026-07-06): the void linux build errors. Two separate problems:
   - `Font` collided with X11's `typedef XID Font`. Every engine name is now
@@ -109,6 +110,13 @@ Things to make it play and look right, batched for later sessions. Not urgent.
 ## Content
 - [ ] Level/tilemap format and loader
 - [ ] Data serialization (feeds the save/load item above)
+
+## Docs
+- [ ] Go over the GDD (docs/gdd.typ) and bump its version (docs/VERSION). It's
+      drifted from the build: the Scope/Rendering sections still describe the
+      stack as SDL3 / `SDL_Renderer`, which the RGFW + own GL batch renderer
+      replaced, and the mach engine now lives in its own repo. Reconcile the doc
+      with the shipped engine and value model, then bump docs/VERSION.
 
 ## Dev tooling
 - [x] Hot reload: game logic compiles to a shared lib the host (src/host.c)

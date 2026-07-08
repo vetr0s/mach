@@ -169,5 +169,5 @@ the HUD is Clay panels drawn through the same renderer.
 
 | Component | License |
 |---|---|
-| This repo | Zlib (see `LICENSE`) |
-| mach.h | Zlib, with its embedded libraries' notices (RGFW zlib, Clay zlib, stb_image public domain) carried inside the header and its repo's LICENSE |
+| This repo (the game) | PolyForm Noncommercial 1.0.0 (see `LICENSE`): free to use, modify, and share for any noncommercial purpose; you may not sell it |
+| `src/mach.h` (the engine) | Zlib, permissive, and unaffected by the game's license. Its embedded libraries' notices (RGFW zlib, Clay zlib, stb_image public domain) are carried inside the header and in the mach.h repo's LICENSE |

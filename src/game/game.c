@@ -29,7 +29,7 @@ Mach_Config game_config(void) {
         .height = 720,
         .clear_color = MACH_COLOR_BG_MAIN,   // modus-vivendi: true black beyond the grid
         .escape_quits = MACH_TRUE,      // dev convenience, for now
-        .target_fps = 120,
+        .target_fps = 144,
     };
 }
 
@@ -167,7 +167,7 @@ void game_process_input(Game_State *g, const Mach_Input *in, f32 screen_w, f32 s
         g->paused = !g->paused;
         MACH_LOG_DEBUG("simulation %s", g->paused ? "paused" : "resumed");
     }
-    if (in->key_pressed[RGFW_keyF3]) g->show_debug = !g->show_debug;
+    if (in->key_pressed[RGFW_keyBacktick]) g->show_debug = !g->show_debug;
 
     // Camera: continuous pan from held keys, zoom from the wheel.
     f32 px = 0.0f, py = 0.0f;

@@ -454,7 +454,7 @@ void game_render_hud(Game_State *g, Mach *m) {
         }
     }
 
-    // Bottom-left: the F3 diagnostics.
+    // Bottom-left: the backtick-toggled diagnostics.
     if (g->show_debug) {
         HUD_PANEL_AT("hud-debug", CLAY_ATTACH_POINT_LEFT_BOTTOM, 10, -10) {
             CLAY_TEXT(mach_clay_string(fps_s),    CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_GREY }));
@@ -466,7 +466,7 @@ void game_render_hud(Game_State *g, Mach *m) {
 
     // Bottom-center: the controls, on screen until a real menu exists to teach them.
     HUD_PANEL_AT("hud-controls", CLAY_ATTACH_POINT_CENTER_BOTTOM, 0, -10) {
-        CLAY_TEXT(CLAY_STRING("(1)drop (2)belt (3)upgr (4)collect (5)del (R)rotate (Space)pause (F3)info"),
+        CLAY_TEXT(CLAY_STRING("(1)drop (2)belt (3)upgr (4)collect (5)del (R)rotate (Space)pause (`)info"),
                   CLAY_TEXT_CONFIG({ .fontSize = 8, .textColor = HUD_GREY }));
     }
 

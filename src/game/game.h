@@ -30,7 +30,7 @@ typedef struct {
     f32 sim_accumulator;  // real seconds carried toward the next fixed sim tick
     f32 anim_time;        // real seconds elapsed, for continuous visual animation
     b32 paused;           // freeze the world: no sim ticks and no animation advance
-    b32 show_debug;        // F3-style overlay: everything but money is toggled off by default
+    b32 show_debug;        // backtick-toggled overlay: everything but money is off by default
 
     // Hover: the grid cell currently under the mouse.
     i32 hover_grid_x;

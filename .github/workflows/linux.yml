@@ -20,11 +20,12 @@ jobs:
       - uses: actions/checkout@v4
 
       # RGFW needs the X11/GL dev headers on Linux (the libs themselves ship with
-      # the OS). Same package set nob.c's preflight tells you to install.
+      # the OS; libXi is dlopen'd at runtime, so it needs no link flag). Same
+      # package set nob.c's preflight tells you to install.
       - name: Install X11/GL dev headers
         run: |
           sudo apt-get update
-          sudo apt-get install -y libx11-dev libxrandr-dev libxcursor-dev libgl1-mesa-dev
+          sudo apt-get install -y libx11-dev libxrandr-dev libxcursor-dev libxext-dev libxi-dev libgl1-mesa-dev
 
       - name: Bootstrap nob
         run: cc -o nob nob.c

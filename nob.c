@@ -82,8 +82,10 @@ static bool collect_sources(const char *dir, Nob_File_Paths *out) {
 
 #if defined(__linux__)
 // Fail early with install hints when the X11/GL dev headers are missing: the
-// usual first-run failure on a fresh box. RGFW needs Xlib, Xcursor, Xrandr, and
-// GLX headers; the libs themselves ship with the OS.
+// usual first-run failure on a fresh box. RGFW needs Xlib, Xcursor, Xrandr,
+// Xext, XInput2, and GLX headers; the libs themselves ship with the OS. Keep
+// this probe in sync with the includes in mach.h's X11 backend, or a missing
+// header slips past the preflight and blows up mid-compile instead.
 static bool check_x11_headers(void) {
     const char *probe = BUILD_DIR "/.x11check.c";
     const char *probe_src =
@@ -91,6 +93,8 @@ static bool check_x11_headers(void) {
         "#include <X11/Xcursor/Xcursor.h>\n"
         "#include <X11/extensions/Xrandr.h>\n"
         "#include <X11/extensions/sync.h>\n"
+        "#include <X11/extensions/shape.h>\n"
+        "#include <X11/extensions/XInput2.h>\n"
         "#include <GL/glx.h>\n";
     nob_write_entire_file(probe, probe_src, strlen(probe_src));
     Nob_Cmd cmd = {0};
@@ -100,10 +104,10 @@ static bool check_x11_headers(void) {
     if (!ok) {
         nob_log(NOB_ERROR, "Missing X11/OpenGL development headers. Install them:");
         fprintf(stderr,
-            "  Void:          sudo xbps-install -S libX11-devel libXrandr-devel libXcursor-devel libglvnd-devel\n"
-            "  Debian/Ubuntu: sudo apt install libx11-dev libxrandr-dev libxcursor-dev libgl1-mesa-dev\n"
-            "  Fedora:        sudo dnf install libX11-devel libXrandr-devel libXcursor-devel mesa-libGL-devel\n"
-            "  Arch:          sudo pacman -S libx11 libxrandr libxcursor mesa\n");
+            "  Void:          sudo xbps-install -S libX11-devel libXrandr-devel libXcursor-devel libXext-devel libXi-devel libglvnd-devel\n"
+            "  Debian/Ubuntu: sudo apt install libx11-dev libxrandr-dev libxcursor-dev libxext-dev libxi-dev libgl1-mesa-dev\n"
+            "  Fedora:        sudo dnf install libX11-devel libXrandr-devel libXcursor-devel libXext-devel libXi-devel mesa-libGL-devel\n"
+            "  Arch:          sudo pacman -S libx11 libxrandr libxcursor libxext libxi mesa\n");
     }
     return ok;
 }

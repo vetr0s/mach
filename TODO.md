@@ -19,7 +19,7 @@ the engine as a committed header at `src/mach.h`.
     engine + game declarations against faked X11/Win32 names.
   - `GL/glx.h` not found is just missing dev headers. `./nob` preflights
     the X11/GLX headers on Linux and prints per-distro install commands; on void:
-    `sudo xbps-install -S libX11-devel libXrandr-devel libXcursor-devel libglvnd-devel`.
+    `sudo xbps-install -S libX11-devel libXrandr-devel libXcursor-devel libXext-devel libXi-devel libglvnd-devel`.
   Still to verify: an actual build + run on the linux box after installing those.
 
 - RE: gdd, think city skylines mixed with miners haven and a pinch of factorio.

@@ -1,0 +1,38 @@
+name: Linux
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # RGFW needs the X11/GL dev headers on Linux (the libs themselves ship with
+      # the OS). Same package set nob.c's preflight tells you to install.
+      - name: Install X11/GL dev headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxrandr-dev libxcursor-dev libgl1-mesa-dev
+
+      - name: Bootstrap nob
+        run: cc -o nob nob.c
+
+      - name: Build (release)
+        run: ./nob release
+
+      # Compile-check the hot-reload game library too (the monolith above does not
+      # include game_lib.c). Building it is headless; running the game is not.
+      - name: Compile-check hot-reload library
+        run: ./nob game

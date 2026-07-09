@@ -6,6 +6,10 @@ single-header 2D engine that grew out of this project and now lives in its own
 repo. A copy sits in `src/mach.h`, so this repo still builds with nothing but a
 C compiler.
 
+[![Linux](https://github.com/vetr0s/mach/actions/workflows/linux.yml/badge.svg)](https://github.com/vetr0s/mach/actions/workflows/linux.yml)
+[![macOS](https://github.com/vetr0s/mach/actions/workflows/macos.yml/badge.svg)](https://github.com/vetr0s/mach/actions/workflows/macos.yml)
+[![Windows](https://github.com/vetr0s/mach/actions/workflows/windows.yml/badge.svg)](https://github.com/vetr0s/mach/actions/workflows/windows.yml)
+
 > [!WARNING]
 > **Personal project, under active development.** This is a hobby project, not a
 > commercial or professional product. It changes frequently, isn't stable, and

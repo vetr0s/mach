@@ -17,7 +17,7 @@ the engine as a committed header at `src/mach.h`.
     `Mach_`/`mach_`/`MACH_`-prefixed, so no engine name can shadow an OS-header
     name on any platform. `scripts/check_namespace.sh` compile-checks the
     engine + game declarations against faked X11/Win32 names.
-  - `GL/glx.h` not found is just missing dev headers. `./build.sh` preflights
+  - `GL/glx.h` not found is just missing dev headers. `./nob` preflights
     the X11/GLX headers on Linux and prints per-distro install commands; on void:
     `sudo xbps-install -S libX11-devel libXrandr-devel libXcursor-devel libglvnd-devel`.
   Still to verify: an actual build + run on the linux box after installing those.
@@ -121,7 +121,7 @@ Things to make it play and look right, batched for later sessions. Not urgent.
 ## Dev tooling
 - [x] Hot reload: game logic compiles to a shared lib the host (src/host.c)
       dlopen's and swaps on rebuild, keeping Game_State across reloads.
-      `./build.sh hot` is the whole loop. The reload seam is the four game_*
+      `./nob hot` is the whole loop. The reload seam is the four game_*
       functions. Limit: code, not struct-layout, changes reload live.
 - [ ] Level editor (future)
 - [ ] Sprite / scene editors (future, if sprites earn them)
@@ -130,4 +130,4 @@ Things to make it play and look right, batched for later sessions. Not urgent.
 - [x] macOS: building and running
 - [ ] Linux: build and run the game on the void box (deps preflight + namespace
       guard are in place; see NOTES)
-- [ ] Windows: build and test (build.bat is wired; needs real hardware)
+- [ ] Windows: build and test (nob.c's cl.exe path is wired; needs real hardware)

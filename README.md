@@ -19,20 +19,26 @@ You need a C compiler. That's the whole list. The engine (with windowing, GL,
 UI, and image loading embedded) is one committed header at `src/mach.h`, and
 OpenGL comes from the OS. There is no setup step.
 
+The build tool is [nob](https://github.com/tsoding/nob.h): a small C program
+(`nob.c`) you compile once, after which it rebuilds itself whenever it changes.
+
 **macOS / Linux** (bash):
 ```bash
-./build.sh              # build the game
+cc -o nob nob.c         # bootstrap the build tool (one time)
+./nob                   # build the game
 ./build/mach_debug      # run it
 ```
 
 **Windows**, from a *Visual Studio "x64 Native Tools"* `cmd` prompt:
 ```bat
-build.bat               :: build the game
+cl nob.c                :: bootstrap the build tool (one time)
+nob                     :: build the game
 build\mach_debug.exe    :: run it
 ```
 
-On Linux you need the X11/GL dev headers once; `./build.sh` checks and prints
-the install command for your distro.
+`./nob` takes a target: `debug` (default), `release`, `hot`, or `game`. On Linux
+you need the X11/GL dev headers once; `./nob` checks and prints the install
+command for your distro.
 
 ## Playing with it
 
@@ -58,7 +64,7 @@ overlay.
 
 ## Hacking on it
 
-`./build.sh hot` is the dev loop: it builds, runs the game, and watches the
+`./nob hot` is the dev loop: it builds, runs the game, and watches the
 sources. Every save rebuilds the game library and the running game swaps it in
 live, keeping its state. See `ARCHITECTURE.md` for how.
 
@@ -80,9 +86,10 @@ and point your init at them:
 it's just C99.
 
 **Unity build.** The whole thing compiles in one `clang` call. `mach.c` includes
-every other `.c` file and the compiler sees it all at once. There's no build
-system to speak of; `build.sh` is the compiler invocation. If that sounds strange,
-go watch some Handmade Hero and look at how RAD Debugger builds. It's freeing.
+every other `.c` file and the compiler sees it all at once. `nob.c` is a handful
+of compiler invocations, not a build system in the CMake sense. If that sounds
+strange, go watch some Handmade Hero and look at how RAD Debugger builds. It's
+freeing.
 
 **Engine and game, kept apart, now literally.** The engine is its own project
 (the mach.h repo) and this repo consumes it like any other single-header
@@ -115,7 +122,7 @@ src/
   mach.c                  # unity root: MACH_IMPLEMENTATION + game sources + main()
   game_lib.c / host.c     # the hot-reload pair (dev builds only)
 
-build.sh / build.bat      # the compiler invocation (macOS-Linux / Windows)
+nob.c / nob.h             # the build tool (tsoding's nob), and its vendored header
 docs/                     # the game design doc (gdd.typ; docs/VERSION is its version)
 ```
 
@@ -172,7 +179,7 @@ the HUD is Clay panels drawn through the same renderer.
 
 ## Version
 
-Current version: **v0.6.0** (see `VERSION`). The game is versioned by git tag;
+Current version: **v0.6.1** (see `VERSION`). The game is versioned by git tag;
 `VERSION` tracks the same number in-tree. `docs/VERSION` is the design doc's own
 version, tracked separately.
 

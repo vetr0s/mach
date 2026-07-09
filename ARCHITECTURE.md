@@ -67,7 +67,7 @@ wants.
 
 ## Hot reload (dev builds)
 
-The four `game_*` functions double as a reload seam. `./build.sh hot` splits the
+The four `game_*` functions double as a reload seam. `./nob hot` splits the
 same code into two artifacts instead of the monolith:
 
 | Artifact | Source | Role |
@@ -75,11 +75,11 @@ same code into two artifacts instead of the monolith:
 | `build/mach_hot` | `src/host.c` | The host. Owns the window, the engine, and the `Game_State` memory, and runs the loop by calling the four functions through pointers resolved from a shared library. Never reloaded. |
 | `build/libmach_game.{dylib,so}` | `src/game_lib.c` | The game logic, plus its own copy of the engine. The host watches this file; when it changes, it reloads it and keeps running against the same `Game_State` memory. |
 
-`./build.sh hot` is the whole dev loop in one command: it builds both artifacts,
+`./nob hot` is the whole dev loop in one command: it builds both artifacts,
 launches `mach_hot`, then turns into a watcher that rebuilds the library on every
 change. Edit sim rules, tuning, or render code and it swaps in live: no restart,
 no lost state. A compile error doesn't stop the watch; the game keeps running the
-last good code until the next save fixes it. `./build.sh game` still exists for a
+last good code until the next save fixes it. `./nob game` still exists for a
 manual one-shot rebuild.
 
 Two facts make this work with zero linker tricks:

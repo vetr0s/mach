@@ -11,7 +11,7 @@
 // visibility, so the host resolves them via dlsym.
 //
 // The release build does NOT use this file; src/mach.c stays a single static
-// monolith. See build.sh and ARCHITECTURE.md.
+// monolith. See nob.c and ARCHITECTURE.md.
 
 // Engine (own copy; state is all pointer-passed, see above).
 #define MACH_IMPLEMENTATION

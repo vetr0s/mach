@@ -10,7 +10,7 @@
 // here is what creates the window and drives the frame lifecycle. Both operate on
 // the one host-owned Mach, passed into the game by pointer.
 //
-// GAME_LIB_PATH is defined by build.sh (platform-specific extension).
+// GAME_LIB_PATH is defined by nob.c (platform-specific extension).
 
 #include <dlfcn.h>
 #include <stdio.h>

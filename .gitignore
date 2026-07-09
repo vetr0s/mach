@@ -42,6 +42,11 @@
 # Build output
 build/
 
+# nob build-tool binary (bootstrap output; nob.c and nob.h are committed).
+# NOB_GO_REBUILD_URSELF leaves a nob.old behind when it rebuilds itself.
+nob
+nob.old
+
 # Temporary files
 *.tmp
 *.log

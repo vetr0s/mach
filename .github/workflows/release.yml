@@ -1,0 +1,141 @@
+name: Release
+
+# Cutting a release is: bump VERSION + README, commit, then `git tag v0.6.2 &&
+# git push --tags`. This builds the release monolith on each platform and
+# attaches the binaries to the GitHub release for that tag.
+#
+# The game is a static monolith that reads nothing from disk, so one binary per
+# platform is the whole product: no bundle, no data directory, no installer.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write # needed to create the release and upload assets
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Fail before spending three runners on a tag whose version does not match the
+  # tree. VERSION and the README both carry the number; they drift easily.
+  verify-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag matches VERSION and README
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version="$(tr -d '[:space:]' < VERSION)"
+          if [ "$tag" != "$version" ]; then
+            echo "::error::tag v$tag does not match VERSION ($version)"
+            exit 1
+          fi
+          if ! grep -qF "v$version" README.md; then
+            echo "::error::README.md does not mention v$version"
+            exit 1
+          fi
+          echo "release v$version"
+
+  # Built on the oldest supported runner on purpose: a binary linked against a
+  # newer glibc refuses to start on older distros, and the reverse is fine.
+  linux:
+    needs: verify-version
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install X11/GL dev headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxrandr-dev libxcursor-dev libxext-dev libxi-dev libgl1-mesa-dev
+      - name: Bootstrap nob
+        run: cc -o nob nob.c
+      - name: Build (release)
+        run: ./nob release
+      - name: Stage binary
+        run: mv build/mach_release "mach-${GITHUB_REF_NAME}-linux-x86_64"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: mach-*-linux-x86_64
+          if-no-files-found: error
+
+  # nob passes -arch arm64 -arch x86_64 on release, so this is one fat binary
+  # covering Apple silicon and Intel.
+  macos:
+    needs: verify-version
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bootstrap nob
+        run: cc -o nob nob.c
+      - name: Build (release)
+        run: ./nob release
+      - name: Check it is universal
+        run: lipo -archs build/mach_release | grep -q 'arm64' && lipo -archs build/mach_release | grep -q 'x86_64'
+      - name: Stage binary
+        run: mv build/mach_release "mach-${GITHUB_REF_NAME}-macos-universal"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: mach-*-macos-universal
+          if-no-files-found: error
+
+  # nob passes /MT on release, so the CRT is linked statically and the exe runs
+  # without the Visual C++ redistributable.
+  windows:
+    needs: verify-version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Bootstrap nob
+        run: cl nob.c
+      - name: Build (release)
+        run: .\nob.exe release
+      - name: Stage binary
+        run: Move-Item build\mach_release.exe "mach-$env:GITHUB_REF_NAME-windows-x86_64.exe"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: mach-*-windows-x86_64.exe
+          if-no-files-found: error
+
+  publish:
+    needs: [linux, macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      # The binaries are unsigned, so both Gatekeeper and SmartScreen will object
+      # on first run. Signing them needs paid Apple/Authenticode certs; until
+      # then the notes tell people how to get past it.
+      - name: Write release notes
+        run: |
+          cat > notes.md <<'EOF'
+          Prebuilt binaries for `TAG`. Download one, make it executable, run it.
+          The game is a single static binary; there is nothing else to install.
+
+          | Platform | File |
+          | --- | --- |
+          | Linux (x86_64, glibc 2.35+) | `mach-TAG-linux-x86_64` |
+          | macOS (Apple silicon + Intel) | `mach-TAG-macos-universal` |
+          | Windows (x86_64) | `mach-TAG-windows-x86_64.exe` |
+
+          The binaries are unsigned. On macOS, clear the quarantine flag first:
+
+              xattr -d com.apple.quarantine mach-TAG-macos-universal
+
+          On Windows, SmartScreen shows a warning: "More info" then "Run anyway".
+          EOF
+          sed -i "s/TAG/${GITHUB_REF_NAME}/g" notes.md
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --notes-file notes.md

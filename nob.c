@@ -115,13 +115,20 @@ static bool check_x11_headers(void) {
 
 // Static monolith build (debug or release), the shipping path: src/mach.c
 // compiles the whole game in one translation unit.
+//
+// The release binary is what gets attached to a GitHub release, so it has to
+// run on a machine that has never seen a toolchain. That costs two extra flags:
+// /MT on Windows statically links the CRT (the default /MD needs the Visual C++
+// redistributable installed), and -arch on macOS emits a universal binary so
+// one file covers both Apple silicon and Intel. Debug builds skip both: the
+// second arch just doubles the compile for no benefit on the dev loop.
 static bool build_monolith(bool release) {
     const char *out = release ? BUILD_DIR "/mach_release" : BUILD_DIR "/mach_debug";
     nob_log(NOB_INFO, "Compiling: %s", out);
     Nob_Cmd cmd = {0};
 #if defined(_WIN32)
     nob_cmd_append(&cmd, CC, "/std:c11", "/W4", "/Isrc");
-    if (release) nob_cmd_append(&cmd, "/O2", "/DNDEBUG");
+    if (release) nob_cmd_append(&cmd, "/O2", "/DNDEBUG", "/MT");
     else         nob_cmd_append(&cmd, "/Od", "/Zi");
     nob_cmd_append(&cmd, nob_temp_sprintf("/Fe%s.exe", out));
     nob_cmd_append(&cmd, "src/mach.c", "/link");
@@ -130,6 +137,9 @@ static bool build_monolith(bool release) {
     nob_cmd_append(&cmd, CC, "-std=c99", "-Wall", "-Wextra", "-Isrc");
     if (release) nob_cmd_append(&cmd, "-O3", "-DNDEBUG");
     else         nob_cmd_append(&cmd, "-g", "-O0");
+#if defined(__APPLE__)
+    if (release) nob_cmd_append(&cmd, "-arch", "arm64", "-arch", "x86_64");
+#endif
     nob_cmd_append(&cmd, "-o", out, "src/mach.c");
     cmd_append_libs(&cmd);
 #endif

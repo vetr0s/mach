@@ -183,7 +183,7 @@ the HUD is Clay panels drawn through the same renderer.
 
 ## Version
 
-Current version: **v0.6.1** (see `VERSION`). The game is versioned by git tag;
+Current version: **v0.6.2** (see `VERSION`). The game is versioned by git tag;
 `VERSION` tracks the same number in-tree. `docs/VERSION` is the design doc's own
 version, tracked separately.
 

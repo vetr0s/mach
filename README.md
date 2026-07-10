@@ -44,6 +44,20 @@ build\mach_debug.exe    :: run it
 you need the X11/GL dev headers once; `./nob` checks and prints the install
 command for your distro.
 
+## Download
+
+Prebuilt binaries are at
+[github.com/vetr0s/mach/releases](https://github.com/vetr0s/mach/releases): one
+static, self-contained executable per platform, built and published on each git
+tag. macOS is universal (arm64 + x86_64), Linux is x86_64 (glibc 2.35+), Windows
+is x86_64. Nothing else to install: assets are baked into the binary.
+
+They are unsigned. On macOS, clear the quarantine flag before running:
+```bash
+xattr -d com.apple.quarantine mach
+```
+On Windows, SmartScreen will warn; click "More info" then "Run anyway".
+
 ## Playing with it
 
 The game is a value loop: droppers spit out ore, conveyors route it, upgraders
@@ -109,9 +123,9 @@ from Anton Mikhailov on the *Wookash Podcast*.
 
 | Platform | Status |
 |---|---|
-| macOS | Primary; developed and tested here |
-| Linux | Toolchain's wired, needs a real run on real hardware |
-| Windows | Same story |
+| macOS | Primary: developed and tested here |
+| Linux | Builds in CI and ships a binary, but the author hasn't run it on real hardware |
+| Windows | Same story: CI-built binary, not yet run on real hardware |
 
 ## How the code is laid out
 

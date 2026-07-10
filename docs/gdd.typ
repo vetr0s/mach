@@ -79,9 +79,9 @@ There is no win condition and no clock. A player who builds one gorgeous, dense 
 == Scope & Platform
 
 - *Platform:* PC (macOS, Linux, Windows).
-- *Engine/Stack:* Custom C engine (mach) + SDL3, 2D on `SDL_Renderer`.
+- *Engine/Stack:* mach.h, a single-header 2D C engine that grew out of this project and now lives in its own repo (`github.com/vetr0s/mach.h`, zlib licensed). It embeds RGFW for windowing and input, the engine's own OpenGL 3.3 core batch renderer, Clay for the UI, and stb_image for images. The game vendors a copy of the header at `src/mach.h`, so this repo still builds with nothing but a C compiler.
 - *Solo:* Solo developer.
-- *Art style constraint:* Isometric 2D, tile-based grid. Programmer art: shaded, outlined blocks and simple shapes. Color encodes object type and state. Every object fits the same isometric footprint so layouts compose cleanly.
+- *Art style constraint:* Isometric 2D, tile-based grid. Real sprites for the four machine types and the ore, procedural rendering kept for the ground and for value-driven ore tinting (see Art Direction). Every object fits the same isometric footprint so layouts compose cleanly.
 
 // ─────────────────────────────────────────────
 //  2. Core Design Pillars
@@ -209,7 +209,7 @@ The world is an isometric grid. The *playable* region starts tiny and is enlarge
 
 == Visual Language
 
-*Isometric perspective.* A 45-degree view over the grid. Objects are shaded, outlined blocks in isometric projection. No hand-drawn art. The 3D look is faked with a bright top face, two darker sides, and stroked edges, drawn back-to-front.
+*Isometric perspective.* A 45-degree view over the grid. Machines and ore are sprites authored to the isometric footprint; the ground is drawn procedurally (see Art Direction). Objects are sorted back-to-front so the scene reads as depth without any 3D.
 
 *Color encodes type and state.* Object color signals function (dropper, belt, upgrader, furnace each read distinctly). Ore value can read through color or brightness as it climbs. Outline brightness signals state: active, idle, or blocked/jammed.
 
@@ -237,7 +237,7 @@ The world is an isometric grid. The *playable* region starts tiny and is enlarge
 *Keyboard shortcuts:*
 - 1–5: pick dropper / belt / upgrader / furnace / delete (current bindings).
 - R: rotate the facing of the next object placed.
-- (Planned) Space: pause / unpause the simulation.
+- Space: pause / unpause the simulation. Freezes the world; you can still build and pan while paused.
 
 // ─────────────────────────────────────────────
 //  6. Art Direction
@@ -246,13 +246,15 @@ The world is an isometric grid. The *playable* region starts tiny and is enlarge
 
 == Style & Constraints
 
-*Isometric 2D, procedural rendering.* Everything is drawn in code from `SDL_Renderer` primitives: filled polys, lines, text. No pre-drawn sprites (the sprite loader is wired and waiting, but the look is shaded blocks for now).
+*Sprites for the machines and ore.* The shaded blocks were the placeholder look; real sprites now replace them for the four machine types (dropper, belt, upgrader, furnace) and for the ore. Sprite work is authored in Aseprite. Everything still draws through the engine's `mach_r2d_*` 2D batch renderer.
 
-*One tile size.* Every object fits a standard isometric footprint. Composition stays grid-clean; no asset sprawl.
+*Procedural rendering stays where it earns its place.* The ground checker is drawn in code: it is viewport-culled and scales with the grid, so a sprite would be pure overhead. Value-driven ore tinting also stays procedural: the "hotter" color as an ore climbs is data-driven from its value, not something to hand-paint. Sprites cover the parts that read as objects; code covers the parts that are really data.
 
-*Programmer art, clarity first.* Simple colored blocks with outlines. A factory should be readable at a glance, before it's pretty. Real art, when it comes, will be *guided by* how the game plays, not the other way around.
+*One tile footprint.* Sprites are authored to the engine's isometric footprint: a 64×32 pixel 2:1 diamond (`MACH_ISO_TILE_W` = 64, `MACH_ISO_TILE_H` = 32), with 28 pixels of vertical body per unit of block elevation (`MACH_ISO_ELEV` = 28). Every object fits the same tile, so composition stays grid-clean and there is no asset sprawl.
 
-*Out of scope for now:* hand-drawn detail, smooth curves, complex lighting, particles.
+*Authored against the engine palette.* Sprites use the engine's existing modus-vivendi palette (`MACH_COLOR_*`), not ad-hoc colors, so the new art and the remaining procedural rendering stay coherent while the transition is half done.
+
+*Clarity first.* A factory should be readable at a glance before it's pretty. Art is *guided by* how the game plays, not the other way around.
 
 == Color System
 
@@ -264,7 +266,7 @@ This grammar lets you understand a big factory without clicking into anything.
 
 == Object Visual Design
 
-- *Dropper:* Distinct block that reads as a source.
+- *Dropper:* Distinct silhouette that reads as a source.
 - *Belt:* Thinner surface with an animated flow direction (scrolling chevrons in its facing).
 - *Upgrader:* A belt surface marked to read as "this one boosts."
 - *Furnace:* Visually the endpoint: heavier, clearly a sink.
@@ -315,6 +317,8 @@ All subtle and loopable, nothing grating on repeat, mutable.
 
 *Entities are fat structs in flat arrays.* No generic component system. Each object type is a full struct; the sim loops the arrays directly. Grid indices map cells to the object/ore on them. The whole `World` is one arena allocation.
 
+*Dead-end ore.* Ore with nowhere to go does not jam forever. Ore that hits a dead end (off the grid edge, bare ground, or a dropper's back) tips off the belt and drops out over `FALL_TICKS` ticks with a sink-and-fade effect, then is removed. Deleting an entity despawns the ore sitting on its cell the same way. This is `world_despawn`, `item_begin_fall`, and `world_update_falls` in `world.c`.
+
 *Big numbers.* Values are `i64` today, which carries them a long way. Because the design wants numbers to run into the quadrillions and beyond, value storage and display will eventually need care (wider or arbitrary-precision integers, and human-readable large-number formatting).
 
 == Save & Load
@@ -331,6 +335,12 @@ All subtle and loopable, nothing grating on repeat, mutable.
 
 *Future:* data-driven object/tier definitions (speed, cost, multiplier, ceiling contribution) so tiers can be added and rebalanced without recompiling. Scripting (e.g. Lua) only if a concrete need appears.
 
+== Assets & Distribution
+
+*Assets are baked into the executable.* Sprites and any other assets are embedded at build time, never loaded from a directory next to the binary. A single self-contained static binary per platform is a hard project constraint: there is nothing to install and nothing to place alongside the executable.
+
+*Prebuilt binaries.* The game ships prebuilt static binaries for macOS (universal arm64 + x86_64), Linux (x86_64, glibc 2.35+), and Windows (x86_64). They are built and published automatically on each git tag.
+
 // ─────────────────────────────────────────────
 //  9. Roadmap
 // ─────────────────────────────────────────────
@@ -340,17 +350,19 @@ All subtle and loopable, nothing grating on repeat, mutable.
 
 Place dropper, belt, upgrader, furnace. Ore drops, rides belts, gains value at upgraders, banks at the furnace. Directional placement with rotation, one item per cell with correct jamming, smooth item interpolation, money HUD. This exists today.
 
-== Milestone 2: Value Model & Loops
+== Milestone 2: Value Model & Loops (done)
 
-Replace the hard once-per-upgrader rule with the diminishing-per-pass climb toward an uncapped, ore-plus-upgrader ceiling. Make recirculating loops the strongest play. Tune the curve so a loop clearly settles and cashing out at the right time matters.
+Replaced the hard once-per-upgrader rule with the diminishing-per-pass climb toward an uncapped, ore-plus-upgrader ceiling. Recirculating loops are now the strongest play. The exact curve constants are still open tuning (see Open Questions), but the model ships.
 
-== Milestone 3: Economy & Space
+== Milestone 3: Economy & Space (in progress)
 
-Money sinks: grid expansion on the `2^n` cadence, and buyable tiers for droppers, upgraders, and belts. This is what turns the sandbox into a game with a progression: space versus spend, line versus loop.
+The current milestone. Money sinks: grid expansion on the `2^n` cadence, and buyable tiers for droppers, upgraders, and belts. This is what turns the sandbox into a game with a progression: space versus spend, line versus loop.
 
 == Milestone 4: Scale & Polish
 
-Viewport-culled rendering and batching for large factories, save/load, sound, real art if it earns its place, balance passes. Ship-ready.
+Viewport-culled rendering and batching for large factories, save/load, sound, balance passes. Ship-ready.
+
+Real art has been pulled forward: the sprite pipeline lands early, ahead of this milestone, to unblock art work in Aseprite (see Art Direction). The economy in Milestone 3 stays the priority feature work; the sprites ride alongside it rather than waiting for polish.
 
 // ─────────────────────────────────────────────
 //  10. Open Questions
@@ -368,7 +380,3 @@ Decisions to make as development continues:
 - *Grid-expansion cost curve.* How steeply each `2^n` step should cost, so expansion always feels earned but never stalls.
 
 - *Big-number representation.* When `i64` stops being enough, and what to move to.
-
-- *Dead-end / deleted-belt ore.* What happens to ore with nowhere to go: despawn with a small effect, rather than jam forever.
-
-- *Pause.* A pause-the-sim mode for planning. Helpful, but removes any time pressure; include it or not.

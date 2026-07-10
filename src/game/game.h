@@ -4,6 +4,7 @@
 #define GAME_H
 
 #include "mach.h"
+#include "sprites.h"
 #include "world/world.h"
 
 // Fixed simulation rate. The world advances in discrete ticks at this rate,
@@ -22,6 +23,7 @@ typedef struct {
     Mach_Arena arena; // backs the world; freed whole at shutdown
     World *world;
     Mach_ClayUI clay; // HUD layout/draw; in host memory so it survives hot reload
+    Sprites sprites;  // baked-in art; empty until PNGs land in assets/sprites
     i32 selected_tool;
     Direction place_dir; // facing applied to directional pieces on placement
 

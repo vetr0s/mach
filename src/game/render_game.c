@@ -202,7 +202,8 @@ static Mach_Color item_color(const Item *it) {
 // A small diamond floating just above the belt at the item's cell, with the ore's
 // current value labeled above it. `alpha` is the fraction into the current sim tick,
 // so the item slides from its previous cell to its current one instead of snapping.
-static void draw_item(Mach_Renderer *r, const Mach_Camera2D *cam, const Item *it, f32 alpha) {
+static void draw_item(Mach_Renderer *r, const Mach_Camera2D *cam, const Sprites *sprites,
+                      const Item *it, f32 alpha) {
     f32 sw = (f32)r->width, sh = (f32)r->height;
     f32 gx = (f32)it->prev_x + ((f32)it->grid_x - (f32)it->prev_x) * alpha;
     f32 gy = (f32)it->prev_y + ((f32)it->grid_y - (f32)it->prev_y) * alpha;
@@ -226,9 +227,20 @@ static void draw_item(Mach_Renderer *r, const Mach_Camera2D *cam, const Item *it
     Mach_Vec2 ee = mach_iso_to_screen(cam, sw, sh, gx + s, gy, e);
     Mach_Vec2 ss = mach_iso_to_screen(cam, sw, sh, gx, gy + s, e);
     Mach_Vec2 ww = mach_iso_to_screen(cam, sw, sh, gx - s, gy, e);
-    Mach_Vec2 pts[4] = {n, ee, ss, ww};
-    mach_r2d_fill_poly(r, pts, 4, col);
-    mach_r2d_poly_outline(r, pts, 4, mach_color_shade(col, 0.45f));
+
+    // Real art if assets/sprites/ore.png exists, the procedural diamond if not.
+    // Value still reads through the tint, so a hotter ore looks hotter either way.
+    Mach_R2D_Texture ore = sprites_get(sprites, "ore");
+    if (ore.id) {
+        Mach_Vec2 c = mach_iso_to_screen(cam, sw, sh, gx, gy, e);
+        f32 sc = cam->zoom;
+        mach_r2d_sprite(r, ore, c.x - (f32)ore.w * sc * 0.5f, c.y - (f32)ore.h * sc * 0.5f, sc,
+                        col);
+    } else {
+        Mach_Vec2 pts[4] = {n, ee, ss, ww};
+        mach_r2d_fill_poly(r, pts, 4, col);
+        mach_r2d_poly_outline(r, pts, 4, mach_color_shade(col, 0.45f));
+    }
 
     if (it->fall > 0)
         return; // no value label on ore that's dropping out
@@ -372,7 +384,7 @@ void game_render_draw(Mach_Renderer *r, const Game_State *game, Mach_Arena *scra
     }
     qsort(items, (size_t)ni, sizeof(DrawItem), cmp_draw);
     for (i32 i = 0; i < ni; i++)
-        draw_item(r, cam, (const Item *)items[i].ptr, alpha);
+        draw_item(r, cam, &game->sprites, (const Item *)items[i].ptr, alpha);
 }
 
 // ---------------------------------------------------------------------------

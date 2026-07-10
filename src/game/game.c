@@ -40,6 +40,7 @@ void game_init(Game_State *g, Mach *m) {
     g->arena = (Mach_Arena){0};
     g->world = world_create(&g->arena);
     mach_clay_ui_init(&g->clay, &m->r2d);
+    sprites_load(&g->sprites, &m->r2d);
     g->selected_tool = TOOL_NONE;
     g->place_dir = DIR_E;
     g->hover_grid_x = 0;
@@ -109,6 +110,7 @@ void game_frame(Game_State *g, Mach *m) {
 void game_shutdown(Game_State *g) {
     if (!g)
         return;
+    sprites_unload(&g->sprites);
     mach_clay_ui_shutdown(&g->clay);
     if (g->world) {
         MACH_LOG_INFO("world torn down (%d entities, tick %d)", g->world->entity_count,

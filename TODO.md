@@ -73,7 +73,15 @@ mechanics the GDD calls for that the code hasn't caught up to yet, in priority o
 - [ ] Viewport-cull entities in render (only ground is culled today; game_render_draw
       draws every entity regardless of the visible grid bbox we already compute).
       The scaling win once belt counts get large, well before the animation math costs.
-- [ ] Real sprite art (the engine loader is wired; drop PNGs into assets/sprites)
+- [x] Sprite pipeline: nob bakes assets/sprites/*.png into a generated header, the game
+      decodes them at startup (mach.h v0.1.4's mach_r2d_texture_from_memory) and uploads
+      with nearest filtering. Nothing is read from disk at runtime, so the single static
+      binary per platform stays self-contained. `./nob hot` re-bakes on save, so art
+      hot-reloads like code. A missing sprite falls back to the procedural block, so art
+      lands one piece at a time. See assets/sprites/README.md.
+- [ ] Real sprite art: `ore` is wired to a sprite when present. Dropper, belt, upgrader,
+      and furnace still draw as blocks; each is a sprites_get call plus a fallback branch
+      in render_game.c, following draw_item.
 
 ## UI & controls
 - [x] Clay drives the HUD (Clay is embedded in mach.h; the binding is the engine's
@@ -108,6 +116,8 @@ Things to make it play and look right, batched for later sessions. Not urgent.
       Value curve (ITEM_BASE_VALUE, UPGRADER_MULT) left as-is; revisit with the economy.
 
 ## Content
+- [x] Asset embedding: build-time bake of assets/sprites/*.png into the executable.
+      Runtime file loading is off the table; the binary ships alone.
 - [ ] Level/tilemap format and loader
 - [ ] Data serialization (feeds the save/load item above)
 

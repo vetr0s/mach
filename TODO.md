@@ -20,7 +20,7 @@ the engine as a committed header at `src/mach.h`.
   - `GL/glx.h` not found is just missing dev headers. `./nob` preflights
     the X11/GLX headers on Linux and prints per-distro install commands; on void:
     `sudo xbps-install -S libX11-devel libXrandr-devel libXcursor-devel libXext-devel libXi-devel libglvnd-devel`.
-  Still to verify: an actual build + run on the linux box after installing those.
+  Verified: the game builds and runs on the linux box with those installed.
 
 - RE: gdd, think city skylines mixed with miners haven and a pinch of factorio.
   The design doc (docs/gdd.typ, v0.2.0) is authoritative and now describes the
@@ -138,6 +138,7 @@ Things to make it play and look right, batched for later sessions. Not urgent.
 
 ## Platform
 - [x] macOS: building and running
-- [ ] Linux: build and run the game on the void box (deps preflight + namespace
-      guard are in place; see NOTES)
-- [ ] Windows: build and test (nob.c's cl.exe path is wired; needs real hardware)
+- [x] Linux: building and running on real hardware. Deps preflight + namespace guard
+      are in place; see NOTES.
+- [x] Windows: building and running on real hardware (nob.c's cl.exe path, /MT so the
+      exe needs no Visual C++ redistributable)

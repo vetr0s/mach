@@ -123,9 +123,11 @@ from Anton Mikhailov on the *Wookash Podcast*.
 
 | Platform | Status |
 |---|---|
-| macOS | Primary: developed and tested here |
-| Linux | Builds in CI and ships a binary, but the author hasn't run it on real hardware |
-| Windows | Same story: CI-built binary, not yet run on real hardware |
+| macOS | Primary: the development machine. Universal binary, Apple silicon and Intel |
+| Linux | Builds in CI, runs on real hardware. x86_64, glibc 2.35+ |
+| Windows | Builds in CI, runs on real hardware. x86_64, no redistributable needed |
+
+The v0.6.2 release binaries were run on all three.
 
 ## How the code is laid out
 

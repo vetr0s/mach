@@ -135,7 +135,17 @@ jobs:
           On Windows, SmartScreen shows a warning: "More info" then "Run anyway".
           EOF
           sed -i "s/TAG/${GITHUB_REF_NAME}/g" notes.md
+      # Idempotent: a tag can be force-moved, and re-running must not fail on a
+      # release that already exists. When it does, refresh the attached binaries
+      # and leave the notes alone, since they may have been edited by hand.
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --notes-file notes.md
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "release $GITHUB_REF_NAME exists; refreshing binaries"
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* \
+              --title "$GITHUB_REF_NAME" --notes-file notes.md
+          fi

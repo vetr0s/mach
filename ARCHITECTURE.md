@@ -151,7 +151,7 @@ judgment; this game asks for things by need, not speculation.
 7. **Value-loop sim**: done; droppers, conveyors, upgraders, and furnaces with
    a belt simulation in world_tick.
 8. **SDL3 to RGFW + own GL batch renderer**: done. Every dependency became a
-   committed single header; the codebase is C99; there is no setup step.
+   committed single header; the codebase is plain C; there is no setup step.
 9. **Single-header engine**: done. The whole engine became `mach.h`, edited
    directly, nob.h-style.
 10. **Straightforward user API**: done. `Mach_Engine` became `Mach`, the four

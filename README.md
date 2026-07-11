@@ -1,6 +1,6 @@
 # mach
 
-A factory/automation game in pure C99: droppers spit out ore, conveyors carry
+A factory/automation game in plain C: droppers spit out ore, conveyors carry
 it, upgraders raise its worth, furnaces bank it. Built on **mach.h**, the
 single-header 2D engine that grew out of this project and now lives in its own
 repo. A copy sits in `src/mach.h`, so this repo still builds with nothing but a
@@ -101,7 +101,9 @@ and point your init at them:
 ## Why it's built this way
 
 **Pure C, no frameworks.** mach.h handles window, input, and drawing; past that
-it's just C99.
+it's just C. It builds as C99 on clang and gcc and C11 on MSVC, but it doesn't
+lean on either standard in particular — it wants a normal C compiler, nothing
+more.
 
 **Unity build.** The whole thing compiles in one `clang` call. `mach.c` includes
 every other `.c` file and the compiler sees it all at once. `nob.c` is a handful

@@ -43,22 +43,24 @@ void game_new(Game_State *g) {
     g->world = world_create(&g->arena);
 
     g->selected_tool = TOOL_NONE;
+    g->selected_tier = 1;
     g->place_dir = DIR_E;
     g->sim_accumulator = 0.0f;
     g->anim_time = 0.0f;
     g->paused = MACH_FALSE;
     effects_clear(&g->effects);
 
-    setup_camera(&g->camera, 7.0f, 5.0f);
-
-    // Starter chain, a value loop running on first launch: dropper -> conveyor ->
-    // upgrader -> conveyor -> furnace, all facing east.
+    // A minimal starter that fits the small starting region: dropper -> conveyor ->
+    // furnace along the middle row, a tiny earner to bootstrap the first expansion.
+    // Room to loop and thread upgraders is something you buy (world_expand).
     if (g->world) {
-        world_spawn_dropper(g->world, 5, 5, DIR_E);
-        world_spawn_conveyor(g->world, 6, 5, DIR_E);
-        world_spawn_upgrader(g->world, 7, 5, DIR_E);
-        world_spawn_conveyor(g->world, 8, 5, DIR_E);
-        world_spawn_furnace(g->world, 9, 5);
+        i32 lo, hi;
+        world_playable_bounds(g->world, &lo, &hi);
+        i32 y = (lo + hi) / 2;
+        world_spawn_dropper(g->world, lo, y, DIR_E, 1);
+        world_spawn_conveyor(g->world, lo + 1, y, DIR_E);
+        world_spawn_furnace(g->world, lo + 2, y);
+        setup_camera(&g->camera, (f32)(lo + hi) * 0.5f, (f32)y);
     }
 
     MACH_LOG_INFO("new game");
@@ -192,18 +194,21 @@ static void place_at_hover(Game_State *g) {
         return;
 
     i32 hx = g->hover_grid_x, hy = g->hover_grid_y;
+    // world_try_place enforces the region, the money, and the tier; a rejected buy
+    // (no room, no funds) is a no-op, so a click that can't afford anything just does
+    // nothing. Conveyors and furnaces are single-tier.
     switch (g->selected_tool) {
     case TOOL_DROPPER:
-        world_spawn_dropper(g->world, hx, hy, g->place_dir);
+        world_try_place(g->world, ENTITY_DROPPER, hx, hy, g->place_dir, g->selected_tier);
         break;
     case TOOL_CONVEYOR:
-        world_spawn_conveyor(g->world, hx, hy, g->place_dir);
+        world_try_place(g->world, ENTITY_CONVEYOR, hx, hy, g->place_dir, 1);
         break;
     case TOOL_UPGRADER:
-        world_spawn_upgrader(g->world, hx, hy, g->place_dir);
+        world_try_place(g->world, ENTITY_UPGRADER, hx, hy, g->place_dir, g->selected_tier);
         break;
     case TOOL_FURNACE:
-        world_spawn_furnace(g->world, hx, hy);
+        world_try_place(g->world, ENTITY_FURNACE, hx, hy, g->place_dir, 1);
         break;
     case TOOL_DELETE: {
         i32 entity_id = world_get_entity_at(g->world, hx, hy);
@@ -256,6 +261,18 @@ void game_process_input(Game_State *g, const Mach_Input *in, f32 screen_w, f32 s
     }
     if (in->key_pressed[RGFW_keyBacktick])
         g->show_debug = !g->show_debug;
+
+    // TEMPORARY economy keys until the shop HUD lands: E expands the region, -/= pick
+    // the tier to buy. These become on-screen buttons in the next pass.
+    if (in->key_pressed[RGFW_keyE]) {
+        if (world_expand(g->world))
+            MACH_LOG_DEBUG("expanded to side %d (money %lld)", g->world->playable_side,
+                           (long long)g->world->money);
+    }
+    if (in->key_pressed[RGFW_keyEquals] && g->selected_tier < MAX_TIER)
+        g->selected_tier++;
+    if (in->key_pressed[RGFW_keyMinus] && g->selected_tier > 1)
+        g->selected_tier--;
 
     // Camera: continuous pan from held keys, zoom from the wheel.
     f32 px = 0.0f, py = 0.0f;

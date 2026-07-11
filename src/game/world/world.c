@@ -14,9 +14,26 @@
 // more (and, with tiers later, stronger) upgraders raise the roof without limit. Every
 // pass -- re-passes on a loop included -- closes a fixed fraction of the gap to the
 // ceiling, so a single loop settles toward it and looping forever stops paying.
-#define UPGRADER_CEILING_MULT 4       // a distinct upgrader's multiply on the ceiling
+#define UPGRADER_CEILING_MULT 4       // a tier-1 upgrader's multiply on the ceiling
+#define UPGRADER_TIER_STEP 2          // each upgrader tier above 1 adds this to the multiply
 #define UPGRADER_CLIMB_DIVISOR 2      // gap-to-ceiling closed per pass is 1/this
 #define MAX_ITEM_VALUE ((i64)1 << 62) // clamp so the uncapped ceiling can't overflow i64
+
+// Economy tuning. Money is banked value; the rest are prices and sizes. All in one
+// place so the whole curve is legible and tunable. See docs/gdd.typ "Economy".
+#define STARTING_MONEY 100    // seed so the first few pieces are affordable
+#define PLAYABLE_START_SIDE 4 // a new game's unlocked square side (a power of two)
+#define PLAYABLE_MAX_SIDE 128 // cap; the region is centered in the 256 grid
+#define PLAYABLE_CENTER (WORLD_GRID_SIZE / 2)
+#define CONVEYOR_COST 5 // conveyors and furnaces are single-tier
+#define FURNACE_COST 50
+#define DROPPER_COST_BASE 50    // dropper price is base * tier
+#define UPGRADER_COST_BASE 100  // upgrader price is base * tier
+#define EXPAND_COST_PER_CELL 10 // expansion price is this per newly unlocked cell
+
+static i32 clamp_tier(i32 t) {
+    return t < 1 ? 1 : (t > MAX_TIER ? MAX_TIER : t);
+}
 
 const i32 DIR_DX[DIR_COUNT] = {0, 1, 0, -1};
 const i32 DIR_DY[DIR_COUNT] = {-1, 0, 1, 0};
@@ -56,6 +73,9 @@ World *world_create(Mach_Arena *arena) {
     // counts, and bitmaps, so wipe the whole struct.
     memset(w, 0, sizeof(*w));
 
+    w->playable_side = PLAYABLE_START_SIDE;
+    w->money = STARTING_MONEY;
+
     MACH_LOG_INFO("world created (%d entity cap, %d item cap, %dx%d grid)", MAX_ENTITIES, MAX_ITEMS,
                   WORLD_GRID_SIZE, WORLD_GRID_SIZE);
     return w;
@@ -91,12 +111,12 @@ static Entity *world_spawn(World *w, i32 x, i32 y, Direction dir, Entity_Type ty
     return e;
 }
 
-i32 world_spawn_dropper(World *w, i32 x, i32 y, Direction dir) {
+i32 world_spawn_dropper(World *w, i32 x, i32 y, Direction dir, i32 tier) {
     Entity *e = world_spawn(w, x, y, dir, ENTITY_DROPPER);
     if (!e)
         return 0;
-    e->data.dropper = (Entity_Dropper){.drop_cooldown = 0};
-    MACH_LOG_DEBUG("spawned dropper at (%d,%d) facing %d", x, y, dir);
+    e->data.dropper = (Entity_Dropper){.drop_cooldown = 0, .tier = clamp_tier(tier)};
+    MACH_LOG_DEBUG("spawned dropper at (%d,%d) facing %d tier %d", x, y, dir, clamp_tier(tier));
     return w->grid[x][y];
 }
 
@@ -122,7 +142,7 @@ static void upgrader_id_free(World *w, i32 b) {
         w->upgrader_ids_used &= ~((u64)1 << b);
 }
 
-i32 world_spawn_upgrader(World *w, i32 x, i32 y, Direction dir) {
+i32 world_spawn_upgrader(World *w, i32 x, i32 y, Direction dir, i32 tier) {
     // (npt): Reserve the id before claiming the cell so a failure on either side
     // leaves no half-built upgrader and no leaked id.
     i32 uid = upgrader_id_alloc(w);
@@ -135,7 +155,7 @@ i32 world_spawn_upgrader(World *w, i32 x, i32 y, Direction dir) {
         upgrader_id_free(w, uid);
         return 0;
     }
-    e->data.upgrader = (Entity_Upgrader){.upgrader_id = uid};
+    e->data.upgrader = (Entity_Upgrader){.upgrader_id = uid, .tier = clamp_tier(tier)};
     return w->grid[x][y];
 }
 
@@ -205,6 +225,8 @@ Entity *world_get_entity(World *w, i32 entity_id) {
 b32 world_can_place_at(World *w, i32 x, i32 y) {
     if (!w || !in_bounds(x, y))
         return MACH_FALSE;
+    if (!world_in_playable(w, x, y))
+        return MACH_FALSE; // outside the unlocked region
     if (w->grid[x][y] != 0)
         return MACH_FALSE;
     if (w->entity_count >= MAX_ENTITIES)
@@ -217,6 +239,84 @@ Item *world_get_item_at(World *w, i32 x, i32 y) {
         return NULL;
     i32 id = w->item_grid[x][y];
     return id ? &w->items[id - 1] : NULL;
+}
+
+// --- Economy ----------------------------------------------------------------
+
+void world_playable_bounds(const World *w, i32 *lo, i32 *hi) {
+    i32 half = w->playable_side / 2;
+    *lo = PLAYABLE_CENTER - half;
+    *hi = PLAYABLE_CENTER + half;
+}
+
+b32 world_in_playable(const World *w, i32 x, i32 y) {
+    i32 lo, hi;
+    world_playable_bounds(w, &lo, &hi);
+    return x >= lo && x < hi && y >= lo && y < hi;
+}
+
+i64 world_entity_cost(Entity_Type type, i32 tier) {
+    tier = clamp_tier(tier);
+    switch (type) {
+    case ENTITY_CONVEYOR:
+        return CONVEYOR_COST;
+    case ENTITY_FURNACE:
+        return FURNACE_COST;
+    case ENTITY_DROPPER:
+        return (i64)DROPPER_COST_BASE * tier;
+    case ENTITY_UPGRADER:
+        return (i64)UPGRADER_COST_BASE * tier;
+    default:
+        return 0;
+    }
+}
+
+i32 world_try_place(World *w, Entity_Type type, i32 x, i32 y, Direction dir, i32 tier) {
+    if (!w || !world_can_place_at(w, x, y))
+        return 0;
+    i64 cost = world_entity_cost(type, tier);
+    if (w->money < cost)
+        return 0;
+
+    i32 id = 0;
+    switch (type) {
+    case ENTITY_DROPPER:
+        id = world_spawn_dropper(w, x, y, dir, tier);
+        break;
+    case ENTITY_CONVEYOR:
+        id = world_spawn_conveyor(w, x, y, dir);
+        break;
+    case ENTITY_UPGRADER:
+        id = world_spawn_upgrader(w, x, y, dir, tier);
+        break;
+    case ENTITY_FURNACE:
+        id = world_spawn_furnace(w, x, y);
+        break;
+    default:
+        return 0;
+    }
+    if (id)
+        w->money -= cost;
+    return id;
+}
+
+i64 world_expand_cost(const World *w) {
+    if (w->playable_side >= PLAYABLE_MAX_SIDE)
+        return 0; // already maxed
+    i32 next = w->playable_side * 2;
+    i64 added = (i64)next * next - (i64)w->playable_side * w->playable_side;
+    return added * EXPAND_COST_PER_CELL;
+}
+
+b32 world_expand(World *w) {
+    if (!w || w->playable_side >= PLAYABLE_MAX_SIDE)
+        return MACH_FALSE;
+    i64 cost = world_expand_cost(w);
+    if (w->money < cost)
+        return MACH_FALSE;
+    w->money -= cost;
+    w->playable_side *= 2;
+    return MACH_TRUE;
 }
 
 // --- Items ------------------------------------------------------------------
@@ -274,10 +374,13 @@ static void item_apply_cell(World *w, i32 item_idx, i32 x, i32 y) {
         u64 bit = (u64)1 << e->data.upgrader.upgrader_id;
         if (!(it->upgraded_mask & bit)) {
             it->upgraded_mask |= bit;
-            if (it->ceiling > MAX_ITEM_VALUE / UPGRADER_CEILING_MULT)
+            // A higher-tier upgrader lifts the ceiling harder.
+            i64 mult =
+                UPGRADER_CEILING_MULT + (i64)(e->data.upgrader.tier - 1) * UPGRADER_TIER_STEP;
+            if (it->ceiling > MAX_ITEM_VALUE / mult)
                 it->ceiling = MAX_ITEM_VALUE;
             else
-                it->ceiling *= UPGRADER_CEILING_MULT;
+                it->ceiling *= mult;
         }
         i64 gap = it->ceiling - it->value;
         if (gap > 0)
@@ -365,6 +468,9 @@ static void world_run_droppers(World *w) {
             continue;
         }
 
+        // A higher-tier dropper emits richer ore (a higher starting value and ceiling).
+        i64 base = (i64)ITEM_BASE_VALUE * dr->tier;
+
         i32 nx = e->grid_x + DIR_DX[e->dir];
         i32 ny = e->grid_y + DIR_DY[e->dir];
         if (!in_bounds(nx, ny))
@@ -380,8 +486,8 @@ static void world_run_droppers(World *w) {
         if (dst->type == ENTITY_FURNACE) {
             // Dropper feeds a furnace directly: no belt cell between them, so the
             // payout pops at the furnace (from == to).
-            world_emit(w, (World_Event){WORLD_EVENT_BANKED, nx, ny, nx, ny, ITEM_BASE_VALUE});
-            furnace_bank(w, dst, ITEM_BASE_VALUE);
+            world_emit(w, (World_Event){WORLD_EVENT_BANKED, nx, ny, nx, ny, base});
+            furnace_bank(w, dst, base);
             dr->drop_cooldown = DROP_PERIOD;
             continue;
         }
@@ -398,8 +504,8 @@ static void world_run_droppers(World *w) {
         it->grid_y = ny;
         it->prev_x = nx; // spawns on the belt cell (outside the dropper); the
         it->prev_y = ny; // same-tick move below carries it forward, so no idle beat
-        it->value = ITEM_BASE_VALUE;
-        it->ceiling = ITEM_BASE_VALUE;
+        it->value = base;
+        it->ceiling = base;
         it->upgraded_mask = 0;
         w->item_grid[nx][ny] = idx + 1;
         dr->drop_cooldown = DROP_PERIOD;

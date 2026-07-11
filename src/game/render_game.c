@@ -406,12 +406,30 @@ void game_render_draw(Mach_Renderer *r, const Game_State *game, Mach_Arena *scra
     if (gy1 >= WORLD_GRID_SIZE)
         gy1 = WORLD_GRID_SIZE - 1;
 
-    for (i32 gy = gy0; gy <= gy1; gy++) {
-        for (i32 gx = gx0; gx <= gx1; gx++) {
+    // Only the unlocked region gets a ground checker; locked cells stay the black
+    // clear color so the boundary reads as "not yours yet". Clip the visible bbox to
+    // the region [lo, hi) on both axes.
+    i32 plo, phi;
+    world_playable_bounds(w, &plo, &phi);
+    i32 rx0 = gx0 > plo ? gx0 : plo, rx1 = gx1 < phi - 1 ? gx1 : phi - 1;
+    i32 ry0 = gy0 > plo ? gy0 : plo, ry1 = gy1 < phi - 1 ? gy1 : phi - 1;
+    for (i32 gy = ry0; gy <= ry1; gy++) {
+        for (i32 gx = rx0; gx <= rx1; gx++) {
             draw_tile(r, cam, (f32)gx, (f32)gy, ((gx + gy) & 1) ? GROUND_A : GROUND_B);
             draw_tile_edges(r, cam, (f32)gx, (f32)gy, GROUND_LINE);
         }
     }
+
+    // A bright outline around the whole unlocked square. Cells [plo, phi-1] span grid
+    // corners [plo-0.5, phi-0.5], which are this square's edges.
+    f32 blo = (f32)plo - 0.5f, bhi = (f32)phi - 0.5f;
+    Mach_Vec2 border[4] = {
+        mach_iso_to_screen(cam, sw, sh, blo, blo, 0.0f),
+        mach_iso_to_screen(cam, sw, sh, bhi, blo, 0.0f),
+        mach_iso_to_screen(cam, sw, sh, bhi, bhi, 0.0f),
+        mach_iso_to_screen(cam, sw, sh, blo, bhi, 0.0f),
+    };
+    mach_r2d_poly_outline(r, border, 4, mach_color_alpha(MACH_COLOR_FG_MAIN, 0.55f));
 
     // Hover preview: a highlighted tile over the ground, under everything else.
     if (game->hover_valid) {

@@ -32,10 +32,12 @@ extern const i32 DIR_DY[DIR_COUNT];
 
 typedef struct {
     i32 drop_cooldown; // ticks until the next drop
+    i32 tier;          // 1..MAX_TIER; scales the base value of the ore it emits
 } Entity_Dropper;
 
 typedef struct {
     i32 upgrader_id; // 0..MAX_UPGRADERS-1; the bit it sets in an item's mask
+    i32 tier;        // 1..MAX_TIER; scales how hard it lifts an ore's ceiling
 } Entity_Upgrader;
 
 typedef struct {
@@ -91,6 +93,7 @@ typedef struct {
 #define MAX_UPGRADERS 64 // bounded by the bits in Item.upgraded_mask
 #define WORLD_GRID_SIZE 256
 #define MAX_WORLD_EVENTS 256 // per-frame cap; the renderer drains the queue every frame
+#define MAX_TIER 5           // 1..MAX_TIER; higher tiers cost more and do more
 
 typedef struct {
     Entity entities[MAX_ENTITIES];
@@ -106,7 +109,11 @@ typedef struct {
     i32 item_grid[WORLD_GRID_SIZE][WORLD_GRID_SIZE];
 
     u64 upgrader_ids_used; // allocation bitmap for upgrader ids
-    i64 money;             // total value banked across all furnaces
+    i64 money;             // spendable balance: furnaces add to it, buying spends it
+
+    // The unlocked build region: a centered square of this side (a power of two).
+    // Placement is confined to it; world_expand doubles it for money. See world.c.
+    i32 playable_side;
 
     // Transient events the renderer animates. The sim appends across the ticks of a
     // frame; the renderer drains and resets the count once per frame. See World_Event.
@@ -122,13 +129,34 @@ World *world_create(Mach_Arena *arena);
 
 void world_tick(World *w);
 
-// Placement. Directional pieces take a facing; furnaces don't. Each returns the
-// new entity id, or 0 if the cell was occupied / out of bounds / a limit was hit.
-i32 world_spawn_dropper(World *w, i32 x, i32 y, Direction dir);
+// Raw placement, no cost: used for the free starter layout and by the load path.
+// Directional pieces take a facing; furnaces don't. Dropper/upgrader take a tier
+// (clamped to 1..MAX_TIER). Each returns the new entity id, or 0 if the cell was
+// occupied / outside the unlocked region / a limit was hit.
+i32 world_spawn_dropper(World *w, i32 x, i32 y, Direction dir, i32 tier);
 i32 world_spawn_conveyor(World *w, i32 x, i32 y, Direction dir);
-i32 world_spawn_upgrader(World *w, i32 x, i32 y, Direction dir);
+i32 world_spawn_upgrader(World *w, i32 x, i32 y, Direction dir, i32 tier);
 i32 world_spawn_furnace(World *w, i32 x, i32 y);
 void world_despawn(World *w, i32 entity_id);
+
+// --- Economy ----------------------------------------------------------------
+
+// The cost to buy one entity of `type` at `tier`. Conveyors and furnaces ignore tier.
+i64 world_entity_cost(Entity_Type type, i32 tier);
+
+// Buy and place: like the spawners, but also checks the money is there and spends it.
+// Returns the new id, or 0 if unplaceable or unaffordable (money is untouched then).
+i32 world_try_place(World *w, Entity_Type type, i32 x, i32 y, Direction dir, i32 tier);
+
+// The unlocked region as a half-open cell range [lo, hi) on both axes.
+void world_playable_bounds(const World *w, i32 *lo, i32 *hi);
+b32 world_in_playable(const World *w, i32 x, i32 y);
+
+// The cost of the next expansion, or 0 if already at the maximum size.
+i64 world_expand_cost(const World *w);
+// Double the unlocked side if it's not maxed and the money is there; spends it and
+// returns true, else false.
+b32 world_expand(World *w);
 
 // Rotate a placed entity's facing 90 degrees clockwise in place. Returns false for
 // entities with no facing (furnaces) or an invalid id.

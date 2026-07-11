@@ -36,6 +36,7 @@ typedef struct {
     Effects effects;  // transient visuals fed by world events; real-time, sim-independent
     App_Screen screen;
     i32 selected_tool;
+    i32 selected_tier;   // tier bought when placing a dropper/upgrader (1..MAX_TIER)
     Direction place_dir; // facing applied to directional pieces on placement
 
     Mach_Camera2D camera;

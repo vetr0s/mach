@@ -1,6 +1,7 @@
 // Game implementation (included into mach.c).
 
 #include "game.h"
+#include "menu.h"
 #include "render_game.h"
 #include <math.h>
 #include <stdio.h>
@@ -34,28 +35,24 @@ Mach_Config game_config(void) {
     };
 }
 
-// Initialize game state with a world and a short starter chain so there's a value
-// loop running on first launch: dropper -> conveyor -> upgrader -> conveyor ->
-// furnace, all facing east.
-void game_init(Game_State *g, Mach *m) {
-    g->arena = (Mach_Arena){0};
+// Reset to a fresh new game: rewind the arena, build a new world, lay the starter
+// chain, and recenter the camera. First launch and the menu's "New Game" both call
+// this; a load path (save.c) builds the world differently and skips it.
+void game_new(Game_State *g) {
+    mach_arena_reset(&g->arena);
     g->world = world_create(&g->arena);
-    mach_clay_ui_init(&g->clay, &m->r2d);
-    sprites_load(&g->sprites, &m->r2d);
-    effects_clear(&g->effects);
+
     g->selected_tool = TOOL_NONE;
     g->place_dir = DIR_E;
-    g->hover_grid_x = 0;
-    g->hover_grid_y = 0;
-    g->hover_valid = MACH_FALSE;
-    g->hover_can_place = MACH_FALSE;
     g->sim_accumulator = 0.0f;
     g->anim_time = 0.0f;
     g->paused = MACH_FALSE;
-    g->show_debug = MACH_FALSE;
+    effects_clear(&g->effects);
 
     setup_camera(&g->camera, 7.0f, 5.0f);
 
+    // Starter chain, a value loop running on first launch: dropper -> conveyor ->
+    // upgrader -> conveyor -> furnace, all facing east.
     if (g->world) {
         world_spawn_dropper(g->world, 5, 5, DIR_E);
         world_spawn_conveyor(g->world, 6, 5, DIR_E);
@@ -63,6 +60,25 @@ void game_init(Game_State *g, Mach *m) {
         world_spawn_conveyor(g->world, 8, 5, DIR_E);
         world_spawn_furnace(g->world, 9, 5);
     }
+
+    MACH_LOG_INFO("new game");
+}
+
+// One-time engine/UI setup: the persistent things a new game or a load reuses (the
+// arena, Clay, the baked sprites). game_new lays the actual starter world.
+void game_init(Game_State *g, Mach *m) {
+    g->arena = (Mach_Arena){0};
+    mach_clay_ui_init(&g->clay, &m->r2d);
+    sprites_load(&g->sprites, &m->r2d);
+
+    g->hover_grid_x = 0;
+    g->hover_grid_y = 0;
+    g->hover_valid = MACH_FALSE;
+    g->hover_can_place = MACH_FALSE;
+    g->show_debug = MACH_FALSE;
+    g->screen = SCREEN_PLAYING; // the menu work flips this default to SCREEN_MENU
+
+    game_new(g);
 
     MACH_LOG_INFO("game initialized (value-loop sim)");
 }
@@ -142,8 +158,13 @@ void game_tick(Game_State *g, f32 dt) {
 // One whole game frame: consume input, advance the sim, draw the world and HUD.
 // Runs between mach_frame_begin and mach_frame_end.
 void game_frame(Game_State *g, Mach *m) {
-    // Input works in the renderer's current pixel space, which may differ from
-    // the requested size (fullscreen, or a resized window).
+    if (g->screen == SCREEN_MENU) {
+        menu_frame(g, m);
+        return;
+    }
+
+    // SCREEN_PLAYING. Input works in the renderer's current pixel space, which may
+    // differ from the requested size (fullscreen, or a resized window).
     game_process_input(g, &m->input, (f32)m->r2d.width, (f32)m->r2d.height, m->dt);
     game_tick(g, m->dt);
     game_render_draw(&m->r2d, g, &m->frame_arena);

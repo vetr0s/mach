@@ -21,5 +21,7 @@
 #include "game/sprites.c"
 #include "game/effects.c"
 #include "game/world/world.c"
+#include "game/menu.c"
+#include "game/save.c"
 #include "game/game.c"
 #include "game/render_game.c"

@@ -20,12 +20,21 @@
 #define SIM_TICKS_PER_SEC 3
 #define SIM_TICK_DT (1.0f / (f32)SIM_TICKS_PER_SEC)
 
+// Which screen the app is showing. game_frame dispatches on this: the menu and the
+// running factory are separate top-level modes so neither has to know about the
+// other. New screens (settings, a load picker) slot in here.
+typedef enum {
+    SCREEN_MENU = 0, // title screen: new game, load, quit (menu.c)
+    SCREEN_PLAYING,  // the running factory: sim + HUD (the rest of game.c)
+} App_Screen;
+
 typedef struct {
     Mach_Arena arena; // backs the world; freed whole at shutdown
     World *world;
     Mach_ClayUI clay; // HUD layout/draw; in host memory so it survives hot reload
     Sprites sprites;  // baked-in art; empty until PNGs land in assets/sprites
     Effects effects;  // transient visuals fed by world events; real-time, sim-independent
+    App_Screen screen;
     i32 selected_tool;
     Direction place_dir; // facing applied to directional pieces on placement
 
@@ -63,6 +72,20 @@ void game_shutdown(Game_State *g);
 
 // Internals of game_frame, split for readability.
 void game_tick(Game_State *g, f32 dt);
+
+// Reset to a fresh new game: clear the world and lay the starter state. Used by the
+// menu's "New Game" and at first launch.
+void game_new(Game_State *g);
+
+// Persistence. One save slot, a versioned binary blob (see save.c). game_save writes
+// the full world + economy + camera state; game_load replaces the current game with a
+// saved one. Both return false on failure (and game_load leaves the game untouched on
+// a bad or missing file). save_exists reports whether a save is present, for the
+// menu's "Continue"/"Load" affordance.
+#define SAVE_PATH "mach_save.dat"
+b32 game_save(const Game_State *g, const char *path);
+b32 game_load(Game_State *g, const char *path);
+b32 save_exists(const char *path);
 
 // Consume this frame's input snapshot: tool keys, rotate, pause, placement
 // clicks, camera pan/zoom, and hover tracking. screen_w/h are the current render

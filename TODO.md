@@ -64,8 +64,10 @@ mechanics the GDD calls for that the code hasn't caught up to yet, in priority o
       speed moved off the global sim clock onto a per-entity ticks-per-cell cadence, with
       item interpolation spanning that multi-tick window instead of one-move-per-tick.
 - [ ] Special upgraders (caps, value gates, multipliers with conditions)
-- [ ] Save/load a layout (full world state: objects + tiers, ore in flight, money,
-      unlocked grid size, camera)
+- [x] Save/load a layout (full world state: objects + tiers, ore in flight, money,
+      unlocked grid size, camera). One slot, versioned binary blob in save.c, written
+      field by field for cross-platform stability; grids rebuilt on load. K saves, L
+      loads (until the menu's Continue wires game_load). Bad/missing files fail cleanly.
 - [ ] Open (see GDD Open Questions): one furnace only (single sink, strong spatial
       constraint) vs many placeable; whether furnaces become a 4th upgrade axis
 
@@ -123,7 +125,7 @@ Things to make it play and look right, batched for later sessions. Not urgent.
 - [x] Asset embedding: build-time bake of assets/sprites/*.png into the executable.
       Runtime file loading is off the table; the binary ships alone.
 - [ ] Level/tilemap format and loader
-- [ ] Data serialization (feeds the save/load item above)
+- [x] Data serialization (save.c: versioned binary reader/writer; feeds save/load)
 
 ## Docs
 - [ ] Go over the GDD (docs/gdd.typ) and bump its version (docs/VERSION). It's

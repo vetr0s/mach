@@ -286,6 +286,13 @@ void game_process_input(Game_State *g, const Mach_Input *in, f32 screen_w, f32 s
     if (in->key_pressed[RGFW_keyMinus] && g->selected_tier > 1)
         g->selected_tier--;
 
+    // Quick save (K) / load (L) to the single slot. The menu's Continue will use
+    // game_load too; these keys are the in-game shortcut.
+    if (in->key_pressed[RGFW_keyK])
+        game_save(g, SAVE_PATH);
+    if (in->key_pressed[RGFW_keyL])
+        game_load(g, SAVE_PATH);
+
     // Camera: continuous pan from held keys, zoom from the wheel.
     f32 px = 0.0f, py = 0.0f;
     if (in->key_down[RGFW_keyLeft] || in->key_down[RGFW_keyA])

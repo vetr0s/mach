@@ -38,6 +38,10 @@ jobs:
             exit 1
           fi
           echo "release v$version"
+      # Fail the tag now if CHANGELOG.md has no section for it, rather than publish a
+      # release with no notes. The same script writes the notes in publish below.
+      - name: CHANGELOG.md has a section for this version
+        run: ./scripts/release_notes.sh "$GITHUB_REF_NAME" > /dev/null
 
   # Built on the oldest supported runner on purpose: a binary linked against a
   # newer glibc refuses to start on older distros, and the reverse is fine.
@@ -113,28 +117,11 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-      # The binaries are unsigned, so both Gatekeeper and SmartScreen will object
-      # on first run. Signing them needs paid Apple/Authenticode certs; until
-      # then the notes tell people how to get past it.
+      # Notes are this version's CHANGELOG.md section plus the standing download
+      # instructions (the binaries are unsigned, so the notes tell people how to get
+      # past Gatekeeper/SmartScreen). Same script verify-version already ran.
       - name: Write release notes
-        run: |
-          cat > notes.md <<'EOF'
-          Prebuilt binaries for `TAG`. Download one, make it executable, run it.
-          The game is a single static binary; there is nothing else to install.
-
-          | Platform | File |
-          | --- | --- |
-          | Linux (x86_64, glibc 2.35+) | `mach-TAG-linux-x86_64` |
-          | macOS (Apple silicon + Intel) | `mach-TAG-macos-universal` |
-          | Windows (x86_64) | `mach-TAG-windows-x86_64.exe` |
-
-          The binaries are unsigned. On macOS, clear the quarantine flag first:
-
-              xattr -d com.apple.quarantine mach-TAG-macos-universal
-
-          On Windows, SmartScreen shows a warning: "More info" then "Run anyway".
-          EOF
-          sed -i "s/TAG/${GITHUB_REF_NAME}/g" notes.md
+        run: ./scripts/release_notes.sh "$GITHUB_REF_NAME" > notes.md
       # Idempotent: a tag can be force-moved, and re-running must not fail on a
       # release that already exists. When it does, refresh the attached binaries
       # and leave the notes alone, since they may have been edited by hand.

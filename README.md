@@ -129,7 +129,7 @@ from Anton Mikhailov on the *Wookash Podcast*.
 | Linux | Builds in CI, runs on real hardware. x86_64, glibc 2.35+ |
 | Windows | Builds in CI, runs on real hardware. x86_64, no redistributable needed |
 
-The v0.6.2 release binaries were run on all three.
+The release binaries have been run on all three platforms.
 
 ## How the code is laid out
 
@@ -201,7 +201,7 @@ the HUD is Clay panels drawn through the same renderer.
 
 ## Version
 
-Current version: **v0.6.2** (see `VERSION`). The game is versioned by git tag;
+Current version: **v0.7.0** (see `VERSION`). The game is versioned by git tag;
 `VERSION` tracks the same number in-tree. `docs/VERSION` is the design doc's own
 version, tracked separately.
 

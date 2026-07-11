@@ -72,3 +72,6 @@ third_party/SDL/install/
 # Emacs tags
 TAGS
 tags
+
+# Local Claude Code working notes (progress across context clears); not shared
+CLAUDE.md

@@ -130,7 +130,9 @@ static int cstr_cmp(const void *a, const void *b) {
 // The header is rewritten only when its contents actually change, so an
 // unchanged asset directory does not retrigger a rebuild of the whole game.
 static bool embed_sprites(void) {
-    if (!nob_mkdir_if_not_exists(GEN_DIR)) return false;
+    // Guard the mkdir instead of always calling it: the hot-reload loop runs this
+    // twice a second, and nob_mkdir_if_not_exists logs "already exists" every time.
+    if (nob_file_exists(GEN_DIR) <= 0 && !nob_mkdir_if_not_exists(GEN_DIR)) return false;
 
     Nob_File_Paths files = {0};
     if (nob_file_exists(SPRITES_DIR) && !nob_read_entire_dir(SPRITES_DIR, &files)) return false;

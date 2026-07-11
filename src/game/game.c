@@ -78,8 +78,10 @@ void game_init(Game_State *g, Mach *m) {
     g->hover_valid = MACH_FALSE;
     g->hover_can_place = MACH_FALSE;
     g->show_debug = MACH_FALSE;
-    g->screen = SCREEN_PLAYING; // the menu work flips this default to SCREEN_MENU
+    g->screen = SCREEN_MENU; // launch to the title screen
 
+    // Lay a starter world now so the menu has something to hand off to and so the
+    // world pointer is never null; New Game rebuilds it, Continue replaces it.
     game_new(g);
 
     MACH_LOG_INFO("game initialized (value-loop sim)");

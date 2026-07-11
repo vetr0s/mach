@@ -49,7 +49,7 @@ typedef enum {
     TOOL_DROPPER,
     TOOL_CONVEYOR,
     TOOL_UPGRADER,
-    TOOL_COLLECTOR,
+    TOOL_FURNACE,
     TOOL_DELETE,
     TOOL_COUNT,
 } Tool;

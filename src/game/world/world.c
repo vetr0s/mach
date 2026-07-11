@@ -36,7 +36,7 @@ static b32 in_bounds(i32 x, i32 y) {
 }
 
 // The direction an entity pushes items, if any. Only conveyors and upgraders move
-// items; droppers emit and collectors consume.
+// items; droppers emit and furnaces consume.
 static b32 entity_flow_dir(const Entity *e, Direction *out) {
     if (e->type == ENTITY_CONVEYOR || e->type == ENTITY_UPGRADER) {
         *out = e->dir;
@@ -139,11 +139,11 @@ i32 world_spawn_upgrader(World *w, i32 x, i32 y, Direction dir) {
     return w->grid[x][y];
 }
 
-i32 world_spawn_collector(World *w, i32 x, i32 y) {
-    Entity *e = world_spawn(w, x, y, DIR_N, ENTITY_COLLECTOR); // facing unused
+i32 world_spawn_furnace(World *w, i32 x, i32 y) {
+    Entity *e = world_spawn(w, x, y, DIR_N, ENTITY_FURNACE); // facing unused
     if (!e)
         return 0;
-    e->data.collector = (Entity_Collector){.banked = 0};
+    e->data.furnace = (Entity_Furnace){.banked = 0};
     return w->grid[x][y];
 }
 
@@ -181,8 +181,8 @@ void world_despawn(World *w, i32 entity_id) {
 
 b32 world_rotate_entity(World *w, i32 entity_id) {
     Entity *e = world_get_entity(w, entity_id);
-    if (!e || e->type == ENTITY_COLLECTOR)
-        return MACH_FALSE; // collectors have no facing
+    if (!e || e->type == ENTITY_FURNACE)
+        return MACH_FALSE; // furnaces have no facing
     e->dir = (Direction)((e->dir + 1) % DIR_COUNT);
     return MACH_TRUE;
 }
@@ -251,16 +251,16 @@ static void world_emit(World *w, World_Event ev) {
     w->events[w->event_count++] = ev;
 }
 
-// Bank `value` into a collector: the world total and the collector's own tally.
-static void collector_bank(World *w, Entity *e, i64 value) {
+// Bank `value` into a furnace: the world total and the furnace's own tally.
+static void furnace_bank(World *w, Entity *e, i64 value) {
     w->money += value;
-    e->data.collector.banked += value;
+    e->data.furnace.banked += value;
 }
 
 // Apply the effect of the entity on (x,y) to an item that just arrived there;
-// today that's upgraders raising its value. Collectors never appear here: both
+// today that's upgraders raising its value. Furnaces never appear here: both
 // arrival paths (world_move_items, world_run_droppers) bank and consume the
-// item *before* it would land, so an item never occupies a collector's cell.
+// item *before* it would land, so an item never occupies a furnace's cell.
 static void item_apply_cell(World *w, i32 item_idx, i32 x, i32 y) {
     i32 id = w->grid[x][y];
     if (!id)
@@ -309,7 +309,7 @@ static void world_move_items(World *w) {
 
             Direction d;
             if (!entity_flow_dir(world_get_entity(w, cell_id), &d))
-                continue; // collector/dropper
+                continue; // furnace/dropper
 
             i32 nx = it->grid_x + DIR_DX[d];
             i32 ny = it->grid_y + DIR_DY[d];
@@ -328,10 +328,10 @@ static void world_move_items(World *w) {
                 continue;
             }
 
-            if (dst->type == ENTITY_COLLECTOR) {
+            if (dst->type == ENTITY_FURNACE) {
                 world_emit(w, (World_Event){WORLD_EVENT_BANKED, it->grid_x, it->grid_y, nx, ny,
                                             it->value});
-                collector_bank(w, dst, it->value);
+                furnace_bank(w, dst, it->value);
                 item_kill(w, i);
                 changed = MACH_TRUE;
                 continue;
@@ -352,7 +352,7 @@ static void world_move_items(World *w) {
 }
 
 // Each ready dropper emits one item onto the tile it faces, if that tile is a
-// belt-like cell with room (or a collector, which banks the base value directly).
+// belt-like cell with room (or a furnace, which banks the base value directly).
 static void world_run_droppers(World *w) {
     for (i32 i = 0; i < w->entity_count; i++) {
         Entity *e = &w->entities[i];
@@ -377,11 +377,11 @@ static void world_run_droppers(World *w) {
         if (dst->type == ENTITY_DROPPER)
             continue;
 
-        if (dst->type == ENTITY_COLLECTOR) {
-            // Dropper feeds a collector directly: no belt cell between them, so the
-            // payout pops at the collector (from == to).
+        if (dst->type == ENTITY_FURNACE) {
+            // Dropper feeds a furnace directly: no belt cell between them, so the
+            // payout pops at the furnace (from == to).
             world_emit(w, (World_Event){WORLD_EVENT_BANKED, nx, ny, nx, ny, ITEM_BASE_VALUE});
-            collector_bank(w, dst, ITEM_BASE_VALUE);
+            furnace_bank(w, dst, ITEM_BASE_VALUE);
             dr->drop_cooldown = DROP_PERIOD;
             continue;
         }

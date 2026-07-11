@@ -17,14 +17,14 @@
 
 typedef enum {
     EFFECT_NONE = 0,
-    EFFECT_BANK, // ore banked at a collector: slides into the sink, a "+value" rises
+    EFFECT_BANK, // ore banked at a furnace: slides into the sink, a "+value" rises
     EFFECT_FALL, // ore tipped off a dead end: sinks through the belt and fades out
 } Effect_Type;
 
 typedef struct {
     Effect_Type type;
     f32 from_x, from_y; // grid-space start: the belt cell the ore left
-    f32 to_x, to_y;     // grid-space end: the collector cell, or the dead-end cell
+    f32 to_x, to_y;     // grid-space end: the furnace cell, or the dead-end cell
     i64 value;
     f32 age;      // real seconds since it started
     f32 lifetime; // real seconds it runs before it retires

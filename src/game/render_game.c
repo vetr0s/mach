@@ -20,12 +20,16 @@
 #define DROPPER_H 0.80f
 #define CONVEYOR_H 0.12f
 #define UPGRADER_H 0.50f
-#define COLLECTOR_H 0.85f
+// The furnace is a shallow open bin, not a tower: a low rim about conveyor height
+// with a recessed mouth, so ore drops into a sink instead of colliding with a tall
+// block. FURNACE_MOUTH is the opening's radius in grid units (cell half is 0.5).
+#define FURNACE_WALL_H 0.16f
+#define FURNACE_MOUTH 0.34f
 
 #define DROPPER_COL MACH_COLOR_GREEN
 #define CONVEYOR_COL MACH_COLOR_BG_POPUP
 #define UPGRADER_COL MACH_COLOR_MAGENTA_COOLER
-#define COLLECTOR_COL MACH_COLOR_YELLOW_WARMER
+#define FURNACE_COL MACH_COLOR_YELLOW_WARMER
 
 // Belt surface: gray chevrons that scroll toward the flow direction so the
 // black belt reads as running even when it's empty.
@@ -225,6 +229,26 @@ static Mach_Vec2 draw_ore(Mach_Renderer *r, const Mach_Camera2D *cam, const Spri
     return n;
 }
 
+// The world-space text scale for value labels at the current zoom. The labels live
+// in the scene (over the ore), not in the HUD, so they have to scale with the camera
+// or they read as huge when zoomed out and tiny when zoomed in. Tuned so the default
+// zoom (2.0) gives scale 1.0, clamped so it stays legible at both ends.
+static f32 label_scale(const Mach_Camera2D *cam) {
+    return mach_clamp(cam->zoom * 0.5f, 0.6f, 3.0f);
+}
+
+// A value tag centered on screen-x `sx` with its top at `sy`, drawn at text scale
+// `sc`, drop-shadowed and faded by `a` in [0,1]. Shared by the live ore label and the
+// effect labels, so a number over an ore reads the same whether it's riding, banking,
+// or lost.
+static void draw_value_tag(Mach_Renderer *r, f32 sx, f32 sy, const char *s, f32 sc, f32 a,
+                           Mach_Color col) {
+    f32 tx = sx - (f32)r->font->advance * sc * (f32)strlen(s) * 0.5f;
+    col.w = a;
+    mach_r2d_text(r, tx + sc, sy + sc, sc, s, mach_color_alpha(MACH_COLOR_BG_MAIN, 0.7f * a));
+    mach_r2d_text(r, tx, sy, sc, s, col);
+}
+
 // A small ore glyph floating just above the belt at the item's cell, with its
 // current value labeled above it. `alpha` is the fraction into the current sim tick,
 // so the item slides from its previous cell to its current one instead of snapping.
@@ -242,15 +266,10 @@ static void draw_item(Mach_Renderer *r, const Mach_Camera2D *cam, const Sprites 
     // Value label, centered over the diamond and sitting just above its top point.
     char buf[32];
     game_format_value(it->value, buf, sizeof buf);
-    f32 tscale = 1.0f;
-    f32 adv = (f32)r->font->advance * tscale;
-    f32 gh = (f32)r->font->glyph_h * tscale;
     Mach_Vec2 c = mach_iso_to_screen(cam, sw, sh, gx, gy, e);
-    f32 tx = c.x - adv * (f32)strlen(buf) * 0.5f;
-    f32 ty = n.y - gh - 4.0f;
-    mach_r2d_text(r, tx + 1.0f, ty + 1.0f, tscale, buf,
-                  mach_color_alpha(MACH_COLOR_BG_MAIN, 0.7f)); // shadow
-    mach_r2d_text(r, tx, ty, tscale, buf, MACH_COLOR_FG_MAIN);
+    f32 sc = label_scale(cam);
+    draw_value_tag(r, c.x, n.y - (f32)r->font->glyph_h * sc - 4.0f, buf, sc, 1.0f,
+                   MACH_COLOR_FG_MAIN);
 }
 
 // The transient visuals the sim can't hold: an ore banking, an ore tipping off a
@@ -269,34 +288,64 @@ static void draw_effects(Mach_Renderer *r, const Mach_Camera2D *cam, const Sprit
 
         if (e->type == EFFECT_FALL) {
             // Ore rides on toward the dead-end cell, sinking through the belt and fading.
+            // It still shows its value on the way out, so a wasted ore reads as a loss.
             f32 gx = e->from_x + (e->to_x - e->from_x) * p;
             f32 gy = e->from_y + (e->to_y - e->from_y) * p;
             Mach_Color col = MACH_COLOR_YELLOW_WARMER;
             col.w = 1.0f - p;
-            draw_ore(r, cam, sprites, gx, gy, 0.34f - p * 0.9f, 0.18f * (1.0f - 0.45f * p), col);
+            Mach_Vec2 n = draw_ore(r, cam, sprites, gx, gy, 0.34f - p * 0.9f,
+                                   0.18f * (1.0f - 0.45f * p), col);
+            char buf[32];
+            game_format_value(e->value, buf, sizeof buf);
+            f32 sc = label_scale(cam);
+            draw_value_tag(r, n.x, n.y - (f32)r->font->glyph_h * sc - 4.0f, buf, sc, 1.0f - p,
+                           MACH_COLOR_FG_MAIN);
             continue;
         }
 
-        // EFFECT_BANK: ore slides into the collector over the first half of the life,
-        // shrinking as it's consumed, then a "+value" rises and fades over the whole life.
-        f32 slide = p < 0.5f ? p / 0.5f : 1.0f;
-        if (slide < 1.0f) {
-            f32 gx = e->from_x + (e->to_x - e->from_x) * slide;
-            f32 gy = e->from_y + (e->to_y - e->from_y) * slide;
-            draw_ore(r, cam, sprites, gx, gy, 0.34f, 0.18f * (1.0f - 0.6f * slide),
-                     MACH_COLOR_YELLOW_WARMER);
+        // EFFECT_BANK, in three beats: the ore slides to the furnace and STOPS over the
+        // mouth (no more horizontal motion), settling onto the rim; it then fades out in
+        // place; and only once it's gone (processed) does the "+value" rise. The sim
+        // already banked the money the tick the ore arrived; this is just the show, so
+        // the order reads as the furnace consuming the ore and then paying out.
+        f32 arrive = 0.4f;   // sliding in, done by here
+        f32 fade_end = 0.7f; // ore fully faded by here; payout runs after
+        if (p < fade_end) {
+            f32 s = p < arrive ? p / arrive : 1.0f; // horizontal progress; pins at 1 (stops)
+            f32 gx = e->from_x + (e->to_x - e->from_x) * s;
+            f32 gy = e->from_y + (e->to_y - e->from_y) * s;
+            f32 elev = 0.34f + s * (FURNACE_WALL_H - 0.34f);                // settle onto the rim
+            f32 f = p < arrive ? 0.0f : (p - arrive) / (fade_end - arrive); // fade in place
+            Mach_Color col = MACH_COLOR_YELLOW_WARMER;
+            col.w = 1.0f - f;
+            draw_ore(r, cam, sprites, gx, gy, elev, 0.18f * (1.0f - 0.3f * f), col);
+        } else {
+            f32 q = (p - fade_end) / (1.0f - fade_end); // 0..1 over the payout beat
+            char buf[33];
+            buf[0] = '+';
+            game_format_value(e->value, buf + 1, sizeof buf - 1);
+            Mach_Vec2 c =
+                mach_iso_to_screen(cam, sw, sh, e->to_x, e->to_y, FURNACE_WALL_H + 0.2f + q * 0.7f);
+            draw_value_tag(r, c.x, c.y, buf, label_scale(cam), 1.0f - q, MACH_COLOR_GREEN);
         }
-        char buf[33];
-        buf[0] = '+';
-        game_format_value(e->value, buf + 1, sizeof buf - 1);
-        Mach_Vec2 c = mach_iso_to_screen(cam, sw, sh, e->to_x, e->to_y, 0.6f + p * 0.8f); // rises
-        f32 tx = c.x - (f32)r->font->advance * (f32)strlen(buf) * 0.5f;
-        Mach_Color tcol = MACH_COLOR_GREEN;
-        tcol.w = 1.0f - p; // fade out
-        mach_r2d_text(r, tx + 1.0f, c.y + 1.0f, 1.0f, buf,
-                      mach_color_alpha(MACH_COLOR_BG_MAIN, 0.6f * (1.0f - p)));
-        mach_r2d_text(r, tx, c.y, 1.0f, buf, tcol);
     }
+}
+
+// A furnace is a shallow open bin, not a tower: a short block only about conveyor
+// height, with a darker recessed mouth inset into its top so the perimeter reads as a
+// raised wall. Ore drops into the mouth (see the bank effect), so it reads as a sink.
+static void draw_furnace(Mach_Renderer *r, const Mach_Camera2D *cam, f32 gx, f32 gy) {
+    draw_block(r, cam, gx, gy, FURNACE_WALL_H, FURNACE_COL);
+
+    f32 sw = (f32)r->width, sh = (f32)r->height;
+    f32 m = FURNACE_MOUTH;
+    Mach_Vec2 mn = mach_iso_to_screen(cam, sw, sh, gx, gy - m, FURNACE_WALL_H);
+    Mach_Vec2 me = mach_iso_to_screen(cam, sw, sh, gx + m, gy, FURNACE_WALL_H);
+    Mach_Vec2 ms = mach_iso_to_screen(cam, sw, sh, gx, gy + m, FURNACE_WALL_H);
+    Mach_Vec2 mw = mach_iso_to_screen(cam, sw, sh, gx - m, gy, FURNACE_WALL_H);
+    Mach_Vec2 mouth[4] = {mn, me, ms, mw};
+    mach_r2d_fill_poly(r, mouth, 4, mach_color_shade(FURNACE_COL, 0.30f)); // dark interior
+    mach_r2d_poly_outline(r, mouth, 4, mach_color_shade(FURNACE_COL, 0.22f));
 }
 
 static void draw_entity(Mach_Renderer *r, const Mach_Camera2D *cam, const Entity *e,
@@ -315,8 +364,8 @@ static void draw_entity(Mach_Renderer *r, const Mach_Camera2D *cam, const Entity
         draw_block(r, cam, gx, gy, UPGRADER_H, UPGRADER_COL);
         draw_arrow(r, cam, gx, gy, UPGRADER_H, e->dir, mach_color_lighten(UPGRADER_COL, 0.55f));
         break;
-    case ENTITY_COLLECTOR:
-        draw_block(r, cam, gx, gy, COLLECTOR_H, COLLECTOR_COL);
+    case ENTITY_FURNACE:
+        draw_furnace(r, cam, gx, gy);
         break;
     default:
         break;
@@ -369,7 +418,7 @@ void game_render_draw(Mach_Renderer *r, const Game_State *game, Mach_Arena *scra
         Mach_Color color;
         if (!game->hover_can_place)
             color = MACH_COLOR_RED;
-        else if (game->selected_tool == TOOL_COLLECTOR)
+        else if (game->selected_tool == TOOL_FURNACE)
             color = MACH_COLOR_YELLOW_WARMER;
         else
             color = MACH_COLOR_GREEN;
@@ -462,10 +511,10 @@ void game_render_draw(Mach_Renderer *r, const Game_State *game, Mach_Arena *scra
 void game_render_hud(Game_State *g, Mach *m) {
     Mach_Renderer *r = &m->r2d;
 
-    static const char *tool_names[] = {"None",     "Dropper",   "Conveyor",
-                                       "Upgrader", "Collector", "Delete"};
+    static const char *tool_names[] = {"None",     "Dropper", "Conveyor",
+                                       "Upgrader", "Furnace", "Delete"};
     static const char *dir_names[] = {"N", "E", "S", "W"};
-    static const char *entity_names[] = {"", "Dropper", "Conveyor", "Upgrader", "Collector"};
+    static const char *entity_names[] = {"", "Dropper", "Conveyor", "Upgrader", "Furnace"};
     const char *tool =
         (g->selected_tool >= 0 && g->selected_tool < (i32)MACH_ARRAY_COUNT(tool_names))
             ? tool_names[g->selected_tool]
@@ -476,12 +525,14 @@ void game_render_hud(Game_State *g, Mach *m) {
 
     // HUD strings. These buffers must outlive mach_clay_ui_render (Clay keeps the char
     // pointers, not copies), so they stay in scope for the whole function.
-    char money_s[32], tool_s[48], fps_s[24], counts_s[64], hover_s[48], cam_s[48];
+    char money_s[32], tool_s[48], fps_s[40], counts_s[64], hover_s[48], cam_s[48];
     char val_a[24], val_b[24], banked_s[24];
     char insp_sub_s[32], insp_extra_s[48], insp_item_s[64];
     snprintf(money_s, sizeof(money_s), "$%lld", (long long)(g->world ? g->world->money : 0));
     snprintf(tool_s, sizeof(tool_s), "%s   facing %s", tool, facing);
-    snprintf(fps_s, sizeof(fps_s), "fps %d", m->fps);
+    // fps reads flat under vsync, so show frame_ms (the real work per frame) and its
+    // peak beside it: that's the headroom number, and where a hitch actually shows.
+    snprintf(fps_s, sizeof(fps_s), "fps %d   %.1f/%.1fms", m->fps, m->frame_ms, m->frame_ms_peak);
     snprintf(counts_s, sizeof(counts_s), "tick %d   entities %d   items %d",
              g->world ? g->world->tick : 0, g->world ? g->world->entity_count : 0,
              g->world ? g->world->item_count : 0);
@@ -521,9 +572,9 @@ void game_render_hud(Game_State *g, Mach *m) {
             insp_title_col = HUD_PURPLE;
             snprintf(insp_sub_s, sizeof insp_sub_s, "facing %s", dir_names[ins->dir]);
             break;
-        case ENTITY_COLLECTOR:
+        case ENTITY_FURNACE:
             insp_title_col = HUD_GOLD;
-            game_format_value(ins->data.collector.banked, banked_s, sizeof banked_s);
+            game_format_value(ins->data.furnace.banked, banked_s, sizeof banked_s);
             snprintf(insp_extra_s, sizeof insp_extra_s, "banked $%s", banked_s);
             break;
         default:

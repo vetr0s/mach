@@ -29,13 +29,14 @@ Mach_Config game_config(void) {
         .height = 720,
         .clear_color = MACH_COLOR_BG_MAIN, // modus-vivendi: true black beyond the grid
         .escape_quits = MACH_TRUE,         // dev convenience, for now
-        .target_fps = 144,
+        // Pace to the display (vsync, the engine default): no tearing, no busy-wait,
+        // and dt tracks the real refresh rate. Read m.frame_ms, not fps, for headroom.
     };
 }
 
 // Initialize game state with a world and a short starter chain so there's a value
 // loop running on first launch: dropper -> conveyor -> upgrader -> conveyor ->
-// collector, all facing east.
+// furnace, all facing east.
 void game_init(Game_State *g, Mach *m) {
     g->arena = (Mach_Arena){0};
     g->world = world_create(&g->arena);
@@ -60,7 +61,7 @@ void game_init(Game_State *g, Mach *m) {
         world_spawn_conveyor(g->world, 6, 5, DIR_E);
         world_spawn_upgrader(g->world, 7, 5, DIR_E);
         world_spawn_conveyor(g->world, 8, 5, DIR_E);
-        world_spawn_collector(g->world, 9, 5);
+        world_spawn_furnace(g->world, 9, 5);
     }
 
     MACH_LOG_INFO("game initialized (value-loop sim)");
@@ -79,7 +80,9 @@ static void update_hover(Game_State *g, f32 screen_w, f32 screen_h, f32 mouse_x,
 }
 
 // Effect durations, in real seconds (not sim ticks): how long each transient runs.
-#define BANK_EFFECT_SECS 0.6f
+// The bank effect spends this across three beats (slide in, fade in place, payout),
+// so it runs a little longer than the fall.
+#define BANK_EFFECT_SECS 0.9f
 #define FALL_EFFECT_SECS 0.45f
 
 // Turn the sim events from this frame's ticks into real-time effects, then clear the
@@ -178,8 +181,8 @@ static void place_at_hover(Game_State *g) {
     case TOOL_UPGRADER:
         world_spawn_upgrader(g->world, hx, hy, g->place_dir);
         break;
-    case TOOL_COLLECTOR:
-        world_spawn_collector(g->world, hx, hy);
+    case TOOL_FURNACE:
+        world_spawn_furnace(g->world, hx, hy);
         break;
     case TOOL_DELETE: {
         i32 entity_id = world_get_entity_at(g->world, hx, hy);
@@ -223,7 +226,7 @@ void game_process_input(Game_State *g, const Mach_Input *in, f32 screen_w, f32 s
     if (in->key_pressed[RGFW_key3])
         toggle_tool(g, TOOL_UPGRADER);
     if (in->key_pressed[RGFW_key4])
-        toggle_tool(g, TOOL_COLLECTOR);
+        toggle_tool(g, TOOL_FURNACE);
     if (in->key_pressed[RGFW_key5])
         toggle_tool(g, TOOL_DELETE);
     if (in->key_pressed[RGFW_keySpace]) {
@@ -254,7 +257,7 @@ void game_process_input(Game_State *g, const Mach_Input *in, f32 screen_w, f32 s
 
     if (in->key_pressed[RGFW_keyR]) {
         // Rotate the piece under the cursor in place; with no piece there (or a
-        // collector, which has no facing), rotate the facing for the next placement.
+        // furnace, which has no facing), rotate the facing for the next placement.
         i32 id =
             g->hover_valid ? world_get_entity_at(g->world, g->hover_grid_x, g->hover_grid_y) : 0;
         if (id != 0 && world_rotate_entity(g->world, id)) {

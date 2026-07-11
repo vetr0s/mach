@@ -49,10 +49,13 @@ mechanics the GDD calls for that the code hasn't caught up to yet, in priority o
       upgraders raise the (uncapped) roof. In world.{c,h} (Item.ceiling, item_apply_cell,
       UPGRADER_CEILING_MULT / UPGRADER_CLIMB_DIVISOR). Ore value now renders above its sprite.
       Tuning of the exact curve/constants is deferred (see GDD Open Questions).
-- [ ] **Money economy (GDD Milestone 3, the progression spine).** Give money real,
-      competing sinks: grid expansion on a 2^n side-length cadence (2x2 -> 4x4 -> 8x8...,
-      cost scaling with area, gated by a playable_extent) + buyable tiers for
-      droppers/upgraders/belts. Space vs spend.
+- [x] **Money economy (GDD Milestone 3, the progression spine).** Money is a spendable
+      balance now. Grid expansion (World.playable_side, a centered 2^n square; world_expand
+      doubles it for an area-scaled price; placement confined to the region). Buyable tiers
+      for droppers/upgraders (Entity.tier scales ore value / ceiling lift; cost scales with
+      tier) via world_try_place. Shop HUD (right panel: tool + tier + expand buttons, with
+      click-consumption so a UI click doesn't place a tile). Belt-speed tiers still deferred
+      (need the parked movement-cadence rework). Left to tune: the cost/tier curve by feel.
 - [x] Rename collector -> furnace throughout (ENTITY_FURNACE / TOOL_FURNACE /
       Entity_Furnace, world_spawn_furnace, and the UI strings). GDD naming decision.
       The furnace also became a shallow walled bin visually, not a tall block.

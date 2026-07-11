@@ -51,6 +51,9 @@ typedef struct {
     i32 hover_grid_y;
     b32 hover_valid; // the mouse projected onto the ground plane
     b32 hover_can_place;
+
+    b32 pointer_over_ui; // set by the HUD when the cursor is over the shop panel, so a
+                         // click on the panel doesn't also place a tile in the world
 } Game_State;
 
 // Tool IDs for Game_State.selected_tool.

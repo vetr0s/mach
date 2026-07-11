@@ -262,8 +262,8 @@ void game_process_input(Game_State *g, const Mach_Input *in, f32 screen_w, f32 s
     if (in->key_pressed[RGFW_keyBacktick])
         g->show_debug = !g->show_debug;
 
-    // TEMPORARY economy keys until the shop HUD lands: E expands the region, -/= pick
-    // the tier to buy. These become on-screen buttons in the next pass.
+    // Keyboard shortcuts for the shop panel: E expands the region, -/= pick the tier
+    // to buy. The same actions are on-screen buttons in the HUD.
     if (in->key_pressed[RGFW_keyE]) {
         if (world_expand(g->world))
             MACH_LOG_DEBUG("expanded to side %d (money %lld)", g->world->playable_side,
@@ -306,7 +306,9 @@ void game_process_input(Game_State *g, const Mach_Input *in, f32 screen_w, f32 s
         }
     }
 
-    if (in->mouse_pressed[MACH_MOUSE_LEFT])
+    // Suppress placement when the click lands on the shop panel (the HUD sets this
+    // from last frame's layout; the panel is static, so a one-frame age is exact).
+    if (in->mouse_pressed[MACH_MOUSE_LEFT] && !g->pointer_over_ui)
         place_at_hover(g);
 }
 

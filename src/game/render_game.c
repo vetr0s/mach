@@ -511,6 +511,20 @@ void game_render_draw(Mach_Renderer *r, const Game_State *game, Mach_Arena *scra
 #define HUD_WHITE mach_clay_color_of(MACH_COLOR_FG_MAIN)
 #define HUD_PURPLE mach_clay_color_of(MACH_COLOR_MAGENTA_COOLER)
 
+// Shop button backgrounds: resting, hovered, and selected.
+#define HUD_BTN mach_clay_color_of(MACH_COLOR_BG_ACTIVE)
+#define HUD_BTN_HOVER mach_clay_color_of(MACH_COLOR_BG_HOVER)
+#define HUD_BTN_ACTIVE mach_clay_color_of(MACH_COLOR_BG_BLUE_SUBTLE)
+
+// A clickable full-width row: its id is used for hit-testing after layout; the
+// background brightens on hover and stays lit when `active`.
+#define SHOP_BTN(id, active)                                                                       \
+    CLAY(CLAY_ID(id),                                                                              \
+         {.layout = {.padding = CLAY_PADDING_ALL(5), .sizing = {.width = CLAY_SIZING_GROW(0)}},    \
+          .backgroundColor =                                                                       \
+              (active) ? HUD_BTN_ACTIVE : (Clay_Hovered() ? HUD_BTN_HOVER : HUD_BTN),              \
+          .cornerRadius = CLAY_CORNER_RADIUS(4)})
+
 // A floating HUD panel pinned to a screen corner/edge: the same attach point on
 // the element and the root, nudged inward by (ox, oy). Follow with a block of
 // CLAY_TEXT children.
@@ -546,6 +560,7 @@ void game_render_hud(Game_State *g, Mach *m) {
     char money_s[32], tool_s[48], fps_s[40], counts_s[64], hover_s[48], cam_s[48];
     char val_a[24], val_b[24], banked_s[24];
     char insp_sub_s[32], insp_extra_s[48], insp_item_s[64];
+    char drop_s[28], conv_s[28], upg_s[28], furn_s[28], tier_s[24], expand_s[40];
     snprintf(money_s, sizeof(money_s), "$%lld", (long long)(g->world ? g->world->money : 0));
     snprintf(tool_s, sizeof(tool_s), "%s   facing %s", tool, facing);
     // fps reads flat under vsync, so show frame_ms (the real work per frame) and its
@@ -561,6 +576,24 @@ void game_render_hud(Game_State *g, Mach *m) {
         snprintf(hover_s, sizeof(hover_s), "hover --");
     snprintf(cam_s, sizeof(cam_s), "cam %.0f,%.0f   zoom %.2f", g->camera.pan.x, g->camera.pan.y,
              g->camera.zoom);
+
+    // Shop labels: dropper/upgrader prices track the selected tier; conveyor/furnace
+    // are flat. Expansion shows the next region's price, or "Max" at the cap.
+    i32 tier = g->selected_tier;
+    snprintf(drop_s, sizeof drop_s, "Dropper T%d  $%lld", tier,
+             (long long)world_entity_cost(ENTITY_DROPPER, tier));
+    snprintf(conv_s, sizeof conv_s, "Conveyor  $%lld",
+             (long long)world_entity_cost(ENTITY_CONVEYOR, 1));
+    snprintf(upg_s, sizeof upg_s, "Upgrader T%d  $%lld", tier,
+             (long long)world_entity_cost(ENTITY_UPGRADER, tier));
+    snprintf(furn_s, sizeof furn_s, "Furnace  $%lld",
+             (long long)world_entity_cost(ENTITY_FURNACE, 1));
+    snprintf(tier_s, sizeof tier_s, "Tier %d  (click +)", tier);
+    i64 expand_cost = g->world ? world_expand_cost(g->world) : 0;
+    if (expand_cost > 0)
+        snprintf(expand_s, sizeof expand_s, "Expand  $%lld", (long long)expand_cost);
+    else
+        snprintf(expand_s, sizeof expand_s, "Max size");
 
     // Inspect: describe whatever sits under the cursor (machine and/or ore).
     const Entity *ins = NULL;
@@ -655,10 +688,67 @@ void game_render_hud(Game_State *g, Mach *m) {
 
     // Bottom-center: the controls, on screen until a real menu exists to teach them.
     HUD_PANEL_AT("hud-controls", CLAY_ATTACH_POINT_CENTER_BOTTOM, 0, -10) {
-        CLAY_TEXT(
-            CLAY_STRING("(1)drop (2)belt (3)upgr (4)collect (5)del (R)rotate (Space)pause (`)info"),
-            CLAY_TEXT_CONFIG({.fontSize = 8, .textColor = HUD_GREY}));
+        CLAY_TEXT(CLAY_STRING("(1)drop (2)belt (3)upgr (4)furnace (5)del (R)rotate (Space)pause "
+                              "(`)info"),
+                  CLAY_TEXT_CONFIG({.fontSize = 8, .textColor = HUD_GREY}));
+    }
+
+    // Right side: the shop. Click a tool to select it, the tier row to cycle the tier
+    // bought, or Expand to enlarge the region. Clicks are handled after layout below.
+    HUD_PANEL_AT("shop", CLAY_ATTACH_POINT_RIGHT_TOP, -10, 10) {
+        CLAY_TEXT(CLAY_STRING("BUILD"), CLAY_TEXT_CONFIG({.fontSize = 8, .textColor = HUD_GREY}));
+        SHOP_BTN("shop-drop", g->selected_tool == TOOL_DROPPER) {
+            CLAY_TEXT(mach_clay_string(drop_s),
+                      CLAY_TEXT_CONFIG({.fontSize = 8, .textColor = HUD_GREEN}));
+        }
+        SHOP_BTN("shop-conv", g->selected_tool == TOOL_CONVEYOR) {
+            CLAY_TEXT(mach_clay_string(conv_s),
+                      CLAY_TEXT_CONFIG({.fontSize = 8, .textColor = HUD_WHITE}));
+        }
+        SHOP_BTN("shop-upg", g->selected_tool == TOOL_UPGRADER) {
+            CLAY_TEXT(mach_clay_string(upg_s),
+                      CLAY_TEXT_CONFIG({.fontSize = 8, .textColor = HUD_PURPLE}));
+        }
+        SHOP_BTN("shop-furn", g->selected_tool == TOOL_FURNACE) {
+            CLAY_TEXT(mach_clay_string(furn_s),
+                      CLAY_TEXT_CONFIG({.fontSize = 8, .textColor = HUD_GOLD}));
+        }
+        SHOP_BTN("shop-del", g->selected_tool == TOOL_DELETE) {
+            CLAY_TEXT(CLAY_STRING("Delete"),
+                      CLAY_TEXT_CONFIG({.fontSize = 8, .textColor = HUD_GREY}));
+        }
+        SHOP_BTN("shop-tier", MACH_FALSE) {
+            CLAY_TEXT(mach_clay_string(tier_s),
+                      CLAY_TEXT_CONFIG({.fontSize = 8, .textColor = HUD_AMBER}));
+        }
+        SHOP_BTN("shop-expand", MACH_FALSE) {
+            CLAY_TEXT(mach_clay_string(expand_s),
+                      CLAY_TEXT_CONFIG({.fontSize = 8, .textColor = HUD_WHITE}));
+        }
     }
 
     mach_clay_ui_render(&g->clay, r);
+
+    // Handle shop clicks against the finished layout (Clay_PointerOver reads this
+    // frame's layout at this frame's pointer). Selecting a tool toggles it, matching
+    // the number keys; the tier row cycles 1..MAX_TIER; Expand buys the next region.
+    b32 clicked = in->mouse_pressed[MACH_MOUSE_LEFT];
+    if (clicked) {
+        if (Clay_PointerOver(Clay_GetElementId(CLAY_STRING("shop-drop"))))
+            g->selected_tool = (g->selected_tool == TOOL_DROPPER) ? TOOL_NONE : TOOL_DROPPER;
+        else if (Clay_PointerOver(Clay_GetElementId(CLAY_STRING("shop-conv"))))
+            g->selected_tool = (g->selected_tool == TOOL_CONVEYOR) ? TOOL_NONE : TOOL_CONVEYOR;
+        else if (Clay_PointerOver(Clay_GetElementId(CLAY_STRING("shop-upg"))))
+            g->selected_tool = (g->selected_tool == TOOL_UPGRADER) ? TOOL_NONE : TOOL_UPGRADER;
+        else if (Clay_PointerOver(Clay_GetElementId(CLAY_STRING("shop-furn"))))
+            g->selected_tool = (g->selected_tool == TOOL_FURNACE) ? TOOL_NONE : TOOL_FURNACE;
+        else if (Clay_PointerOver(Clay_GetElementId(CLAY_STRING("shop-del"))))
+            g->selected_tool = (g->selected_tool == TOOL_DELETE) ? TOOL_NONE : TOOL_DELETE;
+        else if (Clay_PointerOver(Clay_GetElementId(CLAY_STRING("shop-tier"))))
+            g->selected_tier = (g->selected_tier >= MAX_TIER) ? 1 : g->selected_tier + 1;
+        else if (Clay_PointerOver(Clay_GetElementId(CLAY_STRING("shop-expand"))))
+            world_expand(g->world);
+    }
+    // Remember for next frame's input: a click over the shop must not place a tile.
+    g->pointer_over_ui = Clay_PointerOver(Clay_GetElementId(CLAY_STRING("shop")));
 }

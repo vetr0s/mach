@@ -13,4 +13,8 @@
 // Draw and drive the title screen for one frame. Sets g->screen to leave the menu.
 void menu_frame(Game_State *g, Mach *m);
 
+// Draw and drive the in-game pause overlay for one frame (the frozen game is drawn
+// behind it by game_frame). Resume returns to play, Main Menu leaves the game.
+void pause_menu_frame(Game_State *g, Mach *m);
+
 #endif // MENU_H

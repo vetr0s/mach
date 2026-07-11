@@ -29,7 +29,9 @@ Mach_Config game_config(void) {
         .width = 1280,
         .height = 720,
         .clear_color = MACH_COLOR_BG_MAIN, // modus-vivendi: true black beyond the grid
-        .escape_quits = MACH_TRUE,         // dev convenience, for now
+        // Escape reaches the game (escape_quits stays false): in-game it opens the
+        // pause menu, on the title screen it quits. The engine no longer closes the
+        // window on Escape.
         // Pace to the display (vsync, the engine default): no tearing, no busy-wait,
         // and dt tracks the real refresh rate. Read m.frame_ms, not fps, for headroom.
     };
@@ -179,6 +181,13 @@ void game_frame(Game_State *g, Mach *m) {
         return;
     }
 
+    if (g->screen == SCREEN_PAUSED) {
+        // Draw the frozen game (no tick, no input) with the pause overlay on top.
+        game_render_draw(&m->r2d, g, &m->frame_arena);
+        pause_menu_frame(g, m);
+        return;
+    }
+
     // SCREEN_PLAYING. Input works in the renderer's current pixel space, which may
     // differ from the requested size (fullscreen, or a resized window).
     game_process_input(g, &m->input, (f32)m->r2d.width, (f32)m->r2d.height, m->dt);
@@ -258,6 +267,13 @@ static void camera_zoom(Game_State *g, f32 zoom_delta) {
 void game_process_input(Game_State *g, const Mach_Input *in, f32 screen_w, f32 screen_h, f32 dt) {
     if (!g || !g->world || !in)
         return;
+
+    // Escape opens the pause menu; the rest of this frame's input is skipped so the
+    // press that pauses doesn't also pan or place.
+    if (in->key_pressed[RGFW_keyEscape]) {
+        g->screen = SCREEN_PAUSED;
+        return;
+    }
 
     if (in->key_pressed[RGFW_key1])
         toggle_tool(g, TOOL_DROPPER);

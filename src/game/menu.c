@@ -81,7 +81,60 @@ void menu_frame(Game_State *g, Mach *m) {
         }
     }
 
-    // Keyboard: Enter starts a new game. Escape already quits the app (escape_quits).
+    // Keyboard: Enter starts a new game, Escape quits (the engine no longer closes
+    // the window on Escape; the title screen is where it exits).
     if (in->key_pressed[RGFW_keyReturn] || in->key_pressed[RGFW_keyEnter])
         menu_start_new(g);
+    if (in->key_pressed[RGFW_keyEscape])
+        m->running = MACH_FALSE;
+}
+
+// Semi-transparent dim over the whole screen, so the frozen game shows through
+// behind the pause panel.
+#define PAUSE_SCRIM mach_clay_color_of(mach_color_alpha(MACH_COLOR_BG_MAIN, 0.72f))
+
+void pause_menu_frame(Game_State *g, Mach *m) {
+    Mach_Renderer *r = &m->r2d;
+    const Mach_Input *in = &m->input;
+
+    // Escape resumes, the mirror of the key that opened this.
+    if (in->key_pressed[RGFW_keyEscape]) {
+        g->screen = SCREEN_PLAYING;
+        return;
+    }
+
+    mach_clay_ui_begin(&g->clay, r, (Clay_Vector2){in->mouse.x, in->mouse.y},
+                       in->mouse_down[MACH_MOUSE_LEFT]);
+
+    CLAY(CLAY_ID("pause-root"),
+         {.layout = {.sizing = {.width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0)},
+                     .childAlignment = {.x = CLAY_ALIGN_X_CENTER, .y = CLAY_ALIGN_Y_CENTER}},
+          .backgroundColor = PAUSE_SCRIM}) {
+        CLAY(CLAY_ID("pause-panel"), {.layout = {.layoutDirection = CLAY_TOP_TO_BOTTOM,
+                                                 .padding = CLAY_PADDING_ALL(28),
+                                                 .childGap = 10,
+                                                 .childAlignment = {.x = CLAY_ALIGN_X_CENTER}},
+                                      .backgroundColor = MENU_PANEL,
+                                      .cornerRadius = CLAY_CORNER_RADIUS(10)}) {
+            CLAY_TEXT(CLAY_STRING("Paused"),
+                      CLAY_TEXT_CONFIG({.fontSize = 32, .textColor = MENU_TITLE}));
+            MENU_BUTTON("pause-resume") {
+                CLAY_TEXT(CLAY_STRING("Resume"),
+                          CLAY_TEXT_CONFIG({.fontSize = 16, .textColor = MENU_TEXT}));
+            }
+            MENU_BUTTON("pause-menu") {
+                CLAY_TEXT(CLAY_STRING("Main Menu"),
+                          CLAY_TEXT_CONFIG({.fontSize = 16, .textColor = MENU_DIM}));
+            }
+        }
+    }
+
+    mach_clay_ui_render(&g->clay, r);
+
+    if (in->mouse_pressed[MACH_MOUSE_LEFT]) {
+        if (Clay_PointerOver(Clay_GetElementId(CLAY_STRING("pause-resume"))))
+            g->screen = SCREEN_PLAYING;
+        else if (Clay_PointerOver(Clay_GetElementId(CLAY_STRING("pause-menu"))))
+            g->screen = SCREEN_MENU;
+    }
 }

@@ -26,6 +26,7 @@
 typedef enum {
     SCREEN_MENU = 0, // title screen: new game, load, quit (menu.c)
     SCREEN_PLAYING,  // the running factory: sim + HUD (the rest of game.c)
+    SCREEN_PAUSED,   // pause overlay over the frozen game: resume or main menu (menu.c)
 } App_Screen;
 
 typedef struct {

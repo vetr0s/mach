@@ -92,9 +92,11 @@ mechanics the GDD calls for that the code hasn't caught up to yet, in priority o
 ## UI & controls
 - [x] Clay drives the HUD (Clay is embedded in mach.h; the binding is the engine's
       mach_clay_ui_* section). Reach for Clay for all new UI.
-- [x] Main menu (title screen): App_Screen SCREEN_MENU/SCREEN_PLAYING, game_frame
-      dispatches. New Game (game_new), Continue (save_exists + game_load), Quit
-      (m->running = false). menu.c, launches here. Return-to-menu from in-game is TBD.
+- [x] Main menu (title screen): App_Screen SCREEN_MENU/SCREEN_PLAYING/SCREEN_PAUSED,
+      game_frame dispatches. New Game (game_new), Continue (save_exists + game_load),
+      Quit (m->running = false). menu.c, launches here.
+- [x] Pause menu: Escape (escape_quits now off) freezes the game and pops a scrim +
+      panel over it, Resume / Main Menu. Escape again resumes. In menu.c.
 - [x] HUD spread to the screen edges via Clay floating panels: status top-left,
       inspect top-center, F3 debug bottom-left, controls bottom-center.
 - [x] Hover inspect panel (WTHIT-style): names the machine under the cursor, facing,

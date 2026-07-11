@@ -65,6 +65,8 @@ typedef struct {
     i64 ceiling;       // value cap this ore climbs toward; each distinct upgrader raises it
     u64 upgraded_mask; // bit u set once upgrader u has raised this ore's ceiling
     i32 fall;          // 0 = riding belts; >0 = tipped off a dead end, ticks until it drops out
+    i32 spawn_tick;    // tick the dropper emitted it; it may not resolve terminally that tick,
+                       // so it gets one visible frame on the belt (see world_move_items)
 } Item;
 
 #define MAX_ENTITIES 10000

@@ -337,6 +337,19 @@ static void world_move_items(World *w) {
             // ore rides to the end and tips off. Begin a fall toward that cell.
             i32 dst_id = in_bounds(nx, ny) ? w->grid[nx][ny] : 0;
             Entity *dst = dst_id ? world_get_entity(w, dst_id) : NULL;
+
+            // Hold a freshly dropped item on the belt for its spawn tick if its only
+            // move would resolve it terminally (banked at a collector, or tipped off a
+            // dead end). Otherwise it is born and gone within one tick, before a frame
+            // ever draws it: money rises or ore drops with nothing shown on the first
+            // cell. A normal cell-to-cell move is still allowed, so a real belt keeps
+            // sliding the item forward on its spawn tick; only terminal moves wait.
+            b32 terminal = !dst || dst->type == ENTITY_DROPPER || dst->type == ENTITY_COLLECTOR;
+            if (terminal && it->spawn_tick == w->tick) {
+                moved[i] = MACH_TRUE; // rest here this tick; resolves next tick
+                continue;
+            }
+
             if (!dst || dst->type == ENTITY_DROPPER) {
                 item_begin_fall(w, i, nx, ny);
                 moved[i] = MACH_TRUE;
@@ -413,6 +426,7 @@ static void world_run_droppers(World *w) {
         it->ceiling = ITEM_BASE_VALUE;
         it->upgraded_mask = 0;
         it->fall = 0;
+        it->spawn_tick = w->tick;
         w->item_grid[nx][ny] = idx + 1;
         dr->drop_cooldown = DROP_PERIOD;
         item_apply_cell(w, idx, nx, ny); // upgrade if dropped onto an upgrader

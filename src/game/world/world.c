@@ -242,32 +242,13 @@ static void item_kill(World *w, i32 idx) {
     w->item_count--;
 }
 
-// The ore leaves the belt and tips toward (nx,ny) -- the dead-end cell ahead, which may
-// be off the grid -- then drops out over FALL_TICKS ticks (see world_update_falls). It's
-// no longer on the item grid, so it neither blocks the belt nor gets moved again; the
-// renderer slides it to the target and fades it down. (nx,ny) is never used to index the
-// grids, so an out-of-bounds edge cell is fine.
-static void item_begin_fall(World *w, i32 idx, i32 nx, i32 ny) {
-    Item *it = &w->items[idx];
-    w->item_grid[it->grid_x][it->grid_y] = 0; // vacate the belt cell it rode in on
-    it->grid_x = nx;
-    it->grid_y = ny;
-    it->fall = FALL_TICKS;
-}
-
-// Age out ore that tipped off a dead end: drop it for FALL_TICKS ticks, then remove it.
-// A falling item is already off the item grid (item_begin_fall cleared it) and may sit on
-// an out-of-bounds cell, so it's removed directly rather than through item_kill.
-static void world_update_falls(World *w) {
-    for (i32 i = 0; i < MAX_ITEMS; i++) {
-        Item *it = &w->items[i];
-        if (!it->alive || it->fall == 0)
-            continue;
-        if (--it->fall == 0) {
-            it->alive = MACH_FALSE;
-            w->item_count--;
-        }
-    }
+// Record a transient event for the renderer to animate this frame. Full is not an
+// error: the queue holds a frame's worth (MAX_WORLD_EVENTS), and dropping the
+// overflow costs at most a missed spark, never sim state.
+static void world_emit(World *w, World_Event ev) {
+    if (w->event_count >= MAX_WORLD_EVENTS)
+        return;
+    w->events[w->event_count++] = ev;
 }
 
 // Bank `value` into a collector: the world total and the collector's own tally.
@@ -317,8 +298,8 @@ static void world_move_items(World *w) {
         changed = MACH_FALSE;
         for (i32 i = 0; i < MAX_ITEMS; i++) {
             Item *it = &w->items[i];
-            if (!it->alive || moved[i] || it->fall)
-                continue; // falling ore is off the belt
+            if (!it->alive || moved[i])
+                continue;
 
             i32 cell_id = w->grid[it->grid_x][it->grid_y];
             if (!cell_id) {
@@ -333,31 +314,23 @@ static void world_move_items(World *w) {
             i32 nx = it->grid_x + DIR_DX[d];
             i32 ny = it->grid_y + DIR_DY[d];
 
-            // Dead end ahead -- off the grid, bare ground, or a dropper's back -- so the
-            // ore rides to the end and tips off. Begin a fall toward that cell.
             i32 dst_id = in_bounds(nx, ny) ? w->grid[nx][ny] : 0;
             Entity *dst = dst_id ? world_get_entity(w, dst_id) : NULL;
 
-            // Hold a freshly dropped item on the belt for its spawn tick if its only
-            // move would resolve it terminally (banked at a collector, or tipped off a
-            // dead end). Otherwise it is born and gone within one tick, before a frame
-            // ever draws it: money rises or ore drops with nothing shown on the first
-            // cell. A normal cell-to-cell move is still allowed, so a real belt keeps
-            // sliding the item forward on its spawn tick; only terminal moves wait.
-            b32 terminal = !dst || dst->type == ENTITY_DROPPER || dst->type == ENTITY_COLLECTOR;
-            if (terminal && it->spawn_tick == w->tick) {
-                moved[i] = MACH_TRUE; // rest here this tick; resolves next tick
-                continue;
-            }
-
+            // Dead end ahead -- off the grid, bare ground, or a dropper's back -- so the
+            // ore rides to the end and tips off. It is gone from the sim this tick; the
+            // renderer plays the drop-out from the WORLD_EVENT_FELL below.
             if (!dst || dst->type == ENTITY_DROPPER) {
-                item_begin_fall(w, i, nx, ny);
-                moved[i] = MACH_TRUE;
+                world_emit(
+                    w, (World_Event){WORLD_EVENT_FELL, it->grid_x, it->grid_y, nx, ny, it->value});
+                item_kill(w, i);
                 changed = MACH_TRUE;
                 continue;
             }
 
             if (dst->type == ENTITY_COLLECTOR) {
+                world_emit(w, (World_Event){WORLD_EVENT_BANKED, it->grid_x, it->grid_y, nx, ny,
+                                            it->value});
                 collector_bank(w, dst, it->value);
                 item_kill(w, i);
                 changed = MACH_TRUE;
@@ -405,6 +378,9 @@ static void world_run_droppers(World *w) {
             continue;
 
         if (dst->type == ENTITY_COLLECTOR) {
+            // Dropper feeds a collector directly: no belt cell between them, so the
+            // payout pops at the collector (from == to).
+            world_emit(w, (World_Event){WORLD_EVENT_BANKED, nx, ny, nx, ny, ITEM_BASE_VALUE});
             collector_bank(w, dst, ITEM_BASE_VALUE);
             dr->drop_cooldown = DROP_PERIOD;
             continue;
@@ -425,8 +401,6 @@ static void world_run_droppers(World *w) {
         it->value = ITEM_BASE_VALUE;
         it->ceiling = ITEM_BASE_VALUE;
         it->upgraded_mask = 0;
-        it->fall = 0;
-        it->spawn_tick = w->tick;
         w->item_grid[nx][ny] = idx + 1;
         dr->drop_cooldown = DROP_PERIOD;
         item_apply_cell(w, idx, nx, ny); // upgrade if dropped onto an upgrader
@@ -450,9 +424,6 @@ void world_tick(World *w) {
         return;
     w->tick++;
     world_snapshot_items(w);
-    // Age ore that tipped off a dead end on an earlier tick before doing anything else,
-    // so a fall started last tick advances and eventually clears this tick's pool.
-    world_update_falls(w);
     // Droppers before move so a freshly dropped item is picked up by the same-tick
     // move pass: it spawns on the belt cell and slides forward immediately instead of
     // sitting idle for a whole tick (very visible at the slow sim rate).

@@ -19,6 +19,7 @@
 
 // Game (game.c defines the four exported entry points).
 #include "game/sprites.c"
+#include "game/effects.c"
 #include "game/world/world.c"
 #include "game/game.c"
 #include "game/render_game.c"

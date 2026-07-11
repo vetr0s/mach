@@ -56,7 +56,10 @@ typedef struct {
     } data;
 } Entity;
 
-// An item riding the belts. One item occupies one cell at a time.
+// An item riding the belts. One item occupies one cell at a time. An item exists
+// only while it is on a belt: the moment it banks or tips off a dead end it is
+// killed, and the transient visual (the drop-out, the payout) is a World_Event
+// the renderer animates. The sim carries no visual timing.
 typedef struct {
     b32 alive;
     i32 grid_x, grid_y;
@@ -64,16 +67,30 @@ typedef struct {
     i64 value;
     i64 ceiling;       // value cap this ore climbs toward; each distinct upgrader raises it
     u64 upgraded_mask; // bit u set once upgrader u has raised this ore's ceiling
-    i32 fall;          // 0 = riding belts; >0 = tipped off a dead end, ticks until it drops out
-    i32 spawn_tick;    // tick the dropper emitted it; it may not resolve terminally that tick,
-                       // so it gets one visible frame on the belt (see world_move_items)
 } Item;
+
+// Something the sim did on a tick that has no lasting state but should be seen:
+// an ore banked, an ore tipped off a dead end. The sim records what happened,
+// with no notion of how long the visual runs or what it looks like; the renderer
+// drains this queue once per frame, turns each into a real-time Effect (effects.h),
+// and clears it. This is the seam that keeps visual timing out of the sim.
+typedef enum {
+    WORLD_EVENT_BANKED = 1, // an ore reached a collector and banked its value
+    WORLD_EVENT_FELL,       // an ore rode to a dead end and tipped off
+} World_Event_Type;
+
+typedef struct {
+    World_Event_Type type;
+    i32 from_x, from_y; // the belt cell the ore left
+    i32 to_x, to_y;     // where it went: the collector cell, or the dead-end cell
+    i64 value;          // the ore's value at that moment
+} World_Event;
 
 #define MAX_ENTITIES 10000
 #define MAX_ITEMS 1024
 #define MAX_UPGRADERS 64 // bounded by the bits in Item.upgraded_mask
 #define WORLD_GRID_SIZE 256
-#define FALL_TICKS 3 // how long ore takes to drop out after tipping off a dead end
+#define MAX_WORLD_EVENTS 256 // per-frame cap; the renderer drains the queue every frame
 
 typedef struct {
     Entity entities[MAX_ENTITIES];
@@ -90,6 +107,11 @@ typedef struct {
 
     u64 upgrader_ids_used; // allocation bitmap for upgrader ids
     i64 money;             // total value banked across all collectors
+
+    // Transient events the renderer animates. The sim appends across the ticks of a
+    // frame; the renderer drains and resets the count once per frame. See World_Event.
+    World_Event events[MAX_WORLD_EVENTS];
+    i32 event_count;
 
     i32 tick;
 } World;
@@ -117,8 +139,7 @@ i32 world_get_entity_at(World *w, i32 x, i32 y);
 Entity *world_get_entity(World *w, i32 entity_id);
 b32 world_can_place_at(World *w, i32 x, i32 y);
 
-// The item riding cell (x,y), or NULL. Falling ore is off the item grid, so it
-// never comes back from here.
+// The item riding cell (x,y), or NULL.
 Item *world_get_item_at(World *w, i32 x, i32 y);
 
 #endif

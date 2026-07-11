@@ -41,6 +41,7 @@ void game_init(Game_State *g, Mach *m) {
     g->world = world_create(&g->arena);
     mach_clay_ui_init(&g->clay, &m->r2d);
     sprites_load(&g->sprites, &m->r2d);
+    effects_clear(&g->effects);
     g->selected_tool = TOOL_NONE;
     g->place_dir = DIR_E;
     g->hover_grid_x = 0;
@@ -77,6 +78,40 @@ static void update_hover(Game_State *g, f32 screen_w, f32 screen_h, f32 mouse_x,
         g->hover_valid && world_can_place_at(g->world, g->hover_grid_x, g->hover_grid_y);
 }
 
+// Effect durations, in real seconds (not sim ticks): how long each transient runs.
+#define BANK_EFFECT_SECS 0.6f
+#define FALL_EFFECT_SECS 0.45f
+
+// Turn the sim events from this frame's ticks into real-time effects, then clear the
+// queue. This is the one-way seam: the sim says what happened, the renderer owns how
+// (and for how long) it looks. Adding a new bit of juice later is a new event type
+// and a case here, never a change to world.c.
+static void game_sync_effects(Game_State *g) {
+    World *w = g->world;
+    for (i32 i = 0; i < w->event_count; i++) {
+        const World_Event *ev = &w->events[i];
+        Effect *fx = effects_add(&g->effects);
+        if (!fx)
+            break; // pool full this frame; the rest are dropped sparks
+        fx->from_x = (f32)ev->from_x;
+        fx->from_y = (f32)ev->from_y;
+        fx->to_x = (f32)ev->to_x;
+        fx->to_y = (f32)ev->to_y;
+        fx->value = ev->value;
+        switch (ev->type) {
+        case WORLD_EVENT_BANKED:
+            fx->type = EFFECT_BANK;
+            fx->lifetime = BANK_EFFECT_SECS;
+            break;
+        case WORLD_EVENT_FELL:
+            fx->type = EFFECT_FALL;
+            fx->lifetime = FALL_EFFECT_SECS;
+            break;
+        }
+    }
+    w->event_count = 0;
+}
+
 // Advance the simulation. Rendering runs every frame, but the world steps at a
 // fixed rate: we bank real elapsed time and run world_tick in fixed slices, so a
 // miner produces the same ore per second regardless of framerate. dt is already
@@ -93,6 +128,12 @@ void game_tick(Game_State *g, f32 dt) {
         world_tick(g->world);
         g->sim_accumulator -= SIM_TICK_DT;
     }
+
+    // Drain the events those ticks emitted into real-time effects, then age them.
+    // Both run on real dt and freeze with the sim on pause (this function returns
+    // early above), so a paused world holds its effects mid-flight.
+    game_sync_effects(g);
+    effects_update(&g->effects, dt);
 }
 
 // One whole game frame: consume input, advance the sim, draw the world and HUD.

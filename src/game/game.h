@@ -4,6 +4,7 @@
 #define GAME_H
 
 #include "mach.h"
+#include "effects.h"
 #include "sprites.h"
 #include "world/world.h"
 
@@ -24,6 +25,7 @@ typedef struct {
     World *world;
     Mach_ClayUI clay; // HUD layout/draw; in host memory so it survives hot reload
     Sprites sprites;  // baked-in art; empty until PNGs land in assets/sprites
+    Effects effects;  // transient visuals fed by world events; real-time, sim-independent
     i32 selected_tool;
     Direction place_dir; // facing applied to directional pieces on placement
 

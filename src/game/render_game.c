@@ -199,51 +199,45 @@ static Mach_Color item_color(const Item *it) {
     return mach_color_lerp(MACH_COLOR_YELLOW_FAINT, MACH_COLOR_YELLOW_WARMER, t);
 }
 
-// A small diamond floating just above the belt at the item's cell, with the ore's
+// Draw the ore glyph (the sprite if assets/sprites/ore.png exists, else the
+// procedural diamond) at a grid position with the given elevation, half-size and
+// color. Returns the diamond's top screen point, where callers hang a label. Shared
+// by the live belt ore and the transient effects, so the same thing always looks
+// the same whether it is riding a belt or dropping off a dead end.
+static Mach_Vec2 draw_ore(Mach_Renderer *r, const Mach_Camera2D *cam, const Sprites *sprites,
+                          f32 gx, f32 gy, f32 elev, f32 s, Mach_Color col) {
+    f32 sw = (f32)r->width, sh = (f32)r->height;
+    Mach_Vec2 n = mach_iso_to_screen(cam, sw, sh, gx, gy - s, elev);
+    Mach_R2D_Texture ore = sprites_get(sprites, "ore");
+    if (ore.id) {
+        Mach_Vec2 c = mach_iso_to_screen(cam, sw, sh, gx, gy, elev);
+        f32 sc = cam->zoom;
+        mach_r2d_sprite(r, ore, c.x - (f32)ore.w * sc * 0.5f, c.y - (f32)ore.h * sc * 0.5f, sc,
+                        col);
+    } else {
+        Mach_Vec2 ee = mach_iso_to_screen(cam, sw, sh, gx + s, gy, elev);
+        Mach_Vec2 ss = mach_iso_to_screen(cam, sw, sh, gx, gy + s, elev);
+        Mach_Vec2 ww = mach_iso_to_screen(cam, sw, sh, gx - s, gy, elev);
+        Mach_Vec2 pts[4] = {n, ee, ss, ww};
+        mach_r2d_fill_poly(r, pts, 4, col);
+        mach_r2d_poly_outline(r, pts, 4, mach_color_shade(col, 0.45f));
+    }
+    return n;
+}
+
+// A small ore glyph floating just above the belt at the item's cell, with its
 // current value labeled above it. `alpha` is the fraction into the current sim tick,
 // so the item slides from its previous cell to its current one instead of snapping.
+// Only live belt ore is drawn here; an ore that banks or tips off a dead end is gone
+// from the sim that tick and is animated by draw_effects instead.
 static void draw_item(Mach_Renderer *r, const Mach_Camera2D *cam, const Sprites *sprites,
                       const Item *it, f32 alpha) {
     f32 sw = (f32)r->width, sh = (f32)r->height;
     f32 gx = (f32)it->prev_x + ((f32)it->grid_x - (f32)it->prev_x) * alpha;
     f32 gy = (f32)it->prev_y + ((f32)it->grid_y - (f32)it->prev_y) * alpha;
     f32 e = 0.34f, s = 0.18f;
-    Mach_Color col = item_color(it);
 
-    // Ore that tipped off a dead end: sink it below the belt, shrink and fade it as it
-    // drops out. `fall` counts FALL_TICKS -> 0; alpha smooths the drop between ticks.
-    if (it->fall > 0) {
-        f32 p = ((f32)(FALL_TICKS - it->fall) + alpha) / (f32)FALL_TICKS;
-        if (p < 0.0f)
-            p = 0.0f;
-        if (p > 1.0f)
-            p = 1.0f;
-        e -= p * 0.9f;         // sink through the belt surface
-        s *= 1.0f - 0.45f * p; // shrink a touch
-        col.w = 1.0f - p;      // fade to nothing
-    }
-
-    Mach_Vec2 n = mach_iso_to_screen(cam, sw, sh, gx, gy - s, e);
-    Mach_Vec2 ee = mach_iso_to_screen(cam, sw, sh, gx + s, gy, e);
-    Mach_Vec2 ss = mach_iso_to_screen(cam, sw, sh, gx, gy + s, e);
-    Mach_Vec2 ww = mach_iso_to_screen(cam, sw, sh, gx - s, gy, e);
-
-    // Real art if assets/sprites/ore.png exists, the procedural diamond if not.
-    // Value still reads through the tint, so a hotter ore looks hotter either way.
-    Mach_R2D_Texture ore = sprites_get(sprites, "ore");
-    if (ore.id) {
-        Mach_Vec2 c = mach_iso_to_screen(cam, sw, sh, gx, gy, e);
-        f32 sc = cam->zoom;
-        mach_r2d_sprite(r, ore, c.x - (f32)ore.w * sc * 0.5f, c.y - (f32)ore.h * sc * 0.5f, sc,
-                        col);
-    } else {
-        Mach_Vec2 pts[4] = {n, ee, ss, ww};
-        mach_r2d_fill_poly(r, pts, 4, col);
-        mach_r2d_poly_outline(r, pts, 4, mach_color_shade(col, 0.45f));
-    }
-
-    if (it->fall > 0)
-        return; // no value label on ore that's dropping out
+    Mach_Vec2 n = draw_ore(r, cam, sprites, gx, gy, e, s, item_color(it));
 
     // Value label, centered over the diamond and sitting just above its top point.
     char buf[32];
@@ -257,6 +251,52 @@ static void draw_item(Mach_Renderer *r, const Mach_Camera2D *cam, const Sprites 
     mach_r2d_text(r, tx + 1.0f, ty + 1.0f, tscale, buf,
                   mach_color_alpha(MACH_COLOR_BG_MAIN, 0.7f)); // shadow
     mach_r2d_text(r, tx, ty, tscale, buf, MACH_COLOR_FG_MAIN);
+}
+
+// The transient visuals the sim can't hold: an ore banking, an ore tipping off a
+// dead end. Each is driven by its own real-time age, so it plays smoothly and lives
+// independently of the item it came from (which is already gone from the sim). This
+// is where the "prettify" work lands later; the skeleton keeps it to what the old
+// code already did (the drop-out) plus the banking that was invisible before.
+static void draw_effects(Mach_Renderer *r, const Mach_Camera2D *cam, const Sprites *sprites,
+                         const Effects *fx) {
+    f32 sw = (f32)r->width, sh = (f32)r->height;
+    for (i32 i = 0; i < fx->count; i++) {
+        const Effect *e = &fx->items[i];
+        f32 p = e->lifetime > 0.0f ? e->age / e->lifetime : 1.0f;
+        if (p > 1.0f)
+            p = 1.0f;
+
+        if (e->type == EFFECT_FALL) {
+            // Ore rides on toward the dead-end cell, sinking through the belt and fading.
+            f32 gx = e->from_x + (e->to_x - e->from_x) * p;
+            f32 gy = e->from_y + (e->to_y - e->from_y) * p;
+            Mach_Color col = MACH_COLOR_YELLOW_WARMER;
+            col.w = 1.0f - p;
+            draw_ore(r, cam, sprites, gx, gy, 0.34f - p * 0.9f, 0.18f * (1.0f - 0.45f * p), col);
+            continue;
+        }
+
+        // EFFECT_BANK: ore slides into the collector over the first half of the life,
+        // shrinking as it's consumed, then a "+value" rises and fades over the whole life.
+        f32 slide = p < 0.5f ? p / 0.5f : 1.0f;
+        if (slide < 1.0f) {
+            f32 gx = e->from_x + (e->to_x - e->from_x) * slide;
+            f32 gy = e->from_y + (e->to_y - e->from_y) * slide;
+            draw_ore(r, cam, sprites, gx, gy, 0.34f, 0.18f * (1.0f - 0.6f * slide),
+                     MACH_COLOR_YELLOW_WARMER);
+        }
+        char buf[33];
+        buf[0] = '+';
+        game_format_value(e->value, buf + 1, sizeof buf - 1);
+        Mach_Vec2 c = mach_iso_to_screen(cam, sw, sh, e->to_x, e->to_y, 0.6f + p * 0.8f); // rises
+        f32 tx = c.x - (f32)r->font->advance * (f32)strlen(buf) * 0.5f;
+        Mach_Color tcol = MACH_COLOR_GREEN;
+        tcol.w = 1.0f - p; // fade out
+        mach_r2d_text(r, tx + 1.0f, c.y + 1.0f, 1.0f, buf,
+                      mach_color_alpha(MACH_COLOR_BG_MAIN, 0.6f * (1.0f - p)));
+        mach_r2d_text(r, tx, c.y, 1.0f, buf, tcol);
+    }
 }
 
 static void draw_entity(Mach_Renderer *r, const Mach_Camera2D *cam, const Entity *e,
@@ -385,6 +425,10 @@ void game_render_draw(Mach_Renderer *r, const Game_State *game, Mach_Arena *scra
     qsort(items, (size_t)ni, sizeof(DrawItem), cmp_draw);
     for (i32 i = 0; i < ni; i++)
         draw_item(r, cam, &game->sprites, (const Item *)items[i].ptr, alpha);
+
+    // Transient effects on top of the world. Not depth-sorted with entities yet:
+    // they are brief sparks, and correct occlusion is a prettify concern, not skeleton.
+    draw_effects(r, cam, &game->sprites, &game->effects);
 }
 
 // ---------------------------------------------------------------------------

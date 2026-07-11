@@ -103,6 +103,14 @@ static void update_hover(Game_State *g, f32 screen_w, f32 screen_h, f32 mouse_x,
 #define BANK_EFFECT_SECS 0.9f
 #define FALL_EFFECT_SECS 0.45f
 
+// A stable [-1,1] value from a few integers, for scattering effect labels. Not
+// cryptographic; just needs to spread nearby, same-frame banks apart.
+static f32 hash_unit(i32 a, i32 b, i64 c) {
+    u32 h = (u32)a * 2654435761u ^ (u32)b * 40503u ^ (u32)(c) * 2246822519u;
+    h ^= h >> 15;
+    return (f32)(h & 0xffff) / 65535.0f * 2.0f - 1.0f;
+}
+
 // Turn the sim events from this frame's ticks into real-time effects, then clear the
 // queue. This is the one-way seam: the sim says what happened, the renderer owns how
 // (and for how long) it looks. Adding a new bit of juice later is a new event type
@@ -123,6 +131,10 @@ static void game_sync_effects(Game_State *g) {
         case WORLD_EVENT_BANKED:
             fx->type = EFFECT_BANK;
             fx->lifetime = BANK_EFFECT_SECS;
+            // Scatter the "+value" horizontally: the event index decorrelates two ores
+            // banked at the same furnace on the same tick, the cell decorrelates two
+            // furnaces side by side.
+            fx->jitter = hash_unit(ev->to_x, ev->to_y, ev->value + i);
             break;
         case WORLD_EVENT_FELL:
             fx->type = EFFECT_FALL;

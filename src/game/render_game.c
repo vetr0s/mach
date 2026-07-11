@@ -26,6 +26,10 @@
 #define FURNACE_WALL_H 0.16f
 #define FURNACE_MOUTH 0.34f
 
+// Horizontal spread of a bank "+value" label at zoom 1, in pixels, times its jitter
+// in [-1,1]: keeps simultaneous nearby payouts from stacking on the same spot.
+#define BANK_LABEL_SPREAD_PX 22.0f
+
 #define DROPPER_COL MACH_COLOR_GREEN
 #define CONVEYOR_COL MACH_COLOR_BG_POPUP
 #define UPGRADER_COL MACH_COLOR_MAGENTA_COOLER
@@ -326,7 +330,11 @@ static void draw_effects(Mach_Renderer *r, const Mach_Camera2D *cam, const Sprit
             game_format_value(e->value, buf + 1, sizeof buf - 1);
             Mach_Vec2 c =
                 mach_iso_to_screen(cam, sw, sh, e->to_x, e->to_y, FURNACE_WALL_H + 0.2f + q * 0.7f);
-            draw_value_tag(r, c.x, c.y, buf, label_scale(cam), 1.0f - q, MACH_COLOR_GREEN);
+            f32 sc = label_scale(cam);
+            // Spread the label horizontally by its jitter (scaled with zoom) so
+            // simultaneous, nearby payouts stay separately readable.
+            draw_value_tag(r, c.x + e->jitter * BANK_LABEL_SPREAD_PX * sc, c.y, buf, sc, 1.0f - q,
+                           MACH_COLOR_GREEN);
         }
     }
 }

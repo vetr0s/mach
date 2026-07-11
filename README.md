@@ -1,7 +1,7 @@
 # mach
 
 A factory/automation game in pure C99: droppers spit out ore, conveyors carry
-it, upgraders raise its worth, collectors bank it. Built on **mach.h**, the
+it, upgraders raise its worth, furnaces bank it. Built on **mach.h**, the
 single-header 2D engine that grew out of this project and now lives in its own
 repo. A copy sits in `src/mach.h`, so this repo still builds with nothing but a
 C compiler.
@@ -61,7 +61,7 @@ On Windows, SmartScreen will warn; click "More info" then "Run anyway".
 ## Playing with it
 
 The game is a value loop: droppers spit out ore, conveyors route it, upgraders
-raise its value toward a ceiling, and collectors bank it. Ore climbs its
+raise its value toward a ceiling, and furnaces bank it. Ore climbs its
 ceiling a fraction per upgrader pass, and each *distinct* upgrader it meets
 raises that ceiling. The puzzle is routing loops past as many different
 upgraders as you can before cashing out.
@@ -70,7 +70,7 @@ upgraders as you can before cashing out.
 |---|---|
 | WASD / Arrows | Pan the camera |
 | Scroll wheel | Zoom |
-| 1 / 2 / 3 / 4 / 5 | Pick Dropper / Conveyor / Upgrader / Collector / Delete (press again to drop it) |
+| 1 / 2 / 3 / 4 / 5 | Pick Dropper / Conveyor / Upgrader / Furnace / Delete (press again to drop it) |
 | R | Rotate the piece under the cursor in place; over an empty tile, rotate the facing of the next piece placed |
 | Left click | Place the current tool on the hovered tile |
 | Space | Pause / resume the simulation (freezes the world; you can still build and pan) |

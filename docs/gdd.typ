@@ -161,7 +161,7 @@ Four object types. Depth comes from many *variants* of each (tiers), not from mo
 
 - *Upgrader.* Its own object, but physically a belt surface: it moves ore *and* multiplies its value as the ore crosses it. Routing ore through (and around, and back through) upgraders is the whole layout puzzle.
 
-- *Furnace.* Consumes ore and banks its accumulated value as money. The end of every path. (This is what the code currently calls the "collector.")
+- *Furnace.* Consumes ore and banks its accumulated value as money. The end of every path.
 
 === Object Rules
 

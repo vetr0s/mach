@@ -35,7 +35,7 @@ mechanics the GDD calls for that the code hasn't caught up to yet, in priority o
 - [x] Fixed simulation timestep: the world steps at a constant rate (3/s in
       game.c), decoupled from the render framerate
 - [x] Core loop: droppers emit items, conveyors route them, upgraders raise value,
-      collectors bank it. world_tick runs the belt sim.
+      furnaces bank it. world_tick runs the belt sim.
 - [x] Belt movement: one item per cell, gap-aware advance (a settle pass so a belt
       with a gap fully advances in one tick; a packed loop correctly jams)
 - [x] Directional placement with rotation (R), money HUD, item/arrow rendering
@@ -53,8 +53,9 @@ mechanics the GDD calls for that the code hasn't caught up to yet, in priority o
       competing sinks: grid expansion on a 2^n side-length cadence (2x2 -> 4x4 -> 8x8...,
       cost scaling with area, gated by a playable_extent) + buyable tiers for
       droppers/upgraders/belts. Space vs spend.
-- [ ] Rename collector -> furnace throughout (ENTITY_COLLECTOR / TOOL_COLLECTOR /
-      Entity_Collector in world.{h,c}, game.{h,c}, render_game.c). GDD naming decision.
+- [x] Rename collector -> furnace throughout (ENTITY_FURNACE / TOOL_FURNACE /
+      Entity_Furnace, world_spawn_furnace, and the UI strings). GDD naming decision.
+      The furnace also became a shallow walled bin visually, not a tall block.
 - [ ] Machine tiers plumbing: a `tier` field scaling one stat. Dropper/upgrader tiers
       are a value bump today (drop_cooldown, UPGRADER_MULT). Belt-speed tiers need belt
       speed moved off the global sim clock onto a per-entity ticks-per-cell cadence, with
@@ -89,7 +90,7 @@ mechanics the GDD calls for that the code hasn't caught up to yet, in priority o
 - [x] HUD spread to the screen edges via Clay floating panels: status top-left,
       inspect top-center, F3 debug bottom-left, controls bottom-center.
 - [x] Hover inspect panel (WTHIT-style): names the machine under the cursor, facing,
-      dropper cooldown, collector banked total, and the ore's value / ceiling.
+      dropper cooldown, furnace banked total, and the ore's value / ceiling.
 - [x] Pause / resume the simulation (Space): freezes sim ticks and animation; build and
       pan still work while frozen.
 - [x] Rotate the hovered piece in place (R); over an empty tile it rotates the facing the

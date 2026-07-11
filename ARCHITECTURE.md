@@ -148,7 +148,7 @@ judgment; this game asks for things by need, not speculation.
    independent of framerate.
 5. **Arena allocator**: done; the world is one arena block.
 6. **Edge outlines**: done; tiles and blocks get stroked edges.
-7. **Value-loop sim**: done; droppers, conveyors, upgraders, and collectors with
+7. **Value-loop sim**: done; droppers, conveyors, upgraders, and furnaces with
    a belt simulation in world_tick.
 8. **SDL3 to RGFW + own GL batch renderer**: done. Every dependency became a
    committed single header; the codebase is C99; there is no setup step.

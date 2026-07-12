@@ -17,7 +17,7 @@ C compiler.
 
 ![mach: isometric factory scene rendered by the engine](assets/mach-engine-screenshot.png)
 
-## Building it
+## Building
 
 You need a C compiler. That's the whole list. The engine (with windowing, GL,
 UI, and image loading embedded) is one committed header at `src/mach.h`, and
@@ -58,7 +58,7 @@ xattr -d com.apple.quarantine mach
 ```
 On Windows, SmartScreen will warn; click "More info" then "Run anyway".
 
-## Playing with it
+## Playing
 
 The game is a value loop: droppers spit out ore, conveyors route it, upgraders
 raise its value toward a ceiling, and furnaces bank it as money. Ore climbs its
@@ -95,7 +95,7 @@ fine but you cannot afford the piece.
 The money, the shop, the controls bar and the inspect panel are always on screen.
 The frame timings and the counts live behind the debug overlay.
 
-## Hacking on it
+## Hacking
 
 `./nob hot` is the dev loop: it builds, runs the game, and watches the
 sources. Every save rebuilds the game library and the running game swaps it in
@@ -113,7 +113,7 @@ and point your init at them:
 ```
 `C-]` jumps to a definition, `C-M-]` jumps back.
 
-## Why it's built this way
+## Why build this way
 
 **Pure C, no frameworks.** mach.h handles window, input, and drawing; past that
 it's just C. It builds as C99 on clang and gcc and C11 on MSVC, but it doesn't
@@ -136,7 +136,7 @@ raylib-style. Engine updates arrive by copying a new release into `src/mach.h`.
 is a full struct and the game logic touches the data directly. The idea is lifted
 from Anton Mikhailov on the *Wookash Podcast*.
 
-## Where it runs
+## Cross-platform
 
 | Platform | Status |
 |---|---|
@@ -146,7 +146,7 @@ from Anton Mikhailov on the *Wookash Podcast*.
 
 The release binaries have been run on all three platforms.
 
-## How the code is laid out
+## Code Structure
 
 ```
 src/
@@ -171,7 +171,7 @@ docs/                     # the game design doc (gdd.typ; docs/VERSION is its ve
 Engine internals (the batch renderer, the GL loader, arenas) are documented in
 the mach.h repo, not here.
 
-## The entity system
+## The "entity" system
 
 Entities are **fat structs**, not generic bags of components:
 ```c
@@ -221,7 +221,7 @@ outlined edges) sorted back-to-front. That reads as depth without a single line
 of 3D code. `render_game.c` composes the engine's primitives into that look;
 the HUD is Clay panels drawn through the same renderer.
 
-## Standing on other people's shoulders
+## References
 
 | Source | What it gave the project | Link |
 |---|---|---|

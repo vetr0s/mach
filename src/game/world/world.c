@@ -419,10 +419,21 @@ static void world_emit(World *w, World_Event ev) {
     w->events[w->event_count++] = ev;
 }
 
+// Saturating add, clamped at MAX_ITEM_VALUE. The design wants values to run into the
+// quadrillions and past (see docs/gdd.typ "Numbers explode by design"), and an ore's
+// ceiling is uncapped, so a plain += on a running total is a real overflow: two ores
+// near the roof wrap i64 negative and brick the run. Clamping at MAX_ITEM_VALUE (1<<62)
+// keeps a full headroom bit below i64's max, so the sum below can never itself overflow.
+static i64 sat_add(i64 a, i64 b) {
+    if (b > 0 && a > MAX_ITEM_VALUE - b)
+        return MAX_ITEM_VALUE;
+    return a + b;
+}
+
 // Bank `value` into a furnace: the world total and the furnace's own tally.
 static void furnace_bank(World *w, Entity *e, i64 value) {
-    w->money += value;
-    e->data.furnace.banked += value;
+    w->money = sat_add(w->money, value);
+    e->data.furnace.banked = sat_add(e->data.furnace.banked, value);
 }
 
 // Apply the effect of the entity on (x,y) to an item that just arrived there;
@@ -535,6 +546,11 @@ static void world_run_droppers(World *w) {
             continue;
 
         Entity_Dropper *dr = &e->data.dropper;
+        // (npt): The cooldown is reset to DROP_PERIOD - 1, not DROP_PERIOD. The tick that
+        // drops is itself one tick of the period, so counting a full DROP_PERIOD down to
+        // zero afterwards spends an extra tick and gives a period of DROP_PERIOD + 1: at
+        // DROP_PERIOD 2 the old code emitted every 3 ticks, making all the income and
+        // belt-density tuning two thirds of what the constants said.
         if (dr->drop_cooldown > 0) {
             dr->drop_cooldown--;
             continue;
@@ -560,7 +576,7 @@ static void world_run_droppers(World *w) {
             // payout pops at the furnace (from == to).
             world_emit(w, (World_Event){WORLD_EVENT_BANKED, nx, ny, nx, ny, base});
             furnace_bank(w, dst, base);
-            dr->drop_cooldown = DROP_PERIOD;
+            dr->drop_cooldown = DROP_PERIOD - 1;
             continue;
         }
 
@@ -580,7 +596,7 @@ static void world_run_droppers(World *w) {
         it->ceiling = base;
         it->upgraded_mask = 0;
         w->item_grid[nx][ny] = idx + 1;
-        dr->drop_cooldown = DROP_PERIOD;
+        dr->drop_cooldown = DROP_PERIOD - 1;
         item_apply_cell(w, idx, nx, ny); // upgrade if dropped onto an upgrader
     }
 }

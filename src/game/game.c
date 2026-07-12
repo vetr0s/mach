@@ -89,6 +89,29 @@ void game_init(Game_State *g, Mach *m) {
     MACH_LOG_INFO("game initialized (value-loop sim)");
 }
 
+// The entity a build tool places. TOOL_NONE and TOOL_DELETE buy nothing.
+Entity_Type game_tool_entity(i32 tool) {
+    switch (tool) {
+    case TOOL_DROPPER:
+        return ENTITY_DROPPER;
+    case TOOL_CONVEYOR:
+        return ENTITY_CONVEYOR;
+    case TOOL_UPGRADER:
+        return ENTITY_UPGRADER;
+    case TOOL_SPLITTER:
+        return ENTITY_SPLITTER;
+    case TOOL_FURNACE:
+        return ENTITY_FURNACE;
+    default:
+        return ENTITY_INVALID;
+    }
+}
+
+// Only droppers and upgraders come in tiers; everything else is bought at tier 1.
+i32 game_tool_tier(const Game_State *g, Entity_Type t) {
+    return (t == ENTITY_DROPPER || t == ENTITY_UPGRADER) ? g->selected_tier : 1;
+}
+
 // Update the hovered grid cell by inverse-projecting the mouse onto the ground
 // plane. Grid cell (x,y) is the tile centered at iso coordinate (x, y).
 static void update_hover(Game_State *g, f32 screen_w, f32 screen_h, f32 mouse_x, f32 mouse_y) {
@@ -99,6 +122,14 @@ static void update_hover(Game_State *g, f32 screen_w, f32 screen_h, f32 mouse_x,
                       g->hover_grid_y >= 0 && g->hover_grid_y < WORLD_GRID_SIZE);
     g->hover_can_place =
         g->hover_valid && world_can_place_at(g->world, g->hover_grid_x, g->hover_grid_y);
+
+    // Affordability is tracked separately from placeability so the preview can say WHY a
+    // click will do nothing: a red tile means the cell is taken or locked, a faint red one
+    // means the cell is fine but the money is not. Before this, an unaffordable buy was a
+    // silent no-op under a green "go ahead" preview.
+    Entity_Type t = game_tool_entity(g->selected_tool);
+    g->hover_affordable = (t == ENTITY_INVALID) || !g->world ||
+                          g->world->money >= world_entity_cost(t, game_tool_tier(g, t));
 }
 
 // Effect durations, in real seconds (not sim ticks): how long each transient runs.
@@ -217,34 +248,20 @@ static void place_at_hover(Game_State *g) {
         return;
 
     i32 hx = g->hover_grid_x, hy = g->hover_grid_y;
-    // world_try_place enforces the region, the money, and the tier; a rejected buy
-    // (no room, no funds) is a no-op, so a click that can't afford anything just does
-    // nothing. Conveyors and furnaces are single-tier.
-    switch (g->selected_tool) {
-    case TOOL_DROPPER:
-        world_try_place(g->world, ENTITY_DROPPER, hx, hy, g->place_dir, g->selected_tier);
-        break;
-    case TOOL_CONVEYOR:
-        world_try_place(g->world, ENTITY_CONVEYOR, hx, hy, g->place_dir, 1);
-        break;
-    case TOOL_UPGRADER:
-        world_try_place(g->world, ENTITY_UPGRADER, hx, hy, g->place_dir, g->selected_tier);
-        break;
-    case TOOL_SPLITTER:
-        world_try_place(g->world, ENTITY_SPLITTER, hx, hy, g->place_dir, 1);
-        break;
-    case TOOL_FURNACE:
-        world_try_place(g->world, ENTITY_FURNACE, hx, hy, g->place_dir, 1);
-        break;
-    case TOOL_DELETE: {
+
+    if (g->selected_tool == TOOL_DELETE) {
         i32 entity_id = world_get_entity_at(g->world, hx, hy);
         if (entity_id != 0)
             world_despawn(g->world, entity_id);
-        break;
+        return;
     }
-    default:
-        break;
-    }
+
+    // world_try_place enforces the region, the money, and the tier; a rejected buy (no
+    // room, no funds) is a no-op. The hover preview already told the player which it
+    // would be (see update_hover), so a click that buys nothing is never a surprise.
+    Entity_Type t = game_tool_entity(g->selected_tool);
+    if (t != ENTITY_INVALID)
+        world_try_place(g->world, t, hx, hy, g->place_dir, game_tool_tier(g, t));
 }
 
 // Toggle the given tool: selecting the active tool again clears it.

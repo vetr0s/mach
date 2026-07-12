@@ -63,7 +63,23 @@ mechanics the GDD calls for that the code hasn't caught up to yet, in priority o
       are a value bump today (drop_cooldown, UPGRADER_MULT). Belt-speed tiers need belt
       speed moved off the global sim clock onto a per-entity ticks-per-cell cadence, with
       item interpolation spanning that multi-tick window instead of one-move-per-tick.
-- [ ] Special upgraders (caps, value gates, multipliers with conditions)
+- [x] **Splitter (GDD Milestone 3.5, the missing half of the loop).** A belt surface with two
+      outputs that alternates between them. Before this, a recirculating loop, the GDD's
+      signature move, was physically unbuildable: every object has a single facing, so ore
+      that entered a cycle rode it forever and packed the cycle into a permanent jam. A
+      headless probe confirmed it: an 8-cell loop with an upgrader on it banked $0 over 2000
+      ticks and deadlocked with 8 stranded ore. The splitter is the tap that drains a loop.
+      ENTITY_SPLITTER / TOOL_SPLITTER (key 6), `Entity_Splitter{branch, flip}` where `branch`
+      is quarter-turns clockwise from the facing (1..3, so the two outputs can never be the
+      same cell and rotating the piece carries the branch with it). T turns just the branch.
+      It prefers the output its alternation points at but takes the other if that one is
+      backed up, because strict alternation deadlocks a loop exactly when it fills. Save
+      format is v2 (v1 files still load: they predate the type, so they cannot contain one).
+      Measured: the same loop now banks steadily, holds 3-4 ore on 8 cells instead of packing
+      to 8, and beats an equivalent straight line ($31.9k vs $25.0k over 3000 ticks).
+- [ ] Special upgraders (caps, value gates, multipliers with conditions). A value-gated
+      splitter (peel off only once the ore has stopped climbing) is the obvious next one now
+      that the round-robin splitter proves the two-output plumbing.
 - [x] Save/load a layout (full world state: objects + tiers, ore in flight, money,
       unlocked grid size, camera). One slot, versioned binary blob in save.c, written
       field by field for cross-platform stability; grids rebuilt on load. K saves, L

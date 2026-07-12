@@ -11,8 +11,13 @@
 // size, tick, upgrader-id bitmap, every entity (with its per-type data and tier),
 // every live item, and the camera/tool state. The cell grids are derived, so they're
 // rebuilt on load rather than stored.
+// Version history:
+//   1  the original: droppers, conveyors, upgraders, furnaces.
+//   2  adds splitter records. A v1 file predates ENTITY_SPLITTER, so it cannot contain
+//      one, and reading is driven by each entity's type: v1 files still load correctly.
 #define SAVE_MAGIC 0x5641534Du // 'MSAV'
-#define SAVE_VERSION 1
+#define SAVE_VERSION 2
+#define SAVE_VERSION_MIN 1 // oldest format game_load still understands
 
 // Fail the whole operation on any short read/write: a truncated file is a failure,
 // not a partial success. Both macros close the file and return false.
@@ -72,6 +77,10 @@ b32 game_save(const Game_State *g, const char *path) {
         case ENTITY_FURNACE:
             WR(&e->data.furnace.banked, sizeof(i64));
             break;
+        case ENTITY_SPLITTER:
+            WR(&e->data.splitter.branch, 4);
+            WR(&e->data.splitter.flip, sizeof(b32));
+            break;
         default:
             break; // conveyors carry no per-type data
         }
@@ -117,7 +126,7 @@ b32 game_load(Game_State *g, const char *path) {
     u32 magic = 0, ver = 0;
     RD(&magic, 4);
     RD(&ver, 4);
-    if (magic != SAVE_MAGIC || ver != SAVE_VERSION) {
+    if (magic != SAVE_MAGIC || ver < SAVE_VERSION_MIN || ver > SAVE_VERSION) {
         fclose(f);
         return MACH_FALSE; // not our file, or a format we don't understand
     }
@@ -173,6 +182,10 @@ b32 game_load(Game_State *g, const char *path) {
             break;
         case ENTITY_FURNACE:
             RD(&e.data.furnace.banked, sizeof(i64));
+            break;
+        case ENTITY_SPLITTER:
+            RD(&e.data.splitter.branch, 4);
+            RD(&e.data.splitter.flip, sizeof(b32));
             break;
         default:
             break;

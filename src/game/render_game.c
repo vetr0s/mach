@@ -20,6 +20,7 @@
 #define DROPPER_H 0.80f
 #define CONVEYOR_H 0.12f
 #define UPGRADER_H 0.50f
+#define SPLITTER_H 0.22f // a belt surface, raised just enough to read as its own machine
 // The furnace is a shallow open bin, not a tower: a low rim about conveyor height
 // with a recessed mouth, so ore drops into a sink instead of colliding with a tall
 // block. FURNACE_MOUTH is the opening's radius in grid units (cell half is 0.5).
@@ -34,6 +35,11 @@
 #define CONVEYOR_COL MACH_COLOR_BG_POPUP
 #define UPGRADER_COL MACH_COLOR_MAGENTA_COOLER
 #define FURNACE_COL MACH_COLOR_YELLOW_WARMER
+#define SPLITTER_COL MACH_COLOR_CYAN
+
+// How far each of a splitter's two arrows is nudged from the cell center toward its own
+// output edge, in grid units, so the pair reads as two exits rather than one smear.
+#define SPLITTER_ARROW_OFFSET 0.14f
 
 // Belt surface: gray chevrons that scroll toward the flow direction so the
 // black belt reads as running even when it's empty.
@@ -356,6 +362,28 @@ static void draw_furnace(Mach_Renderer *r, const Mach_Camera2D *cam, f32 gx, f32
     mach_r2d_poly_outline(r, mouth, 4, mach_color_shade(FURNACE_COL, 0.22f));
 }
 
+// A splitter is a belt surface with two outputs. Both are drawn as arrows on its top
+// face, each nudged toward the edge it leaves by: the one the next ore will take is lit,
+// the other is dimmed. That makes the alternation readable at a glance, so you can see
+// which way the next piece of ore will peel off without opening the inspect panel.
+static void draw_splitter(Mach_Renderer *r, const Mach_Camera2D *cam, const Entity *e) {
+    f32 gx = (f32)e->grid_x, gy = (f32)e->grid_y;
+    draw_block(r, cam, gx, gy, SPLITTER_H, SPLITTER_COL);
+
+    Direction primary = e->dir;
+    Direction branch = world_splitter_out_dir(e);
+    b32 branch_next = e->data.splitter.flip;
+
+    Mach_Color lit = mach_color_lighten(SPLITTER_COL, 0.55f);
+    Mach_Color dim = mach_color_shade(SPLITTER_COL, 0.50f);
+
+    f32 po = SPLITTER_ARROW_OFFSET;
+    draw_arrow(r, cam, gx + (f32)DIR_DX[primary] * po, gy + (f32)DIR_DY[primary] * po, SPLITTER_H,
+               primary, branch_next ? dim : lit);
+    draw_arrow(r, cam, gx + (f32)DIR_DX[branch] * po, gy + (f32)DIR_DY[branch] * po, SPLITTER_H,
+               branch, branch_next ? lit : dim);
+}
+
 static void draw_entity(Mach_Renderer *r, const Mach_Camera2D *cam, const Entity *e,
                         f32 belt_phase) {
     f32 gx = (f32)e->grid_x, gy = (f32)e->grid_y;
@@ -371,6 +399,9 @@ static void draw_entity(Mach_Renderer *r, const Mach_Camera2D *cam, const Entity
     case ENTITY_UPGRADER:
         draw_block(r, cam, gx, gy, UPGRADER_H, UPGRADER_COL);
         draw_arrow(r, cam, gx, gy, UPGRADER_H, e->dir, mach_color_lighten(UPGRADER_COL, 0.55f));
+        break;
+    case ENTITY_SPLITTER:
+        draw_splitter(r, cam, e);
         break;
     case ENTITY_FURNACE:
         draw_furnace(r, cam, gx, gy);
@@ -518,6 +549,7 @@ void game_render_draw(Mach_Renderer *r, const Game_State *game, Mach_Arena *scra
 #define HUD_GREY mach_clay_color_of(MACH_COLOR_FG_DIM)
 #define HUD_WHITE mach_clay_color_of(MACH_COLOR_FG_MAIN)
 #define HUD_PURPLE mach_clay_color_of(MACH_COLOR_MAGENTA_COOLER)
+#define HUD_CYAN mach_clay_color_of(MACH_COLOR_CYAN)
 
 // Shop button backgrounds: resting, hovered, and selected.
 #define HUD_BTN mach_clay_color_of(MACH_COLOR_BG_ACTIVE)
@@ -551,10 +583,11 @@ void game_render_draw(Mach_Renderer *r, const Game_State *game, Mach_Arena *scra
 void game_render_hud(Game_State *g, Mach *m) {
     Mach_Renderer *r = &m->r2d;
 
-    static const char *tool_names[] = {"None",     "Dropper", "Conveyor",
-                                       "Upgrader", "Furnace", "Delete"};
+    static const char *tool_names[] = {"None",    "Dropper", "Conveyor", "Upgrader",
+                                       "Furnace", "Delete",  "Splitter"};
     static const char *dir_names[] = {"N", "E", "S", "W"};
-    static const char *entity_names[] = {"", "Dropper", "Conveyor", "Upgrader", "Furnace"};
+    static const char *entity_names[] = {"",         "Dropper", "Conveyor",
+                                         "Upgrader", "Furnace", "Splitter"};
     const char *tool =
         (g->selected_tool >= 0 && g->selected_tool < (i32)MACH_ARRAY_COUNT(tool_names))
             ? tool_names[g->selected_tool]
@@ -568,7 +601,7 @@ void game_render_hud(Game_State *g, Mach *m) {
     char money_s[32], tool_s[48], fps_s[40], counts_s[64], hover_s[48], cam_s[48];
     char val_a[24], val_b[24], banked_s[24];
     char insp_sub_s[32], insp_extra_s[48], insp_item_s[64];
-    char drop_s[28], conv_s[28], upg_s[28], furn_s[28], tier_s[24], expand_s[40];
+    char drop_s[28], conv_s[28], upg_s[28], furn_s[28], split_s[28], tier_s[24], expand_s[40];
     snprintf(money_s, sizeof(money_s), "$%lld", (long long)(g->world ? g->world->money : 0));
     snprintf(tool_s, sizeof(tool_s), "%s   facing %s", tool, facing);
     // fps reads flat under vsync, so show frame_ms (the real work per frame) and its
@@ -596,6 +629,8 @@ void game_render_hud(Game_State *g, Mach *m) {
              (long long)world_entity_cost(ENTITY_UPGRADER, tier));
     snprintf(furn_s, sizeof furn_s, "Furnace  $%lld",
              (long long)world_entity_cost(ENTITY_FURNACE, 1));
+    snprintf(split_s, sizeof split_s, "Splitter  $%lld",
+             (long long)world_entity_cost(ENTITY_SPLITTER, 1));
     snprintf(tier_s, sizeof tier_s, "Tier %d  (click +)", tier);
     i64 expand_cost = g->world ? world_expand_cost(g->world) : 0;
     if (expand_cost > 0)
@@ -631,6 +666,15 @@ void game_render_hud(Game_State *g, Mach *m) {
             insp_title_col = HUD_PURPLE;
             snprintf(insp_sub_s, sizeof insp_sub_s, "facing %s", dir_names[ins->dir]);
             break;
+        case ENTITY_SPLITTER: {
+            insp_title_col = HUD_CYAN;
+            Direction br = world_splitter_out_dir(ins);
+            snprintf(insp_sub_s, sizeof insp_sub_s, "out %s / %s  (T turns)", dir_names[ins->dir],
+                     dir_names[br]);
+            snprintf(insp_extra_s, sizeof insp_extra_s, "next ore goes %s",
+                     dir_names[ins->data.splitter.flip ? br : ins->dir]);
+            break;
+        }
         case ENTITY_FURNACE:
             insp_title_col = HUD_GOLD;
             game_format_value(ins->data.furnace.banked, banked_s, sizeof banked_s);
@@ -696,8 +740,8 @@ void game_render_hud(Game_State *g, Mach *m) {
 
     // Bottom-center: the controls, on screen until a real menu exists to teach them.
     HUD_PANEL_AT("hud-controls", CLAY_ATTACH_POINT_CENTER_BOTTOM, 0, -10) {
-        CLAY_TEXT(CLAY_STRING("(1)drop (2)belt (3)upgr (4)furnace (5)del (R)rotate (Space)pause "
-                              "(`)info"),
+        CLAY_TEXT(CLAY_STRING("(1)drop (2)belt (3)upgr (4)furnace (5)del (6)split (R)rotate "
+                              "(T)branch (Space)pause (`)info"),
                   CLAY_TEXT_CONFIG({.fontSize = 8, .textColor = HUD_GREY}));
     }
 
@@ -712,6 +756,10 @@ void game_render_hud(Game_State *g, Mach *m) {
         SHOP_BTN("shop-conv", g->selected_tool == TOOL_CONVEYOR) {
             CLAY_TEXT(mach_clay_string(conv_s),
                       CLAY_TEXT_CONFIG({.fontSize = 8, .textColor = HUD_WHITE}));
+        }
+        SHOP_BTN("shop-split", g->selected_tool == TOOL_SPLITTER) {
+            CLAY_TEXT(mach_clay_string(split_s),
+                      CLAY_TEXT_CONFIG({.fontSize = 8, .textColor = HUD_CYAN}));
         }
         SHOP_BTN("shop-upg", g->selected_tool == TOOL_UPGRADER) {
             CLAY_TEXT(mach_clay_string(upg_s),
@@ -746,6 +794,8 @@ void game_render_hud(Game_State *g, Mach *m) {
             g->selected_tool = (g->selected_tool == TOOL_DROPPER) ? TOOL_NONE : TOOL_DROPPER;
         else if (Clay_PointerOver(Clay_GetElementId(CLAY_STRING("shop-conv"))))
             g->selected_tool = (g->selected_tool == TOOL_CONVEYOR) ? TOOL_NONE : TOOL_CONVEYOR;
+        else if (Clay_PointerOver(Clay_GetElementId(CLAY_STRING("shop-split"))))
+            g->selected_tool = (g->selected_tool == TOOL_SPLITTER) ? TOOL_NONE : TOOL_SPLITTER;
         else if (Clay_PointerOver(Clay_GetElementId(CLAY_STRING("shop-upg"))))
             g->selected_tool = (g->selected_tool == TOOL_UPGRADER) ? TOOL_NONE : TOOL_UPGRADER;
         else if (Clay_PointerOver(Clay_GetElementId(CLAY_STRING("shop-furn"))))

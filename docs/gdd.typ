@@ -120,6 +120,8 @@ You bank enough to expand the grid or buy a better tier of dropper, upgrader, or
 
 *Loop versus cash out.* Ore gains less value on each additional pass through your upgraders (see the value model). Looping longer earns more but ties up belt and space that another ore could be using. Knowing when a loop has stopped paying and the ore should go to the furnace is the core skill.
 
+You express that decision through *layout*, not through a dial. A splitter sheds every other ore that reaches it, so where you tap it into the ring, and how many you tap in, is what sets the average number of laps an ore takes. One splitter on a long ring means many laps and a slow drain; two splitters, or a splitter on a short ring, means fewer laps and a fast one. Tuning the drain rate against the value curve is the loop-building puzzle.
+
 == Failure States
 
 None. It's a sandbox; you can't lose. "Doing poorly" means a layout that earns less than it could: a loop that's too loose, an upgrader wasted on ore that's already near its ceiling. Nothing breaks. You notice because the number climbs slower than you know it could, and you go fix the layout.
@@ -153,7 +155,7 @@ Upgraders drive both sides of this. A stronger upgrader climbs toward the ceilin
 
 == Objects
 
-Four object types. Depth comes from many *variants* of each (tiers), not from more types. Each occupies one isometric tile.
+Five object types. Depth comes from many *variants* of each (tiers), not from more types. Each occupies one isometric tile.
 
 - *Dropper.* Emits ore onto the tile it faces, on a fixed cadence. The dropper sets the ore's base quality, which feeds the ceiling. Ore is free and infinite.
 
@@ -161,13 +163,16 @@ Four object types. Depth comes from many *variants* of each (tiers), not from mo
 
 - *Upgrader.* Its own object, but physically a belt surface: it moves ore *and* multiplies its value as the ore crosses it. Routing ore through (and around, and back through) upgraders is the whole layout puzzle.
 
+- *Splitter.* A belt surface with *two* outputs, alternating between them: the first ore goes straight on, the next peels off down the branch, and so on. This is the only object that can take ore *out* of a loop, and a loop without one is a trap: every other object has a single facing, so ore that enters a cycle rides it forever and eventually packs the cycle into a permanent jam. A loop is a ring of belts and upgraders with a splitter tapped into it, shedding every other ore toward the furnace while the rest go around again.
+
 - *Furnace.* Consumes ore and banks its accumulated value as money. The end of every path.
 
 === Object Rules
 
 - *Grid-based placement.* One object per tile.
-- *Directional.* Droppers, belts, and upgraders have a facing, set on placement and rotatable. Furnaces just consume whatever arrives.
-- *One item per cell.* Belts and upgraders hold one ore at a time; this is what makes packing and loop timing matter.
+- *Directional.* Droppers, belts, upgraders, and splitters have a facing, set on placement and rotatable. A splitter carries a second facing for its branch, turned independently. Furnaces just consume whatever arrives.
+- *One item per cell.* Belts, upgraders, and splitters hold one ore at a time; this is what makes packing and loop timing matter.
+- *Splitters never wedge.* A splitter prefers the output its alternation points at, but takes the other one if that output is backed up. Strict alternation would deadlock a loop exactly when it filled, which is when draining it matters most.
 - *Synchronized sim.* Everything ticks at one fixed rate. No per-object scheduling.
 
 == Upgrade Axes

@@ -230,6 +230,9 @@ static void place_at_hover(Game_State *g) {
     case TOOL_UPGRADER:
         world_try_place(g->world, ENTITY_UPGRADER, hx, hy, g->place_dir, g->selected_tier);
         break;
+    case TOOL_SPLITTER:
+        world_try_place(g->world, ENTITY_SPLITTER, hx, hy, g->place_dir, 1);
+        break;
     case TOOL_FURNACE:
         world_try_place(g->world, ENTITY_FURNACE, hx, hy, g->place_dir, 1);
         break;
@@ -285,6 +288,8 @@ void game_process_input(Game_State *g, const Mach_Input *in, f32 screen_w, f32 s
         toggle_tool(g, TOOL_FURNACE);
     if (in->key_pressed[RGFW_key5])
         toggle_tool(g, TOOL_DELETE);
+    if (in->key_pressed[RGFW_key6])
+        toggle_tool(g, TOOL_SPLITTER);
     if (in->key_pressed[RGFW_keySpace]) {
         g->paused = !g->paused;
         MACH_LOG_DEBUG("simulation %s", g->paused ? "paused" : "resumed");
@@ -330,18 +335,26 @@ void game_process_input(Game_State *g, const Mach_Input *in, f32 screen_w, f32 s
     // zooming under a still cursor keeps the highlighted cell accurate.
     update_hover(g, screen_w, screen_h, in->mouse.x, in->mouse.y);
 
+    i32 hover_id =
+        g->hover_valid ? world_get_entity_at(g->world, g->hover_grid_x, g->hover_grid_y) : 0;
+
     if (in->key_pressed[RGFW_keyR]) {
         // Rotate the piece under the cursor in place; with no piece there (or a
         // furnace, which has no facing), rotate the facing for the next placement.
-        i32 id =
-            g->hover_valid ? world_get_entity_at(g->world, g->hover_grid_x, g->hover_grid_y) : 0;
-        if (id != 0 && world_rotate_entity(g->world, id)) {
-            MACH_LOG_DEBUG("rotated entity %d at (%d,%d)", id, g->hover_grid_x, g->hover_grid_y);
+        // A splitter's branch is stored relative to its facing, so it turns along with it.
+        if (hover_id != 0 && world_rotate_entity(g->world, hover_id)) {
+            MACH_LOG_DEBUG("rotated entity %d at (%d,%d)", hover_id, g->hover_grid_x,
+                           g->hover_grid_y);
         } else {
             g->place_dir = (Direction)((g->place_dir + 1) % DIR_COUNT);
             MACH_LOG_DEBUG("place direction: %d", g->place_dir);
         }
     }
+
+    // T turns just the branch of the splitter under the cursor: which way the ore peels
+    // off, without disturbing the way the belt runs through it.
+    if (in->key_pressed[RGFW_keyT] && hover_id != 0)
+        world_cycle_splitter_branch(g->world, hover_id);
 
     // Suppress placement when the click lands on the shop panel (the HUD sets this
     // from last frame's layout; the panel is static, so a one-frame age is exact).

@@ -25,7 +25,8 @@
 #define PLAYABLE_START_SIDE 4 // a new game's unlocked square side (a power of two)
 #define PLAYABLE_MAX_SIDE 128 // cap; the region is centered in the 256 grid
 #define PLAYABLE_CENTER (WORLD_GRID_SIZE / 2)
-#define CONVEYOR_COST 5 // conveyors and furnaces are single-tier
+#define CONVEYOR_COST 5 // conveyors, splitters and furnaces are single-tier
+#define SPLITTER_COST 25
 #define FURNACE_COST 50
 #define DROPPER_COST_BASE 50    // dropper price is base * tier
 #define UPGRADER_COST_BASE 100  // upgrader price is base * tier
@@ -52,14 +53,52 @@ static b32 in_bounds(i32 x, i32 y) {
     return x >= 0 && x < WORLD_GRID_SIZE && y >= 0 && y < WORLD_GRID_SIZE;
 }
 
-// The direction an entity pushes items, if any. Only conveyors and upgraders move
-// items; droppers emit and furnaces consume.
-static b32 entity_flow_dir(const Entity *e, Direction *out) {
+// Is (nx, ny) backed up? A destination blocks only when a belt-like cell there already
+// holds an item. Off-grid, bare ground, and a dropper's back are dead ends, not blocks:
+// ore tips off there (see world_move_items), and that is the player's mistake to see, so
+// a splitter must not quietly reroute around it.
+static b32 cell_backed_up(const World *w, i32 nx, i32 ny) {
+    if (!in_bounds(nx, ny) || !w->grid[nx][ny])
+        return MACH_FALSE;
+    return w->item_grid[nx][ny] != 0;
+}
+
+Direction world_splitter_out_dir(const Entity *e) {
+    if (e->type != ENTITY_SPLITTER)
+        return e->dir;
+    return (Direction)((e->dir + e->data.splitter.branch) % DIR_COUNT);
+}
+
+// The direction an item leaves this cell by, if the entity there moves items at all.
+// Droppers emit and furnaces consume, so neither answers.
+//
+// A splitter has two outputs and alternates between them. It takes the one its flip
+// points at, unless that one is backed up, in which case it takes the other: a packed
+// loop must always be able to drain through the splitter, and strict alternation would
+// deadlock exactly when the loop is full (the loop-side output is occupied, so the ore
+// waits for a cell that only frees once this ore leaves).
+static b32 item_exit_dir(const World *w, const Entity *e, Direction *out) {
     if (e->type == ENTITY_CONVEYOR || e->type == ENTITY_UPGRADER) {
         *out = e->dir;
         return MACH_TRUE;
     }
+    if (e->type == ENTITY_SPLITTER) {
+        Direction branch = world_splitter_out_dir(e);
+        Direction pref = e->data.splitter.flip ? branch : e->dir;
+        Direction alt = e->data.splitter.flip ? e->dir : branch;
+        i32 px = e->grid_x + DIR_DX[pref], py = e->grid_y + DIR_DY[pref];
+        *out = cell_backed_up(w, px, py) ? alt : pref;
+        return MACH_TRUE;
+    }
     return MACH_FALSE;
+}
+
+// Advance a splitter's alternation. Called once per item that actually leaves it, by any
+// route (moved on, banked, or tipped off a dead end), so a splitter whose output is
+// blocked does not spin its flip while the ore sits there waiting.
+static void splitter_advance(Entity *e) {
+    if (e->type == ENTITY_SPLITTER)
+        e->data.splitter.flip = !e->data.splitter.flip;
 }
 
 World *world_create(Mach_Arena *arena) {
@@ -167,6 +206,30 @@ i32 world_spawn_furnace(World *w, i32 x, i32 y) {
     return w->grid[x][y];
 }
 
+// Wrap a branch offset into 1..3, so the branch output is never the facing itself.
+static i32 clamp_branch(i32 b) {
+    b %= DIR_COUNT;
+    if (b < 0)
+        b += DIR_COUNT;
+    return b == 0 ? 1 : b;
+}
+
+i32 world_spawn_splitter(World *w, i32 x, i32 y, Direction dir, i32 branch) {
+    Entity *e = world_spawn(w, x, y, dir, ENTITY_SPLITTER);
+    if (!e)
+        return 0;
+    e->data.splitter = (Entity_Splitter){.branch = clamp_branch(branch), .flip = MACH_FALSE};
+    return w->grid[x][y];
+}
+
+b32 world_cycle_splitter_branch(World *w, i32 entity_id) {
+    Entity *e = world_get_entity(w, entity_id);
+    if (!e || e->type != ENTITY_SPLITTER)
+        return MACH_FALSE;
+    e->data.splitter.branch = clamp_branch(e->data.splitter.branch + 1);
+    return MACH_TRUE;
+}
+
 void world_despawn(World *w, i32 entity_id) {
     if (!w || entity_id == 0)
         return;
@@ -260,6 +323,8 @@ i64 world_entity_cost(Entity_Type type, i32 tier) {
     switch (type) {
     case ENTITY_CONVEYOR:
         return CONVEYOR_COST;
+    case ENTITY_SPLITTER:
+        return SPLITTER_COST;
     case ENTITY_FURNACE:
         return FURNACE_COST;
     case ENTITY_DROPPER:
@@ -288,6 +353,9 @@ i32 world_try_place(World *w, Entity_Type type, i32 x, i32 y, Direction dir, i32
         break;
     case ENTITY_UPGRADER:
         id = world_spawn_upgrader(w, x, y, dir, tier);
+        break;
+    case ENTITY_SPLITTER:
+        id = world_spawn_splitter(w, x, y, dir, 1); // branch defaults to 90 deg clockwise
         break;
     case ENTITY_FURNACE:
         id = world_spawn_furnace(w, x, y);
@@ -410,8 +478,9 @@ static void world_move_items(World *w) {
                 continue;
             } // on bare ground, stuck
 
+            Entity *src = world_get_entity(w, cell_id);
             Direction d;
-            if (!entity_flow_dir(world_get_entity(w, cell_id), &d))
+            if (!item_exit_dir(w, src, &d))
                 continue; // furnace/dropper
 
             i32 nx = it->grid_x + DIR_DX[d];
@@ -427,6 +496,7 @@ static void world_move_items(World *w) {
                 world_emit(
                     w, (World_Event){WORLD_EVENT_FELL, it->grid_x, it->grid_y, nx, ny, it->value});
                 item_kill(w, i);
+                splitter_advance(src);
                 changed = MACH_TRUE;
                 continue;
             }
@@ -436,6 +506,7 @@ static void world_move_items(World *w) {
                                             it->value});
                 furnace_bank(w, dst, it->value);
                 item_kill(w, i);
+                splitter_advance(src);
                 changed = MACH_TRUE;
                 continue;
             }
@@ -448,6 +519,7 @@ static void world_move_items(World *w) {
             it->grid_y = ny;
             w->item_grid[nx][ny] = i + 1;
             moved[i] = MACH_TRUE;
+            splitter_advance(src);
             changed = MACH_TRUE;
             item_apply_cell(w, i, nx, ny);
         }

@@ -52,6 +52,8 @@ typedef struct {
     i32 hover_grid_y;
     b32 hover_valid; // the mouse projected onto the ground plane
     b32 hover_can_place;
+    b32 hover_affordable; // the selected tool's piece is within budget. Tools that buy
+                          // nothing (None, Delete) are always "affordable".
 
     b32 pointer_over_ui; // set by the HUD when the cursor is over the shop panel, so a
                          // click on the panel doesn't also place a tile in the world
@@ -79,6 +81,12 @@ void game_shutdown(Game_State *g);
 
 // Internals of game_frame, split for readability.
 void game_tick(Game_State *g, f32 dt);
+
+// What a tool buys, and at what tier. The HUD uses these to price and grey out the shop
+// rows exactly as the placement path would charge them, so the two can never disagree.
+// game_tool_entity returns ENTITY_INVALID for tools that buy nothing (None, Delete).
+Entity_Type game_tool_entity(i32 tool);
+i32 game_tool_tier(const Game_State *g, Entity_Type t);
 
 // Reset to a fresh new game: clear the world and lay the starter state. Used by the
 // menu's "New Game" and at first launch.

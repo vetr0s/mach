@@ -470,11 +470,16 @@ void game_render_draw(Mach_Renderer *r, const Game_State *game, Mach_Arena *scra
     };
     mach_r2d_poly_outline(r, border, 4, mach_color_alpha(MACH_COLOR_FG_MAIN, 0.55f));
 
-    // Hover preview: a highlighted tile over the ground, under everything else.
+    // Hover preview: a highlighted tile over the ground, under everything else. The color
+    // says whether the click will do anything, and if not, why: hard red for a cell that
+    // is taken or still locked, faint red for a cell that is fine but that you cannot
+    // afford the piece for.
     if (game->hover_valid) {
         Mach_Color color;
         if (!game->hover_can_place)
             color = MACH_COLOR_RED;
+        else if (!game->hover_affordable)
+            color = MACH_COLOR_RED_FAINT;
         else if (game->selected_tool == TOOL_FURNACE)
             color = MACH_COLOR_YELLOW_WARMER;
         else
@@ -618,6 +623,12 @@ void game_render_hud(Game_State *g, Mach *m) {
     snprintf(cam_s, sizeof(cam_s), "cam %.0f,%.0f   zoom %.2f", g->camera.pan.x, g->camera.pan.y,
              g->camera.zoom);
 
+    // A shop row you cannot afford is greyed out, so the panel says what is buyable right
+    // now without you having to compare each price against the money yourself. Prices come
+    // from world_entity_cost, the same function the placement path charges from.
+    i64 money = g->world ? g->world->money : 0;
+#define SHOP_COL(type, tier_, lit) (money >= world_entity_cost((type), (tier_)) ? (lit) : HUD_GREY)
+
     // Shop labels: dropper/upgrader prices track the selected tier; conveyor/furnace
     // are flat. Expansion shows the next region's price, or "Max" at the cap.
     i32 tier = g->selected_tier;
@@ -751,23 +762,28 @@ void game_render_hud(Game_State *g, Mach *m) {
         CLAY_TEXT(CLAY_STRING("BUILD"), CLAY_TEXT_CONFIG({.fontSize = 8, .textColor = HUD_GREY}));
         SHOP_BTN("shop-drop", g->selected_tool == TOOL_DROPPER) {
             CLAY_TEXT(mach_clay_string(drop_s),
-                      CLAY_TEXT_CONFIG({.fontSize = 8, .textColor = HUD_GREEN}));
+                      CLAY_TEXT_CONFIG(
+                          {.fontSize = 8, .textColor = SHOP_COL(ENTITY_DROPPER, tier, HUD_GREEN)}));
         }
         SHOP_BTN("shop-conv", g->selected_tool == TOOL_CONVEYOR) {
             CLAY_TEXT(mach_clay_string(conv_s),
-                      CLAY_TEXT_CONFIG({.fontSize = 8, .textColor = HUD_WHITE}));
+                      CLAY_TEXT_CONFIG(
+                          {.fontSize = 8, .textColor = SHOP_COL(ENTITY_CONVEYOR, 1, HUD_WHITE)}));
         }
         SHOP_BTN("shop-split", g->selected_tool == TOOL_SPLITTER) {
             CLAY_TEXT(mach_clay_string(split_s),
-                      CLAY_TEXT_CONFIG({.fontSize = 8, .textColor = HUD_CYAN}));
+                      CLAY_TEXT_CONFIG(
+                          {.fontSize = 8, .textColor = SHOP_COL(ENTITY_SPLITTER, 1, HUD_CYAN)}));
         }
         SHOP_BTN("shop-upg", g->selected_tool == TOOL_UPGRADER) {
             CLAY_TEXT(mach_clay_string(upg_s),
-                      CLAY_TEXT_CONFIG({.fontSize = 8, .textColor = HUD_PURPLE}));
+                      CLAY_TEXT_CONFIG({.fontSize = 8,
+                                        .textColor = SHOP_COL(ENTITY_UPGRADER, tier, HUD_PURPLE)}));
         }
         SHOP_BTN("shop-furn", g->selected_tool == TOOL_FURNACE) {
             CLAY_TEXT(mach_clay_string(furn_s),
-                      CLAY_TEXT_CONFIG({.fontSize = 8, .textColor = HUD_GOLD}));
+                      CLAY_TEXT_CONFIG(
+                          {.fontSize = 8, .textColor = SHOP_COL(ENTITY_FURNACE, 1, HUD_GOLD)}));
         }
         SHOP_BTN("shop-del", g->selected_tool == TOOL_DELETE) {
             CLAY_TEXT(CLAY_STRING("Delete"),
@@ -779,9 +795,13 @@ void game_render_hud(Game_State *g, Mach *m) {
         }
         SHOP_BTN("shop-expand", MACH_FALSE) {
             CLAY_TEXT(mach_clay_string(expand_s),
-                      CLAY_TEXT_CONFIG({.fontSize = 8, .textColor = HUD_WHITE}));
+                      CLAY_TEXT_CONFIG({.fontSize = 8,
+                                        .textColor = (expand_cost > 0 && money < expand_cost)
+                                                         ? HUD_GREY
+                                                         : HUD_WHITE}));
         }
     }
+#undef SHOP_COL
 
     mach_clay_ui_render(&g->clay, r);
 
@@ -807,6 +827,14 @@ void game_render_hud(Game_State *g, Mach *m) {
         else if (Clay_PointerOver(Clay_GetElementId(CLAY_STRING("shop-expand"))))
             world_expand(g->world);
     }
-    // Remember for next frame's input: a click over the shop must not place a tile.
-    g->pointer_over_ui = Clay_PointerOver(Clay_GetElementId(CLAY_STRING("shop")));
+    // Remember for next frame's input: a click over ANY HUD panel must not also place a
+    // tile in the world behind it. Guarding only the shop meant the status, inspect,
+    // debug, and controls panels were click-through, dropping a machine underneath them.
+    // A panel absent from this frame's layout (inspect and debug are conditional) simply
+    // never matches the pointer, so listing it here is free.
+    g->pointer_over_ui = Clay_PointerOver(Clay_GetElementId(CLAY_STRING("shop"))) ||
+                         Clay_PointerOver(Clay_GetElementId(CLAY_STRING("hud-status"))) ||
+                         Clay_PointerOver(Clay_GetElementId(CLAY_STRING("hud-inspect"))) ||
+                         Clay_PointerOver(Clay_GetElementId(CLAY_STRING("hud-debug"))) ||
+                         Clay_PointerOver(Clay_GetElementId(CLAY_STRING("hud-controls")));
 }

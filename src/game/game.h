@@ -57,7 +57,8 @@ typedef struct {
                          // click on the panel doesn't also place a tile in the world
 } Game_State;
 
-// Tool IDs for Game_State.selected_tool.
+// Tool IDs for Game_State.selected_tool. Saved by value (save.c), so new tools go on
+// the end: that keeps an existing save's selected tool pointing at the same thing.
 typedef enum {
     TOOL_NONE = 0,
     TOOL_DROPPER,
@@ -65,6 +66,7 @@ typedef enum {
     TOOL_UPGRADER,
     TOOL_FURNACE,
     TOOL_DELETE,
+    TOOL_SPLITTER,
     TOOL_COUNT,
 } Tool;
 

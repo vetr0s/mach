@@ -15,6 +15,7 @@ typedef enum {
     ENTITY_CONVEYOR, // carries one item per cell in its facing direction
     ENTITY_UPGRADER, // a conveyor that also multiplies a passing item's value
     ENTITY_FURNACE,  // banks the value of any item that reaches it
+    ENTITY_SPLITTER, // a conveyor with two outputs, alternating between them
 } Entity_Type;
 
 // Facing direction in grid space. DIR_DX/DIR_DY in world.c map these to deltas.
@@ -44,6 +45,19 @@ typedef struct {
     i64 banked; // value banked here over its lifetime
 } Entity_Furnace;
 
+// A conveyor with two outputs that alternates between them, so a belt loop threaded
+// through one sheds every other ore toward the exit while the rest keep circulating.
+// Without it a closed loop can never cash out: every other piece has a single facing,
+// so ore that enters a cycle rides it forever and eventually packs it into a jam.
+typedef struct {
+    // Quarter-turns clockwise from the entity's `dir` to the second output, 1..3.
+    // Never 0, so the two outputs can never be the same cell. Storing the branch
+    // relative to the facing (rather than as its own Direction) means rotating the
+    // splitter carries the branch along with it and cannot desync the two.
+    i32 branch;
+    b32 flip; // which output the next item leaves by: 0 = dir, 1 = the branch
+} Entity_Splitter;
+
 // Position and facing are common to every piece, so they live here; the union
 // holds only genuinely per-type data (conveyors have none).
 typedef struct {
@@ -55,6 +69,7 @@ typedef struct {
         Entity_Dropper dropper;
         Entity_Upgrader upgrader;
         Entity_Furnace furnace;
+        Entity_Splitter splitter;
     } data;
 } Entity;
 
@@ -137,7 +152,18 @@ i32 world_spawn_dropper(World *w, i32 x, i32 y, Direction dir, i32 tier);
 i32 world_spawn_conveyor(World *w, i32 x, i32 y, Direction dir);
 i32 world_spawn_upgrader(World *w, i32 x, i32 y, Direction dir, i32 tier);
 i32 world_spawn_furnace(World *w, i32 x, i32 y);
+// `branch` is clamped to 1..3 (quarter-turns clockwise from dir to the second output).
+i32 world_spawn_splitter(World *w, i32 x, i32 y, Direction dir, i32 branch);
 void world_despawn(World *w, i32 entity_id);
+
+// A splitter's second output, resolved from its facing and its branch offset. Only
+// meaningful for ENTITY_SPLITTER; returns the entity's own dir for anything else.
+Direction world_splitter_out_dir(const Entity *e);
+
+// Turn a splitter's branch output to the next of the three directions that are not its
+// facing, leaving the facing alone. Returns false for anything but a splitter. This is
+// the "which way does the ore peel off" control, separate from rotating the whole piece.
+b32 world_cycle_splitter_branch(World *w, i32 entity_id);
 
 // --- Economy ----------------------------------------------------------------
 

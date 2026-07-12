@@ -48,8 +48,8 @@ instead of colliding with a tower.
 into the executable; a missing sprite falls back to the procedural block. The
 shipped binary is still a single self-contained file per platform.
 
-**Smaller fixes.** Frames pace to vsync (no tearing, no busy-wait), and the F3
-overlay shows real frame time. Ore is visible on the first conveyor in short
+**Smaller fixes.** Frames pace to vsync (no tearing, no busy-wait), and the debug
+overlay (backtick) shows real frame time. Ore is visible on the first conveyor in short
 layouts. World-space value labels scale with zoom instead of ballooning when zoomed
 out. `./nob hot` stopped spamming a directory-exists line every half second.
 

@@ -73,6 +73,14 @@ typedef struct {
     } data;
 } Entity;
 
+// How many upgraders can exist in the world at once, and the words of bitmap that
+// takes. Every ore carries one bit per upgrader (the "have I already been lifted by
+// that one" set), so this cap is the width of a per-item bitmap, not a soft limit:
+// raising it costs 8 bytes per ore per 64 upgraders. At 256 the cap sits far past any
+// buildable factory (the largest region is 128x128) while an ore's mask stays 32 bytes.
+#define MAX_UPGRADERS 256
+#define UPGRADER_WORDS (MAX_UPGRADERS / 64)
+
 // An item riding the belts. One item occupies one cell at a time. An item exists
 // only while it is on a belt: the moment it banks or tips off a dead end it is
 // killed, and the transient visual (the drop-out, the payout) is a World_Event
@@ -82,8 +90,10 @@ typedef struct {
     i32 grid_x, grid_y;
     i32 prev_x, prev_y; // cell at the start of this tick, for render interpolation
     i64 value;
-    i64 ceiling;       // value cap this ore climbs toward; each distinct upgrader raises it
-    u64 upgraded_mask; // bit u set once upgrader u has raised this ore's ceiling
+    i64 ceiling; // value cap this ore climbs toward; each distinct upgrader raises it
+    // Bit u set once upgrader u has raised this ore's ceiling. Use mask_test/mask_set
+    // (world.c); the word/bit split is not open-coded anywhere.
+    u64 upgraded_mask[UPGRADER_WORDS];
 } Item;
 
 // Something the sim did on a tick that has no lasting state but should be seen:
@@ -105,7 +115,6 @@ typedef struct {
 
 #define MAX_ENTITIES 10000
 #define MAX_ITEMS 1024
-#define MAX_UPGRADERS 64 // bounded by the bits in Item.upgraded_mask
 #define WORLD_GRID_SIZE 256
 #define MAX_WORLD_EVENTS 256 // per-frame cap; the renderer drains the queue every frame
 #define MAX_TIER 5           // 1..MAX_TIER; higher tiers cost more and do more
@@ -123,8 +132,8 @@ typedef struct {
     // Which item sits on each cell: 0 = none, >0 = item index + 1.
     i32 item_grid[WORLD_GRID_SIZE][WORLD_GRID_SIZE];
 
-    u64 upgrader_ids_used; // allocation bitmap for upgrader ids
-    i64 money;             // spendable balance: furnaces add to it, buying spends it
+    u64 upgrader_ids_used[UPGRADER_WORDS]; // allocation bitmap for upgrader ids
+    i64 money; // spendable balance: furnaces add to it, buying spends it
 
     // The unlocked build region: a centered square of this side (a power of two).
     // Placement is confined to it; world_expand doubles it for money. See world.c.
@@ -195,5 +204,11 @@ b32 world_can_place_at(World *w, i32 x, i32 y);
 
 // The item riding cell (x,y), or NULL.
 Item *world_get_item_at(World *w, i32 x, i32 y);
+
+// Upgrader-id allocation, for save.c: a loaded upgrader keeps the id it was saved with
+// (ore in flight carries bits that refer to it), so the loader claims ids rather than
+// allocating them. Callers must range-check `id` against MAX_UPGRADERS first.
+b32 world_upgrader_id_taken(const World *w, i32 id);
+void world_upgrader_id_claim(World *w, i32 id);
 
 #endif

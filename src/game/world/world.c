@@ -164,12 +164,26 @@ i32 world_spawn_conveyor(World *w, i32 x, i32 y, Direction dir) {
     return e ? w->grid[x][y] : 0;
 }
 
+// Upgrader-id bitmaps. An id indexes a bit across UPGRADER_WORDS words: the world's
+// allocation bitmap and every ore's "already lifted me" set are the same shape, so the
+// word/bit split is written here once and nowhere else. Callers pass a plain id.
+static b32 mask_test(const u64 *m, i32 id) {
+    return (m[id >> 6] >> (id & 63)) & 1;
+}
+
+static void mask_set(u64 *m, i32 id) {
+    m[id >> 6] |= (u64)1 << (id & 63);
+}
+
+static void mask_clear(u64 *m, i32 id) {
+    m[id >> 6] &= ~((u64)1 << (id & 63));
+}
+
 // Claim the lowest free upgrader id, or -1 if all MAX_UPGRADERS are taken.
 static i32 upgrader_id_alloc(World *w) {
     for (i32 b = 0; b < MAX_UPGRADERS; b++) {
-        u64 bit = (u64)1 << b;
-        if (!(w->upgrader_ids_used & bit)) {
-            w->upgrader_ids_used |= bit;
+        if (!mask_test(w->upgrader_ids_used, b)) {
+            mask_set(w->upgrader_ids_used, b);
             return b;
         }
     }
@@ -178,7 +192,19 @@ static i32 upgrader_id_alloc(World *w) {
 
 static void upgrader_id_free(World *w, i32 b) {
     if (b >= 0 && b < MAX_UPGRADERS)
-        w->upgrader_ids_used &= ~((u64)1 << b);
+        mask_clear(w->upgrader_ids_used, b);
+}
+
+// Id allocation, for a loader rebuilding a world whose upgraders already have ids. The
+// sim allocates its own ids (upgrader_id_alloc); save.c cannot, because an ore in flight
+// carries bits that refer to the ids the file was written with, so they have to survive
+// the round trip exactly. Range is the caller's to check.
+b32 world_upgrader_id_taken(const World *w, i32 id) {
+    return mask_test(w->upgrader_ids_used, id);
+}
+
+void world_upgrader_id_claim(World *w, i32 id) {
+    mask_set(w->upgrader_ids_used, id);
 }
 
 i32 world_spawn_upgrader(World *w, i32 x, i32 y, Direction dir, i32 tier) {
@@ -450,9 +476,9 @@ static void item_apply_cell(World *w, i32 item_idx, i32 x, i32 y) {
     if (e->type == ENTITY_UPGRADER) {
         // Raise the roof once per distinct upgrader, then climb toward it (this pass
         // and every re-pass). See the value-model note at the top of the file.
-        u64 bit = (u64)1 << e->data.upgrader.upgrader_id;
-        if (!(it->upgraded_mask & bit)) {
-            it->upgraded_mask |= bit;
+        i32 uid = e->data.upgrader.upgrader_id;
+        if (!mask_test(it->upgraded_mask, uid)) {
+            mask_set(it->upgraded_mask, uid);
             // A higher-tier upgrader lifts the ceiling harder.
             i64 mult =
                 UPGRADER_CEILING_MULT + (i64)(e->data.upgrader.tier - 1) * UPGRADER_TIER_STEP;
@@ -594,7 +620,7 @@ static void world_run_droppers(World *w) {
         it->prev_y = ny; // same-tick move below carries it forward, so no idle beat
         it->value = base;
         it->ceiling = base;
-        it->upgraded_mask = 0;
+        memset(it->upgraded_mask, 0, sizeof it->upgraded_mask);
         w->item_grid[nx][ny] = idx + 1;
         dr->drop_cooldown = DROP_PERIOD - 1;
         item_apply_cell(w, idx, nx, ny); // upgrade if dropped onto an upgrader

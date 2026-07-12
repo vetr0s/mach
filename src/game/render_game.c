@@ -205,9 +205,13 @@ static i32 popcount_u64(u64 x) {
 }
 
 // Item color reads its upgrade count: pale tan when fresh, hot gold once it's
-// been through several upgraders.
+// been through several upgraders. The /6 is the tint ramp, not the upgrader cap: the
+// color saturates after six distinct upgraders however many the world allows.
 static Mach_Color item_color(const Item *it) {
-    f32 t = (f32)popcount_u64(it->upgraded_mask) / 6.0f;
+    i32 n = 0;
+    for (i32 i = 0; i < UPGRADER_WORDS; i++)
+        n += popcount_u64(it->upgraded_mask[i]);
+    f32 t = (f32)n / 6.0f;
     if (t > 1.0f)
         t = 1.0f;
     return mach_color_lerp(MACH_COLOR_YELLOW_FAINT, MACH_COLOR_YELLOW_WARMER, t);

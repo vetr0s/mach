@@ -15,9 +15,17 @@
 //   1  the original: droppers, conveyors, upgraders, furnaces.
 //   2  adds splitter records. A v1 file predates ENTITY_SPLITTER, so it cannot contain
 //      one, and reading is driven by each entity's type: v1 files still load correctly.
+//   3  MAX_UPGRADERS 64 -> 256, so the two upgrader bitmaps (the world's id allocation
+//      map, and each ore's "already lifted me" set) go from one u64 to UPGRADER_WORDS.
+//      This is the first change to the byte layout itself, so it is the first version
+//      the reader actually branches on: a v1/v2 file holds one word, which is exactly
+//      the ids it could have referenced (0..63), so it widens into word 0.
 #define SAVE_MAGIC 0x5641534Du // 'MSAV'
-#define SAVE_VERSION 2
+#define SAVE_VERSION 3
 #define SAVE_VERSION_MIN 1 // oldest format game_load still understands
+
+// The upgrader bitmaps are one u64 before v3, UPGRADER_WORDS of them from v3 on.
+#define SAVE_UPGRADER_WORDS(ver) ((ver) >= 3 ? UPGRADER_WORDS : 1)
 
 // Fail the whole operation on any short read/write: a truncated file is a failure,
 // not a partial success. Both macros close the file and return false.
@@ -55,7 +63,7 @@ b32 game_save(const Game_State *g, const char *path) {
     WR(&w->money, sizeof(i64));
     WR(&w->playable_side, sizeof(i32));
     WR(&w->tick, sizeof(i32));
-    WR(&w->upgrader_ids_used, sizeof(u64));
+    WR(w->upgrader_ids_used, sizeof(u64) * UPGRADER_WORDS);
 
     WR(&w->entity_count, sizeof(i32));
     for (i32 i = 0; i < w->entity_count; i++) {
@@ -100,7 +108,7 @@ b32 game_save(const Game_State *g, const char *path) {
         WR(&it->grid_y, 4);
         WR(&it->value, sizeof(i64));
         WR(&it->ceiling, sizeof(i64));
-        WR(&it->upgraded_mask, sizeof(u64));
+        WR(it->upgraded_mask, sizeof(u64) * UPGRADER_WORDS);
     }
 
     WR(&g->camera.pan.x, sizeof(f32));
@@ -133,13 +141,19 @@ b32 game_load(Game_State *g, const char *path) {
 
     // Read the header before touching the live game, and range-check the counts so a
     // corrupt file can't drive a huge or negative loop.
+    //
+    // The stored id-allocation bitmap is read and discarded: the entities that survive
+    // the placement check below are the truth, and the map is rebuilt from them. Trusting
+    // the stored one leaked an id forever whenever an upgrader was dropped for landing
+    // off-grid or on an occupied cell.
     i64 money;
     i32 side, tick, ecount;
-    u64 upg_used;
+    u64 upg_used[UPGRADER_WORDS];
+    i32 nwords = SAVE_UPGRADER_WORDS(ver);
     RD(&money, sizeof(i64));
     RD(&side, sizeof(i32));
     RD(&tick, sizeof(i32));
-    RD(&upg_used, sizeof(u64));
+    RD(upg_used, sizeof(u64) * (usize)nwords);
     RD(&ecount, sizeof(i32));
     if (side < 1 || side > WORLD_GRID_SIZE || ecount < 0 || ecount > MAX_ENTITIES) {
         fclose(f);
@@ -159,7 +173,7 @@ b32 game_load(Game_State *g, const char *path) {
     w->money = money;
     w->playable_side = side;
     w->tick = tick;
-    w->upgrader_ids_used = upg_used;
+    (void)upg_used; // rebuilt from the entities below, see the note above
 
     for (i32 i = 0; i < ecount; i++) {
         Entity e;
@@ -179,6 +193,12 @@ b32 game_load(Game_State *g, const char *path) {
         case ENTITY_UPGRADER:
             RD(&e.data.upgrader.upgrader_id, 4);
             RD(&e.data.upgrader.tier, 4);
+            // An id out of range would shift out of bounds the first time an ore
+            // touched this upgrader, so a bad file has to fail here, not there.
+            if (e.data.upgrader.upgrader_id < 0 || e.data.upgrader.upgrader_id >= MAX_UPGRADERS) {
+                fclose(f);
+                return MACH_FALSE;
+            }
             break;
         case ENTITY_FURNACE:
             RD(&e.data.furnace.banked, sizeof(i64));
@@ -193,6 +213,18 @@ b32 game_load(Game_State *g, const char *path) {
         // Place into the arrays and rebuild the entity grid. Skip anything that would
         // land off-grid or on an occupied cell: better to drop a stray than corrupt.
         if (cell_ok(e.grid_x, e.grid_y) && w->grid[e.grid_x][e.grid_y] == 0) {
+            // Claim the id as the upgrader actually lands, so the allocation bitmap ends
+            // up describing exactly the upgraders in the world. Two upgraders sharing an
+            // id would gate both on one bit (each ore could only ever be lifted by one of
+            // them), which is a corrupt file, not something to paper over.
+            if (e.type == ENTITY_UPGRADER) {
+                i32 uid = e.data.upgrader.upgrader_id;
+                if (world_upgrader_id_taken(w, uid)) {
+                    fclose(f);
+                    return MACH_FALSE;
+                }
+                world_upgrader_id_claim(w, uid);
+            }
             i32 idx = w->entity_count++;
             w->entities[idx] = e;
             w->grid[e.grid_x][e.grid_y] = idx + 1;
@@ -212,7 +244,9 @@ b32 game_load(Game_State *g, const char *path) {
         RD(&it.grid_y, 4);
         RD(&it.value, sizeof(i64));
         RD(&it.ceiling, sizeof(i64));
-        RD(&it.upgraded_mask, sizeof(u64));
+        // Pre-v3 the mask was a single u64, and the only ids it could name were 0..63,
+        // so it reads straight into word 0 with the rest left zeroed by the memset.
+        RD(it.upgraded_mask, sizeof(u64) * (usize)nwords);
         it.alive = MACH_TRUE;
         it.prev_x = it.grid_x; // start interpolation at rest
         it.prev_y = it.grid_y;

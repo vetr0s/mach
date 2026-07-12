@@ -27,6 +27,15 @@
 #define FURNACE_WALL_H 0.16f
 #define FURNACE_MOUTH 0.34f
 
+// The ore glyph riding a belt: how high it floats above the cell, and its half-size.
+// The cull margin is derived from these, so they are named rather than sprinkled.
+#define ITEM_ORE_ELEV 0.34f
+#define ITEM_ORE_HALF 0.18f
+
+// Widest a value label gets, in glyphs ("$1.23Qa" and friends). Only used to give the
+// ore cull a margin wide enough that a label cannot be clipped while its ore is culled.
+#define ITEM_LABEL_MAX_CHARS 12
+
 // Horizontal spread of a bank "+value" label at zoom 1, in pixels, times its jitter
 // in [-1,1]: keeps simultaneous nearby payouts from stacking on the same spot.
 #define BANK_LABEL_SPREAD_PX 22.0f
@@ -69,6 +78,70 @@ static f32 maxf4(f32 a, f32 b, f32 c, f32 d) {
         m = d;
     return m;
 }
+
+// The world-space text scale for value labels at the current zoom. The labels live
+// in the scene (over the ore), not in the HUD, so they have to scale with the camera
+// or they read as huge when zoomed out and tiny when zoomed in. Tuned so the default
+// zoom (2.0) gives scale 1.0, clamped so it stays legible at both ends. (Defined up
+// here because the ore cull margin below has to account for the label's height.)
+static f32 label_scale(const Mach_Camera2D *cam) {
+    return mach_clamp(cam->zoom * 0.5f, 0.6f, 3.0f);
+}
+
+// Viewport culling. A cell's ground point is projected and tested against the screen
+// rect grown by a margin, in SCREEN PIXELS rather than grid cells, because what hangs
+// outside a cell is measured in pixels: a block's height (elevation units times
+// MACH_ISO_ELEV, times zoom) and an ore's value label (a text height that does not
+// scale linearly with zoom). One grid step is only MACH_ISO_TILE_H/2 * zoom pixels, so
+// a margin counted in cells is right at one zoom and wrong at every other, and the way
+// it goes wrong is a machine popping out of existence at the screen edge.
+//
+// Culling cannot disturb the painter's order: the draw list is sorted on (gx+gy), and a
+// subset of a sorted list is still sorted.
+//
+// The tallest piece sets the top margin. If a piece ever grows taller than a dropper,
+// raise this with it or that piece will vanish early at the near edge.
+#define MAX_PIECE_H DROPPER_H
+
+// `up` and `down` are how far the drawn thing reaches above and below its ground point.
+// Note which edge each one guards: a machine hanging off the BOTTOM of the screen is
+// still visible when its top face pokes back up over the edge, so the bottom test is the
+// one that needs `up`. Getting this backwards culls exactly the tall pieces at exactly
+// the near edge, which is the one place the eye is looking.
+static b32 on_screen(const Mach_Camera2D *cam, f32 sw, f32 sh, f32 gx, f32 gy, f32 pad_x, f32 up,
+                     f32 down) {
+    Mach_Vec2 p = mach_iso_to_screen(cam, sw, sh, gx, gy, 0.0f);
+    return p.x >= -pad_x && p.x <= sw + pad_x && p.y >= -down && p.y <= sh + up;
+}
+
+// The margins a machine and an ore need around their ground cell. Split out so the
+// headless cull test measures the same numbers the renderer culls with, instead of a
+// copy of them that can drift.
+static void entity_cull_pads(const Mach_Camera2D *cam, f32 *pad_x, f32 *pad_up, f32 *pad_down) {
+    *pad_x = MACH_ISO_TILE_W * 0.5f * cam->zoom;
+    *pad_up = (MAX_PIECE_H * MACH_ISO_ELEV + MACH_ISO_TILE_H * 0.5f) * cam->zoom;
+    *pad_down = MACH_ISO_TILE_H * 0.5f * cam->zoom;
+}
+
+// An ore's label hangs above it in screen pixels and scales on label_scale, not zoom,
+// so at low zoom it covers several cells. That is why these are pixels, not cells.
+static void item_cull_pads(const Mach_Renderer *r, const Mach_Camera2D *cam, f32 *pad_x,
+                           f32 *pad_up, f32 *pad_down) {
+    f32 lsc = label_scale(cam);
+    *pad_x = ITEM_ORE_HALF * MACH_ISO_TILE_W * 0.5f * cam->zoom +
+             (f32)r->font->advance * lsc * (f32)ITEM_LABEL_MAX_CHARS * 0.5f;
+    *pad_up = (ITEM_ORE_ELEV * MACH_ISO_ELEV + ITEM_ORE_HALF * MACH_ISO_TILE_H * 0.5f) * cam->zoom +
+              (f32)r->font->glyph_h * lsc + 4.0f;
+    *pad_down = ITEM_ORE_HALF * MACH_ISO_TILE_H * 0.5f * cam->zoom;
+}
+
+// What the last draw pass actually drew, for the debug overlay. Kept here rather than in
+// Game_State: the draw pass takes it const, and growing Game_State breaks a running
+// ./nob hot. Read by game_render_hud, which runs right after the draw in the same frame.
+// The point is not the number, it is that a cull margin gone wrong shows up as a count
+// that drops while the thing is still on screen.
+static i32 drawn_entities = 0;
+static i32 drawn_items = 0;
 
 // The four screen-space corners of grid cell (gx,gy) at the given elevation.
 static void tile_corners(Mach_Renderer *r, const Mach_Camera2D *cam, f32 gx, f32 gy, f32 elev,
@@ -243,14 +316,6 @@ static Mach_Vec2 draw_ore(Mach_Renderer *r, const Mach_Camera2D *cam, const Spri
     return n;
 }
 
-// The world-space text scale for value labels at the current zoom. The labels live
-// in the scene (over the ore), not in the HUD, so they have to scale with the camera
-// or they read as huge when zoomed out and tiny when zoomed in. Tuned so the default
-// zoom (2.0) gives scale 1.0, clamped so it stays legible at both ends.
-static f32 label_scale(const Mach_Camera2D *cam) {
-    return mach_clamp(cam->zoom * 0.5f, 0.6f, 3.0f);
-}
-
 // A value tag centered on screen-x `sx` with its top at `sy`, drawn at text scale
 // `sc`, drop-shadowed and faded by `a` in [0,1]. Shared by the live ore label and the
 // effect labels, so a number over an ore reads the same whether it's riding, banking,
@@ -273,7 +338,7 @@ static void draw_item(Mach_Renderer *r, const Mach_Camera2D *cam, const Sprites 
     f32 sw = (f32)r->width, sh = (f32)r->height;
     f32 gx = (f32)it->prev_x + ((f32)it->grid_x - (f32)it->prev_x) * alpha;
     f32 gy = (f32)it->prev_y + ((f32)it->grid_y - (f32)it->prev_y) * alpha;
-    f32 e = 0.34f, s = 0.18f;
+    f32 e = ITEM_ORE_ELEV, s = ITEM_ORE_HALF;
 
     Mach_Vec2 n = draw_ore(r, cam, sprites, gx, gy, e, s, item_color(it));
 
@@ -502,9 +567,17 @@ void game_render_draw(Mach_Renderer *r, const Game_State *game, Mach_Arena *scra
         (DrawItem *)mach_arena_alloc(scratch, (usize)w->entity_count * sizeof(DrawItem));
     if (w->entity_count > 0 && !ents)
         return;
+    // Cull first: an off-screen machine costs a sort slot, ~9 polygons and a transform
+    // per vertex, all of it thrown away by the GPU. A block rises MAX_PIECE_H elevation
+    // units above its cell, so it can still be on screen when its ground cell is just
+    // past the near edge; that is what pad_up buys.
+    f32 pad_x, pad_up, pad_down;
+    entity_cull_pads(cam, &pad_x, &pad_up, &pad_down);
     i32 ne = 0;
     for (i32 i = 0; i < w->entity_count; i++) {
         const Entity *e = &w->entities[i];
+        if (!on_screen(cam, sw, sh, (f32)e->grid_x, (f32)e->grid_y, pad_x, pad_up, pad_down))
+            continue;
         ents[ne].depth = (f32)(e->grid_x + e->grid_y);
         ents[ne].ptr = e;
         ne++;
@@ -528,10 +601,21 @@ void game_render_draw(Mach_Renderer *r, const Game_State *game, Mach_Arena *scra
         (DrawItem *)mach_arena_alloc(scratch, (usize)w->item_count * sizeof(DrawItem));
     if (w->item_count > 0 && !items)
         return;
+    // An ore is culled on its INTERPOLATED cell, the same position draw_item uses: keyed
+    // on grid_x/grid_y alone, an ore sliding in from the cell just off-screen would pop
+    // into existence halfway through its slide. Its margin has to clear the value label
+    // too, which hangs above the ore in screen pixels (label_scale, not zoom) and is the
+    // most expensive thing the renderer draws per object.
+    f32 ipad_x, ipad_up, ipad_down;
+    item_cull_pads(r, cam, &ipad_x, &ipad_up, &ipad_down);
     i32 ni = 0;
     for (i32 i = 0; i < MAX_ITEMS && ni < w->item_count; i++) {
         const Item *it = &w->items[i];
         if (!it->alive)
+            continue;
+        f32 gx = (f32)it->prev_x + ((f32)it->grid_x - (f32)it->prev_x) * alpha;
+        f32 gy = (f32)it->prev_y + ((f32)it->grid_y - (f32)it->prev_y) * alpha;
+        if (!on_screen(cam, sw, sh, gx, gy, ipad_x, ipad_up, ipad_down))
             continue;
         items[ni].depth = (f32)(it->grid_x + it->grid_y);
         items[ni].ptr = it;
@@ -540,6 +624,9 @@ void game_render_draw(Mach_Renderer *r, const Game_State *game, Mach_Arena *scra
     qsort(items, (size_t)ni, sizeof(DrawItem), cmp_draw);
     for (i32 i = 0; i < ni; i++)
         draw_item(r, cam, &game->sprites, (const Item *)items[i].ptr, alpha);
+
+    drawn_entities = ne;
+    drawn_items = ni;
 
     // Transient effects on top of the world. Not depth-sorted with entities yet:
     // they are brief sparks, and correct occlusion is a prettify concern, not skeleton.
@@ -607,7 +694,7 @@ void game_render_hud(Game_State *g, Mach *m) {
 
     // HUD strings. These buffers must outlive mach_clay_ui_render (Clay keeps the char
     // pointers, not copies), so they stay in scope for the whole function.
-    char money_s[32], tool_s[48], fps_s[40], counts_s[64], hover_s[48], cam_s[48];
+    char money_s[32], tool_s[48], fps_s[40], counts_s[80], hover_s[48], cam_s[48];
     char val_a[24], val_b[24], banked_s[24];
     char insp_sub_s[32], insp_extra_s[48], insp_item_s[64];
     char drop_s[28], conv_s[28], upg_s[28], furn_s[28], split_s[28], tier_s[24], expand_s[40];
@@ -616,9 +703,11 @@ void game_render_hud(Game_State *g, Mach *m) {
     // fps reads flat under vsync, so show frame_ms (the real work per frame) and its
     // peak beside it: that's the headroom number, and where a hitch actually shows.
     snprintf(fps_s, sizeof(fps_s), "fps %d   %.1f/%.1fms", m->fps, m->frame_ms, m->frame_ms_peak);
-    snprintf(counts_s, sizeof(counts_s), "tick %d   entities %d   items %d",
-             g->world ? g->world->tick : 0, g->world ? g->world->entity_count : 0,
-             g->world ? g->world->item_count : 0);
+    // drawn/total: the second number is what exists, the first is what survived the
+    // viewport cull. They match when the whole factory fits on screen.
+    snprintf(counts_s, sizeof(counts_s), "tick %d   entities %d/%d   items %d/%d",
+             g->world ? g->world->tick : 0, drawn_entities, g->world ? g->world->entity_count : 0,
+             drawn_items, g->world ? g->world->item_count : 0);
     if (g->hover_valid)
         snprintf(hover_s, sizeof(hover_s), "hover %d,%d%s", g->hover_grid_x, g->hover_grid_y,
                  g->hover_can_place ? "" : " (blocked)");

@@ -61,24 +61,39 @@ On Windows, SmartScreen will warn; click "More info" then "Run anyway".
 ## Playing with it
 
 The game is a value loop: droppers spit out ore, conveyors route it, upgraders
-raise its value toward a ceiling, and furnaces bank it. Ore climbs its
+raise its value toward a ceiling, and furnaces bank it as money. Ore climbs its
 ceiling a fraction per upgrader pass, and each *distinct* upgrader it meets
 raises that ceiling. The puzzle is routing loops past as many different
 upgraders as you can before cashing out.
+
+Money is a balance you spend, not a score. You buy every piece you place, you buy
+tiers of dropper and upgrader, and you buy the grid itself: the build area starts
+at 4x4 and doubles for a price that scales with the space unlocked. The shop is
+the right-hand panel. A loop needs a **splitter** to be worth building: every
+other piece has a single facing, so ore that enters a loop rides it forever, and
+the splitter is the tap that lets a full loop drain to the furnace.
 
 | Input | Action |
 |---|---|
 | WASD / Arrows | Pan the camera |
 | Scroll wheel | Zoom |
-| 1 / 2 / 3 / 4 / 5 | Pick Dropper / Conveyor / Upgrader / Furnace / Delete (press again to drop it) |
+| 1 / 2 / 3 / 4 / 5 / 6 | Pick Dropper / Conveyor / Upgrader / Furnace / Delete / Splitter (press again to drop it) |
 | R | Rotate the piece under the cursor in place; over an empty tile, rotate the facing of the next piece placed |
+| T | Turn a splitter's branch: which quarter-turn its second output takes |
 | Left click | Place the current tool on the hovered tile |
+| E | Buy the next grid expansion |
+| `-` / `=` | Step the tier you're buying down / up (droppers and upgraders have tiers) |
+| K / L | Save / load. Temporary, until the menu's Continue is the only way back in |
 | Space | Pause / resume the simulation (freezes the world; you can still build and pan) |
-| `` ` `` | Toggle the debug overlay (FPS, tool/facing, tick + entity/item counts, hover cell, camera) |
-| Esc | Quit |
+| `` ` `` | Toggle the debug overlay (FPS, tick, drawn/total entity + item counts, hover cell, camera) |
+| Esc | Pause menu (resume / main menu). On the title screen, Esc quits |
 
-Money is always on screen; everything else in that list lives behind the debug
-overlay.
+The hover preview tells you what a click will do before you make it: green places,
+hard red means the cell is taken or still locked, and faint red means the cell is
+fine but you cannot afford the piece.
+
+The money, the shop, the controls bar and the inspect panel are always on screen.
+The frame timings and the counts live behind the debug overlay.
 
 ## Hacking on it
 
@@ -140,6 +155,10 @@ src/
     game.h/.c             # game state, config, input, the sim, and the four loop entry points
     render_game.h/.c      # draws the world (iso tiles, shaded blocks) and the HUD
     world/                # entities and the grid simulation
+    effects.h/.c          # transient real-time visuals (an ore banking, an ore tipping off)
+    sprites.h/.c          # the baked-in art registry
+    menu.h/.c             # title screen and pause overlay
+    save.h/.c             # save/load, one versioned binary slot
 
   mach.c                  # unity root: MACH_IMPLEMENTATION + game sources + main()
   game_lib.c / host.c     # the hot-reload pair (dev builds only)
@@ -157,11 +176,13 @@ the mach.h repo, not here.
 Entities are **fat structs**, not generic bags of components:
 ```c
 typedef struct {
-    i32 grid_x, grid_y;
-    Direction dir;        // upgraders move items too
-    i32 upgrader_id;      // the bit it sets in an item's "distinct upgraders" mask
+    i32 upgrader_id; // the bit it sets in an item's "distinct upgraders" mask
+    i32 tier;        // 1..MAX_TIER; scales how hard it lifts an ore's ceiling
 } Entity_Upgrader;
 ```
+
+The cell, the facing and the type live in the common `Entity`; each type's struct
+carries only what is its own.
 
 The `World` keeps entities and items in flat arrays, with grid indices for "what's
 on this cell":
@@ -173,10 +194,19 @@ typedef struct {
 
     Item items[MAX_ITEMS];
     i32 item_grid[256][256];  // item id at each cell, or 0 for empty
-    i64 money;
+
+    u64 upgrader_ids_used[UPGRADER_WORDS]; // which upgrader ids are taken
+    i64 money;                             // spendable: furnaces add, buying spends
+    i32 playable_side;                     // the unlocked square, a centered power of two
+
+    World_Event events[MAX_WORLD_EVENTS];  // what the sim did this tick that should be
+    i32 event_count;                       // seen; the renderer drains it every frame
     i32 tick;
 } World;
 ```
+
+The event queue is the seam that keeps visual timing out of the sim: the sim records
+*that* an ore banked, never how long the payout should take to animate.
 
 Game code just loops over the arrays and updates things. No indirection to chase,
 no query system to fight, and the performance is whatever you can read off the

@@ -81,7 +81,7 @@ There is no win condition and no clock. A player who builds one gorgeous, dense 
 - *Platform:* PC (macOS, Linux, Windows).
 - *Engine/Stack:* mach.h, a single-header 2D C engine that grew out of this project and now lives in its own repo (`github.com/vetr0s/mach.h`, zlib licensed). It embeds RGFW for windowing and input, the engine's own OpenGL 3.3 core batch renderer, Clay for the UI, and stb_image for images. The game vendors a copy of the header at `src/mach.h`, so this repo still builds with nothing but a C compiler.
 - *Solo:* Solo developer.
-- *Art style constraint:* Isometric 2D, tile-based grid. Real sprites for the four machine types and the ore, procedural rendering kept for the ground and for value-driven ore tinting (see Art Direction). Every object fits the same isometric footprint so layouts compose cleanly.
+- *Art style constraint:* Isometric 2D, tile-based grid. The sprite pipeline is in (art in `assets/sprites/` is baked into the binary at build time), but no sprites are drawn yet: every machine is still a procedural shaded block, and the ore is a procedural diamond that falls back automatically if no `ore.png` exists. Procedural rendering stays for the ground and for value-driven ore tinting (see Art Direction). Every object fits the same isometric footprint so layouts compose cleanly.
 
 // ─────────────────────────────────────────────
 //  2. Core Design Pillars
@@ -177,21 +177,20 @@ Five object types. Depth comes from many *variants* of each (tiers), not from mo
 
 == Upgrade Axes
 
-Money buys better tiers along three axes today:
+Money buys better tiers along two axes today:
 
 + *Droppers*: better ore, a higher ceiling to climb toward.
 + *Upgraders*: stronger multiplier, faster climb per pass and a higher ceiling.
-+ *Belts*: faster and tighter loops, more passes per second, and eventually loops that fit in less space.
 
-A fourth axis, *furnace tiers*, is deferred. One furnace type is enough for now (see Open Questions).
+A third axis, *belts* (faster and tighter loops, more passes per second), is designed but not built: belt speed is still the one global sim tick, so a per-belt cadence has to land before a belt can have a tier at all. A fourth, *furnace tiers*, is deferred. One furnace type is enough for now (see Open Questions).
 
 == The Grid & Space
 
 The world is an isometric grid. The *playable* region starts tiny and is enlarged with money.
 
-*Expansion cadence.* The unlocked square grows on a power-of-two side length: 2×2, then 4×4, 8×8, 16×16, and so on. Each step roughly quadruples the cells you have. Cost scales with the area unlocked, so expansion is a real decision, not a formality.
+*Expansion cadence.* The unlocked square grows on a power-of-two side length: it starts at 4×4 (the smallest square that fits the starter dropper, belt and furnace) and doubles to 8×8, 16×16, and so on, up to a 128×128 cap inside the 256×256 world grid. Each step roughly quadruples the cells you have. Cost scales with the area unlocked, so expansion is a real decision, not a formality.
 
-*Space is the constraint.* At 2×2 you can't even form a loop: it's dropper, one upgrader, furnace, cashing in near-worthless ore in a straight line. Room to loop is something you *buy*. That's the pressure the whole economy hangs on: every expansion is the difference between a line and a loop, or between a loop and a denser one.
+*Space is the constraint.* At 4×4 you can't fit a loop worth running: it's dropper, belt, furnace, cashing in near-worthless ore in a straight line. Room to loop is something you *buy*. That's the pressure the whole economy hangs on: every expansion is the difference between a line and a loop, or between a loop and a denser one.
 
 === Progression Through Space
 
@@ -214,17 +213,19 @@ The world is an isometric grid. The *playable* region starts tiny and is enlarge
 
 == Visual Language
 
-*Isometric perspective.* A 45-degree view over the grid. Machines and ore are sprites authored to the isometric footprint; the ground is drawn procedurally (see Art Direction). Objects are sorted back-to-front so the scene reads as depth without any 3D.
+*Isometric perspective.* A 45-degree view over the grid. Machines and ore are drawn procedurally today, authored to the isometric footprint sprites will use (see Art Direction); the ground is procedural too. Objects are sorted back-to-front so the scene reads as depth without any 3D.
 
-*Color encodes type and state.* Object color signals function (dropper, belt, upgrader, furnace each read distinctly). Ore value can read through color or brightness as it climbs. Outline brightness signals state: active, idle, or blocked/jammed.
+*Color encodes type and state.* Object color signals function (dropper, belt, splitter, upgrader, furnace each read distinctly). Ore value can read through color or brightness as it climbs. Outline brightness signals state: active, idle, or blocked/jammed.
 
 *One footprint.* Every object fits the same tile, so a dense factory stays scannable and layouts compose without alignment fuss.
 
 == HUD & Overlays
 
 - *Top-left:* Money. Simple text.
-- *Top-right:* Tool palette: the object/tier to place, selected one highlighted, cost shown on hover.
-- *When placing:* A ghost preview of the object on the hovered tile. Green if placeable, red if blocked or out of the unlocked grid.
+- *Top-right:* The shop: the object/tier to place, selected one highlighted, every price on screen at all times (a row you cannot afford is greyed out rather than hiding its cost), plus the grid-expansion button.
+- *Top-center:* Inspect: what sits under the cursor, machine and/or ore.
+- *Bottom-center:* The controls bar.
+- *When placing:* A ghost preview of the object on the hovered tile. Green if placeable; hard red if the cell is taken or still locked; faint red if the cell is fine but you cannot afford the piece, so a click that buys nothing is never a surprise.
 - *Expansion:* The cost of the next grid step, and a clear boundary between unlocked and locked cells.
 
 == Feedback & Juice
@@ -237,12 +238,17 @@ The world is an isometric grid. The *playable* region starts tiny and is enlarge
 
 == Controls & Input
 
-*Mouse-driven.* Click to place, click to delete. Scroll to zoom. Pan with arrow keys / WASD. Escape to cancel or quit.
+*Mouse-driven.* Click to place. Deleting is a tool you select (like any other), not a second click gesture. Scroll to zoom. Pan with arrow keys / WASD. Escape opens the pause menu.
 
-*Keyboard shortcuts:*
-- 1–5: pick dropper / belt / upgrader / furnace / delete (current bindings).
-- R: rotate the facing of the next object placed.
+*Keyboard shortcuts (current bindings):*
+- 1–6: pick dropper / belt / upgrader / furnace / delete / splitter. Pressing the active tool again clears it.
+- R: rotate the piece under the cursor in place; over an empty tile, rotate the facing of the next piece placed.
+- T: turn a splitter's branch (which quarter-turn its second output takes).
+- E: buy the next grid expansion. `-` / `=`: step the tier bought down / up.
 - Space: pause / unpause the simulation. Freezes the world; you can still build and pan while paused.
+- Escape: pause menu (resume / main menu). On the title screen, Escape quits.
+- Backtick: toggle the debug overlay.
+- K / L: save / load. Temporary, until the menu's Continue is the only entry point.
 
 // ─────────────────────────────────────────────
 //  6. Art Direction
@@ -251,7 +257,7 @@ The world is an isometric grid. The *playable* region starts tiny and is enlarge
 
 == Style & Constraints
 
-*Sprites for the machines and ore.* The shaded blocks were the placeholder look; real sprites now replace them for the four machine types (dropper, belt, upgrader, furnace) and for the ore. Sprite work is authored in Aseprite. Everything still draws through the engine's `mach_r2d_*` 2D batch renderer.
+*Sprites for the machines and ore.* The plan is for real sprites to replace the shaded blocks, for the five machine types (dropper, belt, splitter, upgrader, furnace) and for the ore. The pipeline is built and the hook is live: a PNG dropped into `assets/sprites/` is baked into the binary at build time, and the ore already asks for its sprite and falls back to the procedural diamond when there is none. What is missing is the art itself: `assets/sprites/` is empty, so everything still draws as a block today. Sprite work is authored in Aseprite. Everything draws through the engine's `mach_r2d_*` 2D batch renderer.
 
 *Procedural rendering stays where it earns its place.* The ground checker is drawn in code: it is viewport-culled and scales with the grid, so a sprite would be pure overhead. Value-driven ore tinting also stays procedural: the "hotter" color as an ore climbs is data-driven from its value, not something to hand-paint. Sprites cover the parts that read as objects; code covers the parts that are really data.
 
@@ -263,7 +269,7 @@ The world is an isometric grid. The *playable* region starts tiny and is enlarge
 
 == Color System
 
-- *Object function:* Each of the four types gets a distinct base color so a dense grid is scannable.
+- *Object function:* Each of the five types gets a distinct base color so a dense grid is scannable.
 - *Ore value:* Read through color or brightness: higher-value ore looks visibly "hotter."
 - *State:* Outline brightness for active / idle / blocked. Jammed belts should be obvious.
 
@@ -271,10 +277,11 @@ This grammar lets you understand a big factory without clicking into anything.
 
 == Object Visual Design
 
-- *Dropper:* Distinct silhouette that reads as a source.
+- *Dropper:* Distinct silhouette that reads as a source. The tallest piece on the grid.
 - *Belt:* Thinner surface with an animated flow direction (scrolling chevrons in its facing).
+- *Splitter:* A belt surface with two exits, drawn as two arrows on its top face: the one the next ore will take is lit, the other dim.
 - *Upgrader:* A belt surface marked to read as "this one boosts."
-- *Furnace:* Visually the endpoint: heavier, clearly a sink.
+- *Furnace:* Visually the endpoint: a shallow open bin with a recessed mouth, clearly a sink.
 
 == Animation & Motion
 
@@ -316,23 +323,27 @@ All subtle and loopable, nothing grating on repeat, mutable.
 
 == Simulation Model
 
-*Fixed-timestep, synchronous sim.* The world steps at a constant rate (currently 3/s), decoupled from the render framerate. Every dropper, belt, upgrader, and furnace ticks together. Deterministic and predictable.
+*Fixed-timestep, synchronous sim.* The world steps at a constant rate (currently 3/s), decoupled from the render framerate. Every dropper, belt, splitter, upgrader, and furnace ticks together. Deterministic and predictable.
 
 *Discrete grid + render interpolation.* Belt movement is a discrete grid sim: one ore per cell, advanced a cell per tick. The renderer interpolates each ore from its previous cell to its current one so it slides smoothly. This is the Factorio transport-line model, deliberately *not* continuous physics; the discrete grid is what makes packing, jamming, and loop timing exact.
 
 *Entities are fat structs in flat arrays.* No generic component system. Each object type is a full struct; the sim loops the arrays directly. Grid indices map cells to the object/ore on them. The whole `World` is one arena allocation.
 
-*Dead-end ore.* Ore with nowhere to go does not jam forever. Ore that hits a dead end (off the grid edge, bare ground, or a dropper's back) tips off the belt and drops out over `FALL_TICKS` ticks with a sink-and-fade effect, then is removed. Deleting an entity despawns the ore sitting on its cell the same way. This is `world_despawn`, `item_begin_fall`, and `world_update_falls` in `world.c`.
+*Dead-end ore.* Ore with nowhere to go does not jam forever. Ore that hits a dead end (off the grid edge, bare ground, or a dropper's back) tips off the belt and is gone. Deleting an entity despawns the ore sitting on its cell the same way.
 
-*Big numbers.* Values are `i64` today, which carries them a long way. Because the design wants numbers to run into the quadrillions and beyond, value storage and display will eventually need care (wider or arbitrary-precision integers, and human-readable large-number formatting).
+*The sim carries no visual timing.* The tick that kills a dead-ended ore emits a `World_Event` (`WORLD_EVENT_FELL`, or `WORLD_EVENT_BANKED` at a furnace) recording only what happened, with no notion of how long anything should look like it takes. The renderer drains that queue once a frame and turns each event into a transient real-time `Effect` (`effects.c`), aged in seconds rather than ticks. So the drop-out and the payout pop animate on the render clock while the sim stays a clean 3/s integer machine, and neither can drift into the other. `world_despawn` and `item_kill` in `world.c`; `game_sync_effects` in `game.c`.
+
+*Big numbers.* Values are `i64` today, which carries them a long way. Because the design wants numbers to run into the quadrillions and beyond, every running total (money, a furnace's tally, an ore's ceiling) saturates at a clamp rather than adding plainly: an `i64` that wraps negative would brick a run, and this design drives values at the roof on purpose. Storage and display will eventually need more care still (wider or arbitrary-precision integers, and human-readable large-number formatting).
+
+*One bit per upgrader, per ore.* "Each distinct upgrader lifts the ceiling once" is enforced by giving every ore a bitmap of the upgraders that have already lifted it, so the cap on upgraders in the world is the width of that bitmap: 256 today, 32 bytes per ore. That is far past what the largest region (128×128) can hold usefully, but it is a real ceiling, and raising it costs 8 bytes per ore per 64 upgraders.
 
 == Save & Load
 
 *Unit of save:* full world state: every object and its tier, the ore in flight, money, the unlocked grid size, camera position/zoom.
 
-*Format:* binary or simple text, human-editable for debugging.
+*Format:* a versioned binary blob, written field by field rather than as a raw struct dump, so it stays stable across the compilers on the three target platforms. Not human-editable; the magic and version are checked on load, and a file that fails either (or is truncated, or names an upgrader id that cannot exist) is refused rather than half-loaded. The format is at v3, and every version back to v1 still loads.
 
-*Persistence:* periodic auto-save plus manual save. One slot, no branching saves.
+*Persistence:* manual save, one slot, no branching saves. Auto-save is designed but not built: today the only ways in and out are the menu's Continue and the temporary K / L keys.
 
 == Mod / Data-Driven Support
 
@@ -359,15 +370,17 @@ Place dropper, belt, upgrader, furnace. Ore drops, rides belts, gains value at u
 
 Replaced the hard once-per-upgrader rule with the diminishing-per-pass climb toward an uncapped, ore-plus-upgrader ceiling. Recirculating loops are now the strongest play. The exact curve constants are still open tuning (see Open Questions), but the model ships.
 
-== Milestone 3: Economy & Space (in progress)
+== Milestone 3: Economy & Space (done)
 
-The current milestone. Money sinks: grid expansion on the `2^n` cadence, and buyable tiers for droppers, upgraders, and belts. This is what turns the sandbox into a game with a progression: space versus spend, line versus loop.
+Money sinks: grid expansion on the `2^n` cadence, and buyable tiers for droppers and upgraders. This is what turned the sandbox into a game with a progression: space versus spend, line versus loop. Belt tiers are the one piece that did not land, because belt speed is still the global sim tick (see Upgrade Axes). The cost and tier curve ships untuned by feel and wants a balance pass.
+
+Two things landed alongside it that the milestone did not name. The *splitter* (a belt surface with two outputs, alternating between them) closed a hole in the core design: every object has one facing, so ore entering a loop rode it forever, which made the recirculating loop, this game's signature move, physically unbuildable. The splitter is the tap that drains a loop. And *save/load* arrived early, pulled forward from Milestone 4.
 
 == Milestone 4: Scale & Polish
 
-Viewport-culled rendering and batching for large factories, save/load, sound, balance passes. Ship-ready.
+Sound, balance passes, and real art. Ship-ready.
 
-Real art has been pulled forward: the sprite pipeline lands early, ahead of this milestone, to unblock art work in Aseprite (see Art Direction). The economy in Milestone 3 stays the priority feature work; the sprites ride alongside it rather than waiting for polish.
+Already done ahead of this milestone: viewport-culled rendering (the ground, the machines and the ore are each culled to the screen), save/load, and the sprite pipeline, which landed early to unblock art work in Aseprite (see Art Direction). What is left here is the art itself, the audio, and tuning.
 
 // ─────────────────────────────────────────────
 //  10. Open Questions

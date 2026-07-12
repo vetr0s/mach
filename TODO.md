@@ -23,12 +23,12 @@ the engine as a committed header at `src/mach.h`.
   Verified: the game builds and runs on the linux box with those installed.
 
 - RE: gdd, think city skylines mixed with miners haven and a pinch of factorio.
-  The design doc (docs/gdd.typ, v0.2.0) is authoritative and now describes the
+  The design doc (docs/gdd.typ, v0.5.0) is authoritative and now describes the
   value-loop builder in full; the Gameplay section below tracks catching the code
   up to it.
 
 ## Gameplay (value-loop belt builder)
-Design target: docs/gdd.typ (v0.2.0). Items below the "value model rework" are
+Design target: docs/gdd.typ (v0.5.0). Items below the "value model rework" are
 mechanics the GDD calls for that the code hasn't caught up to yet, in priority order.
 
 - [x] Entity system (fat structs + direct arrays)
@@ -60,7 +60,8 @@ mechanics the GDD calls for that the code hasn't caught up to yet, in priority o
       Entity_Furnace, world_spawn_furnace, and the UI strings). GDD naming decision.
       The furnace also became a shallow walled bin visually, not a tall block.
 - [ ] Machine tiers plumbing: a `tier` field scaling one stat. Dropper/upgrader tiers
-      are a value bump today (drop_cooldown, UPGRADER_MULT). Belt-speed tiers need belt
+      are a value bump today (ITEM_BASE_VALUE * tier, UPGRADER_CEILING_MULT +
+      UPGRADER_TIER_STEP). Belt-speed tiers need belt
       speed moved off the global sim clock onto a per-entity ticks-per-cell cadence, with
       item interpolation spanning that multi-tick window instead of one-move-per-tick.
 - [x] **Splitter (GDD Milestone 3.5, the missing half of the loop).** A belt surface with two
@@ -82,8 +83,9 @@ mechanics the GDD calls for that the code hasn't caught up to yet, in priority o
       that the round-robin splitter proves the two-output plumbing.
 - [x] Save/load a layout (full world state: objects + tiers, ore in flight, money,
       unlocked grid size, camera). One slot, versioned binary blob in save.c, written
-      field by field for cross-platform stability; grids rebuilt on load. K saves, L
-      loads (until the menu's Continue wires game_load). Bad/missing files fail cleanly.
+      field by field for cross-platform stability; grids rebuilt on load. The menu's
+      Continue loads; K / L are the in-game shortcuts. Bad/missing files fail cleanly.
+      Format is at v3 (the widened upgrader bitmaps); v1 and v2 files still load.
 - [ ] Open (see GDD Open Questions): one furnace only (single sink, strong spatial
       constraint) vs many placeable; whether furnaces become a 4th upgrade axis
 
@@ -92,9 +94,12 @@ mechanics the GDD calls for that the code hasn't caught up to yet, in priority o
       side faces), depth-sorted painter's order by gx+gy, edge outlines
 - [x] Placement validation: red/green hover preview
 - [x] Facing arrows that read clearly in the iso projection
-- [ ] Viewport-cull entities in render (only ground is culled today; game_render_draw
-      draws every entity regardless of the visible grid bbox we already compute).
-      The scaling win once belt counts get large, well before the animation math costs.
+- [x] Viewport-cull entities and items in render. Culled in SCREEN space, not on the
+      ground bbox: a block's height and an ore's value label hang outside the cell by an
+      amount measured in pixels, not cells, so a cell-counted margin is right at one zoom
+      and pops machines at every other. The backtick overlay reads drawn/total so a bad
+      margin is visible. A headless probe asserts the property that matters: never cull
+      something visible.
 - [x] Sprite pipeline: nob bakes assets/sprites/*.png into a generated header, the game
       decodes them at startup (mach.h v0.1.4's mach_r2d_texture_from_memory) and uploads
       with nearest filtering. Nothing is read from disk at runtime, so the single static
@@ -114,7 +119,7 @@ mechanics the GDD calls for that the code hasn't caught up to yet, in priority o
 - [x] Pause menu: Escape (escape_quits now off) freezes the game and pops a scrim +
       panel over it, Resume / Main Menu. Escape again resumes. In menu.c.
 - [x] HUD spread to the screen edges via Clay floating panels: status top-left,
-      inspect top-center, F3 debug bottom-left, controls bottom-center.
+      inspect top-center, debug bottom-left (backtick), controls bottom-center.
 - [x] Hover inspect panel (WTHIT-style): names the machine under the cursor, facing,
       dropper cooldown, furnace banked total, and the ore's value / ceiling.
 - [x] Pause / resume the simulation (Space): freezes sim ticks and animation; build and
@@ -123,9 +128,9 @@ mechanics the GDD calls for that the code hasn't caught up to yet, in priority o
       next placed piece will use.
 - [x] Debug/info overlay on the backtick key (fps, tick/entity/item counts, hover cell,
       camera, controls), toggled and small so it stays out of the way.
-- [ ] Interactive UI: build clickable UI on top of it: a tool palette, and the
-      economy's shop / grid-expansion buttons. Needs "UI consumed this click"
-      priority over world placement (Clay_PointerOver before place_at_hover).
+- [x] Interactive UI: the right-hand shop panel (tools, tiers, grid expansion), clicks
+      consumed by the UI before world placement (pointer_over_ui, set from Clay_PointerOver
+      over every HUD panel, checked before place_at_hover).
 
 ## Feel & polish (backlog)
 Things to make it play and look right, batched for later sessions. Not urgent.
@@ -135,12 +140,17 @@ Things to make it play and look right, batched for later sessions. Not urgent.
       direction (real-time, so it runs even when the belt is empty)
 - [ ] Sprites for pieces and items, replacing the flat shaded blocks/diamonds
 - [x] Item despawn handling. Deleting an entity despawns the ore on its cell; ore that
-      hits a dead end (off-grid edge, bare ground, or a dropper's back) tips off and drops
-      out over FALL_TICKS with a sink-and-fade effect. See world_despawn, item_begin_fall,
-      world_update_falls.
+      hits a dead end (off-grid edge, bare ground, or a dropper's back) tips off and is
+      killed that tick. The sim emits a World_Event (FELL / BANKED) and the renderer turns
+      it into a real-time Effect with the sink-and-fade: visual timing lives in effects.c,
+      never in the sim. See world_despawn / item_kill (world.c), game_sync_effects (game.c).
 - [x] Tune speed and feel: chunky tier-1 baseline, belts 3 cells/s (SIM_TICKS_PER_SEC),
       an item every 2 cells (DROP_PERIOD), chevron scroll matched to belt speed.
-      Value curve (ITEM_BASE_VALUE, UPGRADER_MULT) left as-is; revisit with the economy.
+      Value curve (ITEM_BASE_VALUE, UPGRADER_CEILING_MULT, UPGRADER_TIER_STEP,
+      UPGRADER_CLIMB_DIVISOR) left as-is; revisit with the economy. NOTE: the drop cadence
+      was off by one until the audit batch (droppers fired every 3 ticks, not 2), so every
+      number in the economy was tuned against 2/3 of the real income. It all wants a
+      playtest pass.
 
 ## Content
 - [x] Asset embedding: build-time bake of assets/sprites/*.png into the executable.
@@ -149,11 +159,11 @@ Things to make it play and look right, batched for later sessions. Not urgent.
 - [x] Data serialization (save.c: versioned binary reader/writer; feeds save/load)
 
 ## Docs
-- [ ] Go over the GDD (docs/gdd.typ) and bump its version (docs/VERSION). It's
-      drifted from the build: the Scope/Rendering sections still describe the
-      stack as SDL3 / `SDL_Renderer`, which the RGFW + own GL batch renderer
-      replaced, and the mach engine now lives in its own repo. Reconcile the doc
-      with the shipped engine and value model, then bump docs/VERSION.
+- [x] Reconcile the GDD, README and TODO with the code (docs/VERSION -> 0.5.0). The GDD
+      had drifted: it cited deleted symbols (FALL_TICKS, item_begin_fall), claimed sprites
+      shipped when assets/sprites/ is empty, described a 2x2 starting region that is really
+      4x4, sold belt tiers as a third live upgrade axis, and listed four object types after
+      the splitter made five. The stack description (SDL3) had already been fixed earlier.
 
 ## Dev tooling
 - [x] Hot reload: game logic compiles to a shared lib the host (src/host.c)
